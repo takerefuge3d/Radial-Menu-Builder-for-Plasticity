@@ -133,7 +133,7 @@ async fn list_json_files(directory: String) -> Result<Vec<String>, String> {
 // NEW: Save the radials directory preference
 #[tauri::command]
 async fn save_radials_directory(app_handle: tauri::AppHandle, path: String) -> Result<(), String> {
-    let app_dir = app_handle.path_resolver()
+    let app_dir = app_handle.path()
         .app_config_dir()
         .ok_or("Failed to get app config directory")?;
     
@@ -151,7 +151,7 @@ async fn save_radials_directory(app_handle: tauri::AppHandle, path: String) -> R
 // NEW: Load the saved radials directory preference
 #[tauri::command]
 async fn get_saved_radials_directory(app_handle: tauri::AppHandle) -> Result<Option<String>, String> {
-    let app_dir = app_handle.path_resolver()
+    let app_dir = app_handle.path()
         .app_config_dir()
         .ok_or("Failed to get app config directory")?;
     
@@ -190,7 +190,7 @@ fn main() {
         .setup(|app| {
             // Create examples directory if it doesn't exist
             let app_handle = app.handle();
-            if let Some(app_dir) = app_handle.path_resolver().app_data_dir() {
+            if let Some(app_dir) = app_handle.path().app_data_dir() {
                 let examples_dir = app_dir.join("examples");
                 
                 if !examples_dir.exists() {
