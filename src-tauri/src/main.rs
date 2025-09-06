@@ -134,8 +134,8 @@ async fn list_json_files(directory: String) -> Result<Vec<String>, String> {
 #[tauri::command]
 async fn save_radials_directory(app_handle: tauri::AppHandle, path: String) -> Result<(), String> {
     let app_dir = app_handle.path()
-        .app_config_dir()
-        .ok_or("Failed to get app config directory")?;
+    .app_config_dir()
+    .map_err(|e| format!("Failed to get app config directory: {}", e))?;
     
     fs::create_dir_all(&app_dir)
         .map_err(|e| format!("Failed to create config directory: {}", e))?;
@@ -152,8 +152,8 @@ async fn save_radials_directory(app_handle: tauri::AppHandle, path: String) -> R
 #[tauri::command]
 async fn get_saved_radials_directory(app_handle: tauri::AppHandle) -> Result<Option<String>, String> {
     let app_dir = app_handle.path()
-        .app_config_dir()
-        .ok_or("Failed to get app config directory")?;
+    .app_config_dir()
+    .map_err(|e| format!("Failed to get app config directory: {}", e))?;
     
     let config_file = app_dir.join("radials_directory.txt");
     
@@ -190,7 +190,7 @@ fn main() {
         .setup(|app| {
             // Create examples directory if it doesn't exist
             let app_handle = app.handle();
-            if let Some(app_dir) = app_handle.path().app_data_dir() {
+            if let Ok(app_dir) = app_handle.path().app_data_dir() {
                 let examples_dir = app_dir.join("examples");
                 
                 if !examples_dir.exists() {
