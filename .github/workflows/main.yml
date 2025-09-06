@@ -1,10 +1,8 @@
 name: 'publish'
-
 on:
   push:
-    branches: [ main ] # Triggers on pushes to main branch
-  workflow_dispatch: # Allows manual triggering
-
+    branches: [ main ]
+  workflow_dispatch:
 jobs:
   publish-tauri:
     permissions:
@@ -13,52 +11,38 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: 'macos-latest' # for Intel based macs
+          - platform: 'macos-latest'
             args: '--target x86_64-apple-darwin'
-          - platform: 'macos-latest' # for Arm based macs (M1 and above)
+          - platform: 'macos-latest'
             args: '--target aarch64-apple-darwin'
-          - platform: 'ubuntu-22.04' # for Tauri v2 you should use ubuntu-22.04
+          - platform: 'ubuntu-22.04'
             args: ''
           - platform: 'windows-latest'
             args: ''
-
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
-
       - name: setup node
         uses: actions/setup-node@v4
         with:
           node-version: lts/*
-          cache: 'npm' # change this to yarn or pnpm if you use those
-
+          cache: 'npm'
       - name: install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
-
-      - name: Rust cache
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: './src-tauri -> target'
-
       - name: install dependencies (ubuntu only)
         if: matrix.platform == 'ubuntu-22.04'
         run: |
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
-
       - name: install frontend dependencies
-        run: npm install # change to `yarn install` or `pnpm install` if needed
-
-      - name: build frontend
-        run: npm run build # <---- ensures dist/ exists
-
+        run: npm install
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: app-v__VERSION__ # the action automatically replaces __VERSION__ with the app version
+          tagName: app-v__VERSION__
           releaseName: 'App v__VERSION__'
           releaseBody: 'See the assets to download this version and install.'
           releaseDraft: true
