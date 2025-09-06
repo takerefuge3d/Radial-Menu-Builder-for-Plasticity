@@ -1,11 +1,11 @@
 {
   "build": {
-  "beforeDevCommand": "",
-  "beforeBuildCommand": "",
-  "devPath": "../dist",
-  "distDir": "../dist",
-  "withGlobalTauri": true
-},
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devPath": "http://localhost:5173", 
+    "distDir": "../dist",
+    "withGlobalTauri": true
+  },
   "package": {
     "productName": "Radial Menu Builder",
     "version": "0.1.0"
