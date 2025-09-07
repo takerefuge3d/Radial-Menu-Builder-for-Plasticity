@@ -10,7 +10,23 @@ jobs:
   build:
     strategy:
       matrix:
-        platform: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - platform: ubuntu-latest
+            rust-target: x86_64-unknown-linux-gnu
+            artifact-name: plasticity-radial-menu-builder-linux
+            bundle-path: src-tauri/target/release/bundle/appimage/*.AppImage
+          - platform: windows-latest
+            rust-target: x86_64-pc-windows-msvc
+            artifact-name: plasticity-radial-menu-builder-windows
+            bundle-path: src-tauri/target/release/bundle/msi/*.msi
+          - platform: macos-latest
+            rust-target: x86_64-apple-darwin
+            artifact-name: plasticity-radial-menu-builder-macos-intel
+            bundle-path: src-tauri/target/release/bundle/macos/*.app
+          - platform: macos-latest
+            rust-target: aarch64-apple-darwin
+            artifact-name: plasticity-radial-menu-builder-macos-silicon
+            bundle-path: src-tauri/target/release/bundle/macos/*.app
 
     runs-on: ${{ matrix.platform }}
 
@@ -26,6 +42,8 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust-target }}
 
       - name: Install Linux dependencies
         if: matrix.platform == 'ubuntu-latest'
@@ -61,13 +79,21 @@ jobs:
           cp dist/commands.json PlasticityRadialMenuBuilder/
           echo "Radial Menu Builder for Plasticity 3D - Edit commands.json to customize available Plasticity commands" > PlasticityRadialMenuBuilder/README.txt
 
-      - name: Create distribution package (macOS)
-        if: matrix.platform == 'macos-latest'
+      - name: Create distribution package (macOS Intel)
+        if: matrix.platform == 'macos-latest' && matrix.rust-target == 'x86_64-apple-darwin'
         run: |
           mkdir PlasticityRadialMenuBuilder
           cp -r src-tauri/target/release/bundle/macos/*.app PlasticityRadialMenuBuilder/
           cp dist/commands.json PlasticityRadialMenuBuilder/
-          echo "Radial Menu Builder for Plasticity 3D - Edit commands.json to customize available Plasticity commands" > PlasticityRadialMenuBuilder/README.txt
+          echo "Radial Menu Builder for Plasticity 3D (Intel Macs) - Edit commands.json to customize available Plasticity commands" > PlasticityRadialMenuBuilder/README.txt
+
+      - name: Create distribution package (macOS Apple Silicon)
+        if: matrix.platform == 'macos-latest' && matrix.rust-target == 'aarch64-apple-darwin'
+        run: |
+          mkdir PlasticityRadialMenuBuilder
+          cp -r src-tauri/target/release/bundle/macos/*.app PlasticityRadialMenuBuilder/
+          cp dist/commands.json PlasticityRadialMenuBuilder/
+          echo "Radial Menu Builder for Plasticity 3D (Apple Silicon Macs) - Edit commands.json to customize available Plasticity commands" > PlasticityRadialMenuBuilder/README.txt
 
       - name: Archive Windows build
         if: matrix.platform == 'windows-latest'
@@ -80,10 +106,15 @@ jobs:
         run: |
           tar -czf plasticity-radial-menu-builder-linux.tar.gz PlasticityRadialMenuBuilder/
 
-      - name: Archive macOS build
-        if: matrix.platform == 'macos-latest'
+      - name: Archive macOS Intel build
+        if: matrix.platform == 'macos-latest' && matrix.rust-target == 'x86_64-apple-darwin'
         run: |
-          tar -czf plasticity-radial-menu-builder-macos.tar.gz PlasticityRadialMenuBuilder/
+          tar -czf plasticity-radial-menu-builder-macos-intel.tar.gz PlasticityRadialMenuBuilder/
+
+      - name: Archive macOS Apple Silicon build
+        if: matrix.platform == 'macos-latest' && matrix.rust-target == 'aarch64-apple-darwin'
+        run: |
+          tar -czf plasticity-radial-menu-builder-macos-silicon.tar.gz PlasticityRadialMenuBuilder/
 
       - name: Upload Windows artifact
         if: matrix.platform == 'windows-latest'
@@ -99,12 +130,19 @@ jobs:
           name: plasticity-radial-menu-builder-linux
           path: plasticity-radial-menu-builder-linux.tar.gz
 
-      - name: Upload macOS artifact
-        if: matrix.platform == 'macos-latest'
+      - name: Upload macOS Intel artifact
+        if: matrix.platform == 'macos-latest' && matrix.rust-target == 'x86_64-apple-darwin'
         uses: actions/upload-artifact@v4
         with:
-          name: plasticity-radial-menu-builder-macos
-          path: plasticity-radial-menu-builder-macos.tar.gz
+          name: plasticity-radial-menu-builder-macos-intel
+          path: plasticity-radial-menu-builder-macos-intel.tar.gz
+
+      - name: Upload macOS Apple Silicon artifact
+        if: matrix.platform == 'macos-latest' && matrix.rust-target == 'aarch64-apple-darwin'
+        uses: actions/upload-artifact@v4
+        with:
+          name: plasticity-radial-menu-builder-macos-silicon
+          path: plasticity-radial-menu-builder-macos-silicon.tar.gz
 
   release:
     needs: build
@@ -121,7 +159,8 @@ jobs:
           files: |
             plasticity-radial-menu-builder-windows/plasticity-radial-menu-builder-windows.zip
             plasticity-radial-menu-builder-linux/plasticity-radial-menu-builder-linux.tar.gz
-            plasticity-radial-menu-builder-macos/plasticity-radial-menu-builder-macos.tar.gz
+            plasticity-radial-menu-builder-macos-intel/plasticity-radial-menu-builder-macos-intel.tar.gz
+            plasticity-radial-menu-builder-macos-silicon/plasticity-radial-menu-builder-macos-silicon.tar.gz
           tag_name: ${{ github.ref_name }}
           name: Release ${{ github.ref_name }}
           draft: false
