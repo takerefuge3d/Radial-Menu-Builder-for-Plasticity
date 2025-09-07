@@ -3,27 +3,14 @@ name: Build Radial Menu Builder for Plasticity
 on:
   push:
     tags:
-      - 'v*'  # Triggers on version tags like v1.0.0
-  workflow_dispatch:  # Allows manual triggering
+      - 'v*'
+  workflow_dispatch:
 
 jobs:
   build:
     strategy:
       matrix:
         platform: [ubuntu-latest, windows-latest, macos-latest]
-        include:
-          - platform: ubuntu-latest
-            rust-target: x86_64-unknown-linux-gnu
-            artifact-name: plasticity-radial-menu-builder-linux
-            bundle-path: src-tauri/target/release/bundle/appimage/*.AppImage
-          - platform: windows-latest
-            rust-target: x86_64-pc-windows-msvc
-            artifact-name: plasticity-radial-menu-builder-windows
-            bundle-path: src-tauri/target/release/bundle/msi/*.msi
-          - platform: macos-latest
-            rust-target: x86_64-apple-darwin
-            artifact-name: plasticity-radial-menu-builder-macos
-            bundle-path: src-tauri/target/release/bundle/macos/*.app
 
     runs-on: ${{ matrix.platform }}
 
@@ -39,8 +26,6 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.rust-target }}
 
       - name: Install Linux dependencies
         if: matrix.platform == 'ubuntu-latest'
@@ -55,9 +40,6 @@ jobs:
 
       - name: Install npm dependencies
         run: npm install
-
-      - name: Build frontend
-        run: npm run build-frontend
 
       - name: Build Tauri app
         run: npm run build
