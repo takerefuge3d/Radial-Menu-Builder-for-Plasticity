@@ -5,6 +5,9 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use tauri::Manager;
+use tauri_plugin_dialog;
+use tauri_plugin_fs;
+use tauri_plugin_shell;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct MenuItem {
@@ -130,12 +133,11 @@ async fn list_json_files(directory: String) -> Result<Vec<String>, String> {
     Ok(files)
 }
 
-// NEW: Save the radials directory preference
 #[tauri::command]
 async fn save_radials_directory(app_handle: tauri::AppHandle, path: String) -> Result<(), String> {
     let app_dir = app_handle.path()
-    .app_config_dir()
-    .map_err(|e| format!("Failed to get app config directory: {}", e))?;
+        .app_config_dir()
+        .map_err(|e| format!("Failed to get app config directory: {}", e))?;
     
     fs::create_dir_all(&app_dir)
         .map_err(|e| format!("Failed to create config directory: {}", e))?;
@@ -148,12 +150,11 @@ async fn save_radials_directory(app_handle: tauri::AppHandle, path: String) -> R
     Ok(())
 }
 
-// NEW: Load the saved radials directory preference
 #[tauri::command]
 async fn get_saved_radials_directory(app_handle: tauri::AppHandle) -> Result<Option<String>, String> {
     let app_dir = app_handle.path()
-    .app_config_dir()
-    .map_err(|e| format!("Failed to get app config directory: {}", e))?;
+        .app_config_dir()
+        .map_err(|e| format!("Failed to get app config directory: {}", e))?;
     
     let config_file = app_dir.join("radials_directory.txt");
     
@@ -178,14 +179,17 @@ async fn get_saved_radials_directory(app_handle: tauri::AppHandle) -> Result<Opt
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![
             load_commands,
             load_commands_from_file,
             save_radial_menu,
             load_radial_menu,
             list_json_files,
-            save_radials_directory,      // NEW
-            get_saved_radials_directory  // NEW
+            save_radials_directory,
+            get_saved_radials_directory
         ])
         .setup(|app| {
             // Create examples directory if it doesn't exist
