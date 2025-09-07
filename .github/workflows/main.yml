@@ -1,4 +1,4 @@
-name: Build Radial Menu Builder
+name: Build Radial Menu Builder for Plasticity
 
 on:
   push:
@@ -14,15 +14,15 @@ jobs:
         include:
           - platform: ubuntu-latest
             rust-target: x86_64-unknown-linux-gnu
-            artifact-name: radial-menu-builder-linux
+            artifact-name: plasticity-radial-menu-builder-linux
             bundle-path: src-tauri/target/release/bundle/appimage/*.AppImage
           - platform: windows-latest
             rust-target: x86_64-pc-windows-msvc
-            artifact-name: radial-menu-builder-windows
+            artifact-name: plasticity-radial-menu-builder-windows
             bundle-path: src-tauri/target/release/bundle/msi/*.msi
           - platform: macos-latest
             rust-target: x86_64-apple-darwin
-            artifact-name: radial-menu-builder-macos
+            artifact-name: plasticity-radial-menu-builder-macos
             bundle-path: src-tauri/target/release/bundle/macos/*.app
 
     runs-on: ${{ matrix.platform }}
@@ -48,7 +48,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             libgtk-3-dev \
-            libwebkit2gtk-4.0-dev \
+            libwebkit2gtk-4.1-dev \
             libayatana-appindicator3-dev \
             librsvg2-dev \
             libssl-dev
@@ -65,64 +65,64 @@ jobs:
       - name: Create distribution package (Windows)
         if: matrix.platform == 'windows-latest'
         run: |
-          mkdir RadialMenuBuilder
-          copy "src-tauri\target\release\radial-menu-builder.exe" "RadialMenuBuilder\"
-          copy "dist\commands.json" "RadialMenuBuilder\"
-          echo "Radial Menu Builder - Edit commands.json to customize available commands" > RadialMenuBuilder\README.txt
+          mkdir PlasticityRadialMenuBuilder
+          copy "src-tauri\target\release\radial-menu-builder.exe" "PlasticityRadialMenuBuilder\"
+          copy "dist\commands.json" "PlasticityRadialMenuBuilder\"
+          echo "Radial Menu Builder for Plasticity 3D - Edit commands.json to customize available Plasticity commands" > PlasticityRadialMenuBuilder\README.txt
         shell: cmd
 
       - name: Create distribution package (Linux)
         if: matrix.platform == 'ubuntu-latest'
         run: |
-          mkdir RadialMenuBuilder
-          cp src-tauri/target/release/radial-menu-builder RadialMenuBuilder/
-          cp dist/commands.json RadialMenuBuilder/
-          echo "Radial Menu Builder - Edit commands.json to customize available commands" > RadialMenuBuilder/README.txt
+          mkdir PlasticityRadialMenuBuilder
+          cp src-tauri/target/release/radial-menu-builder PlasticityRadialMenuBuilder/
+          cp dist/commands.json PlasticityRadialMenuBuilder/
+          echo "Radial Menu Builder for Plasticity 3D - Edit commands.json to customize available Plasticity commands" > PlasticityRadialMenuBuilder/README.txt
 
       - name: Create distribution package (macOS)
         if: matrix.platform == 'macos-latest'
         run: |
-          mkdir RadialMenuBuilder
-          cp -r src-tauri/target/release/bundle/macos/*.app RadialMenuBuilder/
-          cp dist/commands.json RadialMenuBuilder/
-          echo "Radial Menu Builder - Edit commands.json to customize available commands" > RadialMenuBuilder/README.txt
+          mkdir PlasticityRadialMenuBuilder
+          cp -r src-tauri/target/release/bundle/macos/*.app PlasticityRadialMenuBuilder/
+          cp dist/commands.json PlasticityRadialMenuBuilder/
+          echo "Radial Menu Builder for Plasticity 3D - Edit commands.json to customize available Plasticity commands" > PlasticityRadialMenuBuilder/README.txt
 
       - name: Archive Windows build
         if: matrix.platform == 'windows-latest'
         run: |
-          Compress-Archive -Path "RadialMenuBuilder\*" -DestinationPath "radial-menu-builder-windows.zip"
+          Compress-Archive -Path "PlasticityRadialMenuBuilder\*" -DestinationPath "plasticity-radial-menu-builder-windows.zip"
         shell: powershell
 
       - name: Archive Linux build
         if: matrix.platform == 'ubuntu-latest'
         run: |
-          tar -czf radial-menu-builder-linux.tar.gz RadialMenuBuilder/
+          tar -czf plasticity-radial-menu-builder-linux.tar.gz PlasticityRadialMenuBuilder/
 
       - name: Archive macOS build
         if: matrix.platform == 'macos-latest'
         run: |
-          tar -czf radial-menu-builder-macos.tar.gz RadialMenuBuilder/
+          tar -czf plasticity-radial-menu-builder-macos.tar.gz PlasticityRadialMenuBuilder/
 
       - name: Upload Windows artifact
         if: matrix.platform == 'windows-latest'
         uses: actions/upload-artifact@v4
         with:
-          name: radial-menu-builder-windows
-          path: radial-menu-builder-windows.zip
+          name: plasticity-radial-menu-builder-windows
+          path: plasticity-radial-menu-builder-windows.zip
 
       - name: Upload Linux artifact
         if: matrix.platform == 'ubuntu-latest'
         uses: actions/upload-artifact@v4
         with:
-          name: radial-menu-builder-linux
-          path: radial-menu-builder-linux.tar.gz
+          name: plasticity-radial-menu-builder-linux
+          path: plasticity-radial-menu-builder-linux.tar.gz
 
       - name: Upload macOS artifact
         if: matrix.platform == 'macos-latest'
         uses: actions/upload-artifact@v4
         with:
-          name: radial-menu-builder-macos
-          path: radial-menu-builder-macos.tar.gz
+          name: plasticity-radial-menu-builder-macos
+          path: plasticity-radial-menu-builder-macos.tar.gz
 
   release:
     needs: build
