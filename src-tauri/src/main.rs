@@ -5,9 +5,9 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use tauri::Manager;
-use tauri_plugin_dialog;
-use tauri_plugin_fs;
-use tauri_plugin_shell;
+// use tauri_plugin_dialog;
+// use tauri_plugin_fs;
+// use tauri_plugin_shell;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct MenuItem {
@@ -179,9 +179,9 @@ async fn get_saved_radials_directory(app_handle: tauri::AppHandle) -> Result<Opt
 
 fn main() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_fs::init())
-        .plugin(tauri_plugin_shell::init())
+        // .plugin(tauri_plugin_dialog::init())
+        // .plugin(tauri_plugin_fs::init())
+        // .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![
             load_commands,
             load_commands_from_file,
