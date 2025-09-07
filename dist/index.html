@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Radial Menu Builder</title>
-    <style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Radial Menu Builder</title>
+  <style>
 :root {
   --bg: #0f0f0f;
   --panel: #1a1a1a;
@@ -13,1584 +13,1108 @@
   --muted: #a0a0a0;
   --accent: #ff3f7f;
 }
-
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
+* { margin: 0; padding: 0; box-sizing: border-box; }
 body {
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-  background: var(--bg);
-  color: var(--text);
-  height: 100vh;
-  overflow: hidden;
+  background: var(--bg); color: var(--text);
+  height: 100vh; overflow: hidden;
 }
-
-.app-container {
-  display: flex;
-  height: 100vh;
+.app-container { display: flex; height: 100vh; }
+.sidebar, .center-panel, .properties-panel {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 4px; padding: 12px; overflow-y: auto;
 }
-
-.sidebar,
-.center-panel,
-.properties-panel {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 12px;
-  overflow-y: auto;
-}
-
-.sidebar {
-  width: 300px;
-  flex-shrink: 0;
-}
-
-.center-panel {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  padding: 12px;
-}
-
-.properties-panel {
-  width: 320px;
-  flex-shrink: 0;
-}
-
+.sidebar { width: 300px; flex-shrink: 0; }
+.center-panel { flex: 1; display: flex; flex-direction: column; min-width: 0; padding: 12px; }
+.properties-panel { width: 320px; flex-shrink: 0; }
 .section-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--muted);
-  text-transform: uppercase;
-  margin-bottom: 10px;
+  font-size: 13px; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; margin-bottom: 10px;
 }
-
-.search-container {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
+.search-container { display: flex; gap: 8px; margin-bottom: 12px; }
 .search-input {
-  flex: 1;
-  padding: 6px 8px;
-  background: #121212;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  color: var(--text);
-  font-size: 13px;
+  flex: 1; padding: 6px 8px; background: #121212;
+  border: 1px solid var(--border); border-radius: 4px;
+  color: var(--text); font-size: 13px;
 }
-
-.search-input:focus {
-  border-color: var(--accent);
-  outline: none;
-}
-
+.search-input:focus { border-color: var(--accent); outline: none; }
 .btn {
-  background: #1f1f1f;
-  border: 1px solid var(--border);
-  color: var(--text);
-  padding: 8px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 600;
-  width: 100%;
-  margin: 4px 0;
-  transition: color 0.2s, border-color 0.2s;
+  background: #1f1f1f; border: 1px solid var(--border); color: var(--text);
+  padding: 8px; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 600;
+  width: 100%; margin: 4px 0; transition: color .2s, border-color .2s;
 }
-
-.btn:hover {
-  border-color: var(--accent);
-  color: var(--accent);
+.btn:hover { border-color: var(--accent); color: var(--accent); }
+.commands-list, .loaded-menus {
+  background: #121212; border: 1px solid var(--border); border-radius: 4px;
+  overflow-y: auto; font-size: 12px;
 }
-
-.commands-list,
-.loaded-menus {
-  background: #121212;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  overflow-y: auto;
-  font-size: 12px;
+.commands-list { height: 400px; }
+.loaded-menus { height: 200px; }
+.command-item, .menu-item {
+  padding: 8px 12px; border-bottom: 1px solid #222; cursor: pointer; transition: background .15s;
 }
-
-.commands-list {
-  height: 400px;
-}
-
-.loaded-menus {
-  height: 200px;
-}
-
-.command-item,
-.menu-item {
-  padding: 8px 12px;
-  border-bottom: 1px solid #222;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.command-item:hover,
-.menu-item:hover {
-  background: #2a2a2a;
-}
-
-.command-item.selected,
-.menu-item.selected {
-  background: var(--accent);
-  color: #fff;
-}
-
-.command-item.radial-menu {
-  font-weight: bold;
-  background: #2a2a2a;
-}
-
+.command-item:hover, .menu-item:hover { background: #2a2a2a; }
+.command-item.selected, .menu-item.selected { background: var(--accent); color: #fff; }
+.command-item.radial-menu { font-weight: bold; background: #2a2a2a; }
 .notification {
-  background: #121212;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  color: var(--accent);
-  padding: 8px;
-  margin-bottom: 12px;
-  min-height: 36px;
-  line-height: 20px;
-  font-weight: 600;
-  font-size: 13px;
+  background: #121212; border: 1px solid var(--border); border-radius: 4px;
+  color: var(--accent); padding: 8px; margin-bottom: 12px; min-height: 36px;
+  line-height: 20px; font-weight: 600; font-size: 13px;
 }
-
-.notification.error {
-  color: #ff5555;
-}
-.notification.warning {
-  color: #ffb84d;
-}
-
+.notification.error { color: #ff5555; }
+.notification.warning { color: #ffb84d; }
 .canvas-container {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background: #0a0a0a;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  margin-bottom: 12px;
-  position: relative;
-  min-height: 0;
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: #0a0a0a; border: 1px solid var(--border); border-radius: 4px; margin-bottom: 12px;
+  position: relative; min-height: 0;
 }
-
-.canvas-wrapper {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-}
-
+.canvas-wrapper { flex: 1; display: flex; align-items: center; justify-content: center; width: 100%; }
 .canvas {
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: #101010;
-  cursor: crosshair;
-  max-width: 100%;
-  max-height: 100%;
+  border: 1px solid var(--border); border-radius: 4px; background: #101010; cursor: crosshair;
+  max-width: 100%; max-height: 100%;
 }
-
-.canvas.drag-over {
-  outline: 2px solid var(--accent);
-  outline-offset: 0;
-  background-color: #141414;
-}
-
+.canvas.drag-over { outline: 2px solid var(--accent); outline-offset: 0; background-color: #141414; }
 .counter {
-  text-align: center;
-  font-weight: bold;
-  font-size: 14px;
-  padding: 8px;
-  background: #1a1a1a;
-  border-radius: 4px;
-  border: 1px solid var(--border);
+  text-align: center; font-weight: bold; font-size: 14px; padding: 8px;
+  background: #1a1a1a; border-radius: 4px; border: 1px solid var(--border);
 }
-
-.form-group {
-  margin-bottom: 12px;
+.form-group { margin-bottom: 12px; }
+.form-label { display: block; margin-bottom: 4px; font-weight: 600; font-size: 13px; color: var(--muted); }
+.form-input, .spinbox {
+  width: 100%; padding: 6px 8px; background: #121212; border: 1px solid var(--border);
+  border-radius: 4px; color: var(--text); font-size: 13px;
 }
-
-.form-label {
-  display: block;
-  margin-bottom: 4px;
-  font-weight: 600;
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.form-input,
-.spinbox {
-  width: 100%;
-  padding: 6px 8px;
-  background: #121212;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  color: var(--text);
-  font-size: 13px;
-}
-
-.form-input:focus,
-.spinbox:focus {
-  border-color: var(--accent);
-  outline: none;
-}
-
-.instructions {
-  color: var(--muted);
-  font-size: 12px;
-  text-align: center;
-  margin-top: 8px;
-}
-
-.separator {
-  height: 1px;
-  background: var(--border);
-  margin: 16px 0;
-}
-
+.form-input:focus, .spinbox:focus { border-color: var(--accent); outline: none; }
+.instructions { color: var(--muted); font-size: 12px; text-align: center; margin-top: 8px; }
+.separator { height: 1px; background: var(--border); margin: 16px 0; }
 .json-preview {
-  position: fixed;
-  top: 50px;
-  right: 50px;
-  width: 400px;
-  height: 500px;
-  background: #1a1a1a;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 12px;
-  z-index: 1000;
-  display: none;
+  position: fixed; top: 50px; right: 50px; width: 400px; height: 500px; background: #1a1a1a;
+  border: 1px solid var(--border); border-radius: 4px; padding: 12px; z-index: 1000; display: none;
 }
-
-.json-preview-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
+.json-preview-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .json-preview-content {
-  background: #0f0f0f;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 10px;
-  height: calc(100% - 40px);
-  overflow-y: auto;
-  font-family: monospace;
-  font-size: 12px;
-  white-space: pre-wrap;
-  color: var(--text);
+  background: #0f0f0f; border: 1px solid var(--border); border-radius: 4px;
+  padding: 10px; height: calc(100% - 40px); overflow-y: auto; font-family: monospace; font-size: 12px;
+  white-space: pre-wrap; color: var(--text);
 }
-
-.close-btn {
-  background: none;
-  border: none;
-  color: var(--text);
-  font-size: 18px;
-  cursor: pointer;
-  padding: 0;
-}
-
-.close-btn:hover {
-  color: var(--accent);
-}
-
-@media (max-width: 1200px) {
-  .sidebar {
-    width: 240px;
-  }
-  .properties-panel {
-    width: 260px;
-  }
-}
-
-@media (max-width: 900px) {
-  .sidebar {
-    width: 200px;
-  }
-  .properties-panel {
-    width: 220px;
-  }
-}
-</style>
+.close-btn { background: none; border: none; color: var(--text); font-size: 18px; cursor: pointer; padding: 0; }
+.close-btn:hover { color: var(--accent); }
+@media (max-width: 1200px) { .sidebar { width: 240px; } .properties-panel { width: 260px; } }
+@media (max-width: 900px) { .sidebar { width: 200px; } .properties-panel { width: 220px; } }
+  </style>
 </head>
 <body>
-    <div class="app-container">
-        <!-- Left Sidebar - Commands -->
-        <div class="sidebar">
-            <div class="section-title">Search Commands:</div>
-            <div class="search-container">
-                <input type="text" class="search-input" id="searchInput" placeholder="Search commands..." />
-                <button class="btn" id="clearSearchBtn">Clear</button>
-            </div>
+  <div class="app-container">
+    <!-- Left Sidebar - Commands -->
+    <div class="sidebar">
+      <div class="section-title">Search Commands:</div>
+      <div class="search-container">
+        <input type="text" class="search-input" id="searchInput" placeholder="Search commands..." />
+        <button class="btn" id="clearSearchBtn">Clear</button>
+      </div>
 
-            <div class="section-title">Available Commands</div>
-            <div class="commands-list" id="commandsList"></div>
+      <div class="section-title">Available Commands</div>
+      <div class="commands-list" id="commandsList"></div>
 
-            <button class="btn" id="addCommandBtn">Add to Menu</button>
-        </div>
-
-        <!-- Center Panel - Preview -->
-        <div class="center-panel">
-            <div class="notification" id="notification"></div>
-
-            <div class="section-title" style="text-align: center;">Radial Menu Preview</div>
-
-            <div class="canvas-container">
-                <div class="canvas-wrapper">
-                    <canvas class="canvas" id="previewCanvas" width="530" height="530"></canvas>
-                </div>
-                <div class="instructions">
-                    Click to select items. Drag to move. Mouse wheel to adjust sockets.
-                    <br /><strong>Double Click or Right Click An Available Command to Add</strong>
-                </div>
-            </div>
-
-            <div class="counter" id="itemCounter">Items: 0/12</div>
-        </div>
-
-        <!-- Right Panel - Properties -->
-        <div class="properties-panel">
-            <div class="section-title">Menu Properties</div>
-
-            <div class="form-group">
-                <label class="form-label" for="menuNameInput">Menu Name:</label>
-                <input type="text" class="form-input" id="menuNameInput" placeholder="Enter menu name" />
-            </div>
-
-            <div class="form-group">
-                <label class="form-label" for="socketsInput">Number of Sockets:</label>
-                <input type="number" class="spinbox" id="socketsInput" min="3" max="12" value="12" />
-            </div>
-
-            <div class="form-group">
-                <label class="form-label" for="customLabelInput">Custom Label:</label>
-                <input type="text" class="form-input" id="customLabelInput" placeholder="Enter custom label" />
-            </div>
-
-            <button class="btn" id="exportBtn">Export JSON</button>
-            <button class="btn" id="deleteSelectedBtn">Delete Selected Item</button>
-            <button class="btn" id="clearAllBtn">Clear All Items</button>
-
-            <div class="separator"></div>
-
-            <div class="section-title">Radials Directory</div>
-            <div id="currentDirectoryDisplay" style="font-size: 12px; margin-bottom: 8px; padding: 6px; background: #121212; border: 1px solid var(--border); border-radius: 4px;">No directory set</div>
-            <button class="btn" id="selectDirBtn">Select/Change Directory</button>
-
-            <div class="section-title" style="margin-top: 16px;">Load Existing Radial</div>
-
-            <div class="loaded-menus" id="loadedMenusList"></div>
-
-            <button class="btn" id="loadCustomDictBtn">Load Commands Dictionary</button>
-            <button class="btn" id="toggleJsonPreviewBtn">Toggle JSON Preview</button>
-        </div>
+      <button class="btn" id="addCommandBtn">Add to Menu</button>
     </div>
 
-    <!-- JSON Preview Window -->
-    <div class="json-preview" id="jsonPreview">
-        <div class="json-preview-header">
-            <div class="section-title">JSON Preview</div>
-            <button class="close-btn" id="closeJsonPreview">×</button>
+    <!-- Center Panel - Preview -->
+    <div class="center-panel">
+      <div class="notification" id="notification"></div>
+      <div class="section-title" style="text-align:center;">Radial Menu Preview</div>
+
+      <div class="canvas-container">
+        <div class="canvas-wrapper">
+          <canvas class="canvas" id="previewCanvas" width="530" height="530"></canvas>
         </div>
-        <div class="json-preview-content" id="jsonPreviewContent"></div>
+        <div class="instructions">
+          Click to select items. Drag to move. Mouse wheel to adjust sockets.
+          <br /><strong>Double Click or Right Click An Available Command to Add</strong>
+        </div>
+      </div>
+
+      <div class="counter" id="itemCounter">Items: 0/12</div>
     </div>
 
-    <script>
-        let invoke, open, save;
+    <!-- Right Panel - Properties -->
+    <div class="properties-panel">
+      <div class="section-title">Menu Properties</div>
 
-        const appState = {
-            commandIcons: {},
-            menuData: { name: '', command: 'default-menu', items: [] },
-            radialItems: [],
-            selectedItem: null,
-            numSockets: 12,
-            radius: 200,
-            centerX: 265,
-            centerY: 265,
-            sockets: [],
-            isDragging: false,
-            draggedItem: null,
-            startPos: null,
-            originalPosition: null,
-            loadedFiles: [],
-            loadedMenuCommands: [],
-            jsonPreviewVisible: false,
-            highlightSocket: null,
-            scaleFactor: 2.5,
-            baseCanvasSize: 700,
-            savedRadialsDirectory: null
-        };
+      <div class="form-group">
+        <label class="form-label" for="menuNameInput">Menu Name:</label>
+        <input type="text" class="form-input" id="menuNameInput" placeholder="Enter menu name" />
+      </div>
 
-        const canvas = document.getElementById('previewCanvas');
-        const ctx = canvas.getContext('2d');
+      <div class="form-group">
+        <label class="form-label" for="socketsInput">Number of Sockets:</label>
+        <input type="number" class="spinbox" id="socketsInput" min="3" max="12" value="12" />
+      </div>
 
-        const colors = {
-            socketFillOccupied: '#ff3f7f',
-            socketFillUnassigned: '#2C2C2C',
-            socketOutlineOccupied: '#ff3f7f',
-            socketOutlineUnassigned: '#A9A9A9',
-            itemFill: '#4A4A4A',
-            itemOutline: '#A9A9A9',
-            labelFg: '#FFFFFF',
-            nestedMenuColor: '#FFA500',
-            trashHighlight: '#FFFFFF',
-            trashNormal: '#BBBBBB',
-            socketOutlineHighlight: '#ff3f7f'
-        };
+      <div class="form-group">
+        <label class="form-label" for="customLabelInput">Custom Label:</label>
+        <input type="text" class="form-input" id="customLabelInput" placeholder="Enter custom label" />
+      </div>
 
-        function initTauriAPI() {
-            try {
-                console.log('Checking for Tauri API...');
-                if (window.__TAURI__ && window.__TAURI__.tauri && window.__TAURI__.dialog) {
-                    invoke = window.__TAURI__.tauri.invoke;
-                    open = window.__TAURI__.dialog.open;
-                    save = window.__TAURI__.dialog.save;
-                    console.log('Tauri API initialized successfully');
-                    return true;
-                } else {
-                    console.log('Tauri API components missing');
-                    return false;
-                }
-            } catch (error) {
-                console.warn('Tauri API not available:', error);
-                return false;
-            }
+      <button class="btn" id="exportBtn">Export JSON</button>
+      <button class="btn" id="deleteSelectedBtn">Delete Selected Item</button>
+      <button class="btn" id="clearAllBtn">Clear All Items</button>
+
+      <div class="separator"></div>
+
+      <div class="section-title">Radials Directory</div>
+      <div id="currentDirectoryDisplay" style="font-size:12px;margin-bottom:8px;padding:6px;background:#121212;border:1px solid var(--border);border-radius:4px;">
+        No directory set
+      </div>
+      <button class="btn" id="selectDirBtn">Select/Change Directory</button>
+
+      <div class="section-title" style="margin-top:16px;">Load Existing Radial</div>
+      <div class="loaded-menus" id="loadedMenusList"></div>
+
+      <button class="btn" id="loadCustomDictBtn">Load Commands Dictionary</button>
+      <button class="btn" id="toggleJsonPreviewBtn">Toggle JSON Preview</button>
+    </div>
+  </div>
+
+  <!-- JSON Preview Window -->
+  <div class="json-preview" id="jsonPreview">
+    <div class="json-preview-header">
+      <div class="section-title">JSON Preview</div>
+      <button class="close-btn" id="closeJsonPreview">×</button>
+    </div>
+    <div class="json-preview-content" id="jsonPreviewContent"></div>
+  </div>
+
+  <script>
+    let tauriAvailable = false;
+
+    // Fixed Tauri v2 API initialization
+    function initTauriAPI() {
+      try {
+        // Check for Tauri v2 internals API
+        if (window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.invoke) {
+          tauriAvailable = true;
+          console.log("Tauri v2 API initialized");
+          return true;
         }
-
-        async function loadSavedRadialsDirectory() {
-            try {
-                if (typeof invoke === 'function') {
-                    console.log('Attempting to load saved radials directory...');
-                    const savedPath = await invoke('get_saved_radials_directory');
-                    console.log('Result from get_saved_radials_directory:', savedPath);
-                    if (savedPath) {
-                        appState.savedRadialsDirectory = savedPath;
-                        console.log('Loaded saved radials directory:', savedPath);
-                        showNotification(`Loaded saved directory: ${savedPath.split(/[/\\]/).pop()}`, 'success');
-                    } else {
-                        console.log('No saved radials directory found');
-                    }
-                } else {
-                    console.log('Tauri invoke not available');
-                }
-            } catch (error) {
-                console.error('Error loading saved radials directory:', error);
-                showNotification(`Error loading saved directory: ${error}`, 'warning');
-            }
+        
+        // Fallback check for __TAURI__ object (less reliable in v2)
+        if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
+          tauriAvailable = true;
+          console.log("Tauri v2 core API initialized (fallback)");
+          return true;
         }
+        
+        console.log("No Tauri API detected - running in browser mode");
+        return false;
+      } catch (err) {
+        console.warn("Tauri API init error:", err);
+        return false;
+      }
+    }
 
-        async function saveRadialsDirectory(directoryPath) {
-            try {
-                if (typeof invoke === 'function') {
-                    console.log('Attempting to save radials directory:', directoryPath);
-                    await invoke('save_radials_directory', { path: directoryPath });
-                    appState.savedRadialsDirectory = directoryPath;
-                    console.log('Successfully saved radials directory:', directoryPath);
-                    updateDirectoryDisplay();
-                    showNotification(`Saved directory: ${directoryPath.split(/[/\\]/).pop()}`, 'success');
-                } else {
-                    console.log('Tauri invoke not available for saving');
-                }
-            } catch (error) {
-                console.error('Failed to save radials directory:', error);
-                showNotification(`Failed to save directory: ${error}`, 'error');
-            }
+    // Direct invoke function for Tauri v2
+    async function invokeCommand(command, args = {}) {
+      if (!tauriAvailable) {
+        throw new Error("Tauri not available");
+      }
+      
+      try {
+        // Try the main Tauri v2 API first
+        if (window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.invoke) {
+          return await window.__TAURI_INTERNALS__.invoke(command, args);
         }
-
-        function updateDirectoryDisplay() {
-            const directoryDisplay = document.getElementById('currentDirectoryDisplay');
-            if (directoryDisplay) {
-                if (appState.savedRadialsDirectory) {
-                    const folderName = appState.savedRadialsDirectory.split(/[/\\]/).pop();
-                    directoryDisplay.textContent = `Current: ${folderName}`;
-                    directoryDisplay.style.color = 'var(--accent)';
-                } else {
-                    directoryDisplay.textContent = 'No directory set';
-                    directoryDisplay.style.color = 'var(--muted)';
-                }
-            }
+        
+        // Fallback to core API if available
+        if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
+          return await window.__TAURI__.core.invoke(command, args);
         }
+        
+        throw new Error("No invoke method available");
+      } catch (error) {
+        console.error(`Command ${command} failed:`, error);
+        throw error;
+      }
+    }
 
-        function resizeCanvas() {
-            const canvasContainer = document.querySelector('.canvas-container');
-            const containerRect = canvasContainer.getBoundingClientRect();
+    const appState = {
+      commandIcons: {},
+      menuData: { name: '', command: 'default-menu', items: [] },
+      radialItems: [],
+      selectedItem: null,
+      numSockets: 12,
+      radius: 200,
+      centerX: 265,
+      centerY: 265,
+      sockets: [],
+      isDragging: false,
+      draggedItem: null,
+      startPos: null,
+      originalPosition: null,
+      loadedFiles: [],
+      loadedMenuCommands: [],
+      jsonPreviewVisible: false,
+      highlightSocket: null,
+      scaleFactor: 2.5,
+      baseCanvasSize: 700,
+      savedRadialsDirectory: null
+    };
 
-            const availableWidth = containerRect.width - 40;
-            const availableHeight = containerRect.height - 80;
+    const canvas = document.getElementById('previewCanvas');
+    const ctx = canvas.getContext('2d');
 
-            const scaleX = availableWidth / appState.baseCanvasSize;
-            const scaleY = availableHeight / appState.baseCanvasSize;
-            appState.scaleFactor = Math.min(scaleX, scaleY, 1);
+    const colors = {
+      socketFillOccupied: '#ff3f7f',
+      socketFillUnassigned: '#2C2C2C',
+      socketOutlineOccupied: '#ff3f7f',
+      socketOutlineUnassigned: '#A9A9A9',
+      itemFill: '#4A4A4A',
+      itemOutline: '#A9A9A9',
+      labelFg: '#FFFFFF',
+      nestedMenuColor: '#FFA500',
+      trashHighlight: '#FFFFFF',
+      trashNormal: '#BBBBBB',
+      socketOutlineHighlight: '#ff3f7f'
+    };
 
-            const displaySize = appState.baseCanvasSize * appState.scaleFactor;
-            canvas.style.width = displaySize + 'px';
-            canvas.style.height = displaySize + 'px';
-
-            const dpr = window.devicePixelRatio || 1;
-            canvas.width = appState.baseCanvasSize * dpr;
-            canvas.height = appState.baseCanvasSize * dpr;
-
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-            appState.centerX = appState.baseCanvasSize / 2;
-            appState.centerY = appState.baseCanvasSize / 2;
-
-            calculateSockets();
-            refreshPreview();
+    async function loadSavedRadialsDirectory() {
+      try {
+        if (tauriAvailable) {
+          const savedPath = await invokeCommand('get_saved_radials_directory');
+          if (savedPath) {
+            appState.savedRadialsDirectory = savedPath;
+            showNotification(`Loaded saved directory: ${savedPath.split(/[/\\]/).pop()}`, 'success');
+          }
         }
+      } catch (error) {
+        console.error('Error loading saved radials directory:', error);
+        showNotification(`Error loading saved directory: ${error}`, 'warning');
+      }
+    }
 
-        function getCanvasCoordinates(clientX, clientY) {
-            const rect = canvas.getBoundingClientRect();
-            const x = (clientX - rect.left) / appState.scaleFactor;
-            const y = (clientY - rect.top) / appState.scaleFactor;
-            return { x, y };
+    async function saveRadialsDirectory(directoryPath) {
+      try {
+        if (tauriAvailable) {
+          await invokeCommand('save_radials_directory', { path: directoryPath });
+          appState.savedRadialsDirectory = directoryPath;
+          updateDirectoryDisplay();
+          showNotification(`Saved directory: ${directoryPath.split(/[/\\]/).pop()}`, 'success');
         }
-
-        async function initApp() {
-            try {
-                console.log('Initializing app...');
-                
-                const tauriAvailable = initTauriAPI();
-                console.log('Tauri available check result:', tauriAvailable);
-
-                if (tauriAvailable) {
-                    console.log('Tauri available, attempting to load saved directory...');
-                    try {
-                        await loadSavedRadialsDirectory();
-                        console.log('Finished loading saved directory');
-                    } catch (dirError) {
-                        console.error('Error loading saved directory:', dirError);
-                    }
-
-                    console.log('Loading commands from backend...');
-                    try {
-                        const commands = await invoke('load_commands');
-                        appState.commandIcons = commands;
-                        console.log('Commands loaded from backend:', Object.keys(commands).length);
-
-                        if (Object.keys(commands).length === 0) {
-                            showNotification('No commands loaded. Backend returned empty commands.', 'warning');
-                        } else {
-                            showNotification('Application initialized successfully!');
-                        }
-                    } catch (error) {
-                        console.error('Failed to load commands from backend:', error);
-                        showNotification(`Failed to load commands: ${error}`, 'error');
-                        appState.commandIcons = {};
-                    }
-                } else {
-                    console.log('Tauri API not available, trying direct fetch...');
-                    try {
-                        const response = await fetch('./commands.json');
-                        if (response.ok) {
-                            const commands = await response.json();
-                            appState.commandIcons = commands;
-                            console.log('Commands loaded via direct fetch:', Object.keys(commands).length);
-                            showNotification('Commands loaded (frontend mode)', 'warning');
-                        } else {
-                            throw new Error('Failed to fetch commands.json');
-                        }
-                    } catch (error) {
-                        console.error('Failed to load commands via fetch:', error);
-                        showNotification('Backend unavailable and no commands.json accessible', 'error');
-                        appState.commandIcons = {};
-                    }
-                }
-
-                console.log('Setting up UI...');
-                resizeCanvas();
-                loadCommandsList();
-                refreshPreview();
-                setupEventListeners();
-                updateItemCounter();
-                updateDirectoryDisplay();
-
-                if (tauriAvailable && appState.savedRadialsDirectory) {
-                    console.log('Auto-loading radials from saved directory:', appState.savedRadialsDirectory);
-                    await loadRadialJsonFiles(appState.savedRadialsDirectory);
-                } else if (tauriAvailable) {
-                    console.log('No saved radials directory to auto-load');
-                } else {
-                    console.log('Tauri not available, skipping auto-load');
-                }
-
-                console.log('App initialization complete');
-            } catch (error) {
-                console.error('Critical error in initApp:', error);
-                console.error('Error stack:', error.stack);
-            }
-        }
-
-        function calculateSockets() {
-            appState.sockets = [];
-            for (let i = 0; i < appState.numSockets; i++) {
-                const angle = i * (360 / appState.numSockets) - 90;
-                const angleRad = (angle * Math.PI) / 180;
-                const x = appState.centerX + appState.radius * Math.cos(angleRad);
-                const y = appState.centerY + appState.radius * Math.sin(angleRad);
-                appState.sockets.push({ x, y, index: i });
-            }
-        }
-
-        function findFirstEmptySocket() {
-            for (const socket of appState.sockets) {
-                const occupied = appState.radialItems.some(
-                    (item) => Math.abs(item.x - socket.x) < 1 && Math.abs(item.y - socket.y) < 1
-                );
-                if (!occupied) return socket;
-            }
-            return null;
-        }
-
-        function findClosestSocketIndex(x, y) {
-            let closest = { index: null, distance: Infinity };
-            appState.sockets.forEach((s, idx) => {
-                const d = Math.hypot(x - s.x, y - s.y);
-                if (d < closest.distance) closest = { index: idx, distance: d };
-            });
-            return closest;
-        }
-
-        function loadCommandsList(filter = '') {
-            const commandsList = document.getElementById('commandsList');
-            if (!commandsList) return;
-            commandsList.innerHTML = '';
-
-            const filteredLoadedCommands = appState.loadedMenuCommands
-                .filter((cmd) => cmd.toLowerCase().includes(filter.toLowerCase()))
-                .sort();
-
-            filteredLoadedCommands.forEach((command) => {
-                const item = document.createElement('div');
-                item.className = 'command-item radial-menu';
-                item.textContent = command;
-                item.dataset.command = command;
-                item.title = 'Nested Radial Menu';
-                item.draggable = true;
-
-                item.addEventListener('dragstart', (e) => {
-                    e.dataTransfer.setData('text/plain', command);
-                    e.dataTransfer.effectAllowed = 'copy';
-                    item.classList.add('dragging');
-                });
-
-                item.addEventListener('dragend', () => {
-                    item.classList.remove('dragging');
-                });
-
-                item.addEventListener('click', () => {
-                    document.querySelectorAll('.command-item').forEach((el) => el.classList.remove('selected'));
-                    item.classList.add('selected');
-                });
-
-                item.addEventListener('dblclick', () => {
-                    addMenuItemFromCommand(command);
-                });
-
-                item.addEventListener('contextmenu', (e) => {
-                    e.preventDefault();
-                    addMenuItemFromCommand(command);
-                });
-
-                commandsList.appendChild(item);
-            });
-
-            if (filteredLoadedCommands.length > 0) {
-                const separator = document.createElement('div');
-                separator.style.borderBottom = '2px solid #4A4A4A';
-                separator.style.margin = '5px 0';
-                commandsList.appendChild(separator);
-            }
-
-            const commands = Object.keys(appState.commandIcons)
-                .filter((cmd) => cmd.toLowerCase().includes(filter.toLowerCase()))
-                .sort();
-
-            commands.forEach((command) => {
-                const item = document.createElement('div');
-                item.className = 'command-item';
-                item.textContent = command;
-                item.dataset.command = command;
-                item.draggable = true;
-
-                item.addEventListener('dragstart', (e) => {
-                    e.dataTransfer.setData('text/plain', command);
-                    e.dataTransfer.effectAllowed = 'copy';
-                    item.classList.add('dragging');
-                });
-
-                item.addEventListener('dragend', () => {
-                    item.classList.remove('dragging');
-                });
-
-                item.addEventListener('click', () => {
-                    document.querySelectorAll('.command-item').forEach((el) => el.classList.remove('selected'));
-                    item.classList.add('selected');
-                });
-
-                item.addEventListener('dblclick', () => {
-                    addMenuItemFromCommand(command);
-                });
-
-                item.addEventListener('contextmenu', (e) => {
-                    e.preventDefault();
-                    addMenuItemFromCommand(command);
-                });
-
-                commandsList.appendChild(item);
-            });
-
-            if (commands.length === 0 && filteredLoadedCommands.length === 0) {
-                const noCommandsMsg = document.createElement('div');
-                noCommandsMsg.style.padding = '20px';
-                noCommandsMsg.style.textAlign = 'center';
-                noCommandsMsg.style.color = '#888';
-                noCommandsMsg.textContent = 'No commands available. Check that commands.json exists and is properly formatted.';
-                commandsList.appendChild(noCommandsMsg);
-            }
-        }
-
-        function makeLabelFromCommand(command) {
-            const src = command.startsWith('view:radial:') ? command.replace('view:radial:', '') : command;
-            const parts = src.split(':');
-            const raw = parts.length > 1 ? parts[1] : parts[0];
-            return raw.replace(/-/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
-        }
-
-        function addMenuItemFromCommand(command) {
-            if (appState.radialItems.length >= appState.numSockets) {
-                showNotification(`The radial menu can have a maximum of ${appState.numSockets} items.`, 'error');
-                return;
-            }
-            const availableSocket = findFirstEmptySocket();
-            if (!availableSocket) {
-                showNotification(`No available slots to add '${command}'.`, 'error');
-                return;
-            }
-            addMenuItemToSocket(command, availableSocket.index);
-        }
-
-        function addMenuItemToSocket(command, socketIndex) {
-            if (socketIndex == null || socketIndex < 0 || socketIndex >= appState.sockets.length) {
-                showNotification('Invalid socket target.', 'error');
-                return;
-            }
-
-            const socket = appState.sockets[socketIndex];
-            const label = makeLabelFromCommand(command);
-            const icon = appState.commandIcons[command] || 'default-icon';
-
-            const occupant = appState.radialItems.find(
-                (it) => Math.abs(it.x - socket.x) < 1 && Math.abs(it.y - socket.y) < 1
-            );
-
-            if (occupant) {
-                const empty = findFirstEmptySocket();
-                if (empty) {
-                    occupant.x = empty.x;
-                    occupant.y = empty.y;
-                } else {
-                    const idx = appState.radialItems.indexOf(occupant);
-                    if (idx > -1) appState.radialItems.splice(idx, 1);
-                }
-            }
-
-            const newItem = { command, label, icon, x: socket.x, y: socket.y };
-            appState.radialItems.push(newItem);
-            appState.menuData.items = appState.radialItems;
-
-            appState.selectedItem = newItem;
-            refreshPreview();
-            updateItemCounter();
-            showNotification(`Assigned '${label}' to socket ${socketIndex + 1}.`);
-        }
-
-        function refreshPreview() {
-            if (!canvas || !ctx) return;
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            appState.sockets.forEach((socket, index) => {
-                const occupied = appState.radialItems.some(
-                    (item) => Math.abs(item.x - socket.x) < 1 && Math.abs(item.y - socket.y) < 1
-                );
-
-                const socketColor = occupied ? colors.socketFillOccupied : colors.socketFillUnassigned;
-                let socketOutline = occupied ? colors.socketOutlineOccupied : colors.socketOutlineUnassigned;
-                let lineW = 2;
-
-                if (appState.highlightSocket === index) {
-                    socketOutline = colors.socketOutlineHighlight;
-                    lineW = 3;
-                }
-
-                ctx.beginPath();
-                ctx.arc(socket.x, socket.y, 20, 0, Math.PI * 2);
-                ctx.fillStyle = socketColor;
-                ctx.fill();
-                ctx.strokeStyle = socketOutline;
-                ctx.lineWidth = lineW;
-                ctx.stroke();
-
-                ctx.fillStyle = colors.labelFg;
-                ctx.font = '15px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText(index + 1, socket.x, socket.y - 30);
-            });
-
-            appState.radialItems.forEach((item) => {
-                const isSelected = item === appState.selectedItem;
-                const outlineColor = isSelected ? colors.socketOutlineOccupied : colors.itemOutline;
-                const outlineWidth = isSelected ? 3 : 1;
-
-                ctx.beginPath();
-                ctx.arc(item.x, item.y, 20, 0, Math.PI * 2);
-                ctx.fillStyle = colors.itemFill;
-                ctx.fill();
-                ctx.strokeStyle = outlineColor;
-                ctx.lineWidth = outlineWidth;
-                ctx.stroke();
-
-                ctx.fillStyle = colors.labelFg;
-                ctx.font = 'bold 12px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText(item.label, item.x, item.y - 10);
-
-                if (item.command.startsWith('view:radial:')) {
-                    ctx.fillStyle = colors.nestedMenuColor;
-                    ctx.font = 'italic 10px Arial';
-                    ctx.fillText('Nested Menu', item.x, item.y + 35);
-                }
-            });
-
-            if (appState.isDragging && appState.draggedItem) {
-                drawTrashCan();
-            }
-
-            updateJsonPreview();
-        }
-
-        function drawTrashCan() {
-            const trashX = appState.centerX;
-            const trashY = appState.centerY;
-            const trashSize = 32;
-
-            const highlight =
-                appState.draggedItem &&
-                Math.abs(appState.draggedItem.x - trashX) <= trashSize &&
-                Math.abs(appState.draggedItem.y - trashY) <= trashSize;
-
-            const fillColor = highlight ? '#3A3A3A' : '#232323';
-            const outlineColor = highlight ? colors.trashHighlight : colors.trashNormal;
-
-            ctx.fillStyle = fillColor;
-            ctx.fillRect(trashX - trashSize, trashY - trashSize, trashSize * 2, trashSize * 2);
-            ctx.strokeStyle = outlineColor;
-            ctx.lineWidth = 2;
-            ctx.strokeRect(trashX - trashSize, trashY - trashSize, trashSize * 2, trashSize * 2);
-
-            ctx.fillStyle = outlineColor;
-            ctx.font = '28px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText('🗑️', trashX, trashY + 8);
-        }
-
-        function handleMouseDown(e) {
-            const { x, y } = getCanvasCoordinates(e.clientX, e.clientY);
-            appState.startPos = { x, y };
-            appState.isDragging = false;
-
-            for (const item of appState.radialItems) {
-                const distance = Math.hypot(x - item.x, y - item.y);
-                if (distance <= 25) {
-                    appState.draggedItem = item;
-                    appState.selectedItem = item;
-                    appState.originalPosition = { x: item.x, y: item.y };
-                    populateProperties();
-                    refreshPreview();
-                    showNotification(`Selected '${item.label}'.`);
-                    return;
-                }
-            }
-
-            appState.selectedItem = null;
-            appState.draggedItem = null;
-            appState.originalPosition = null;
-            populateProperties();
-            refreshPreview();
-        }
-
-        function handleMouseMove(e) {
-            if (!appState.draggedItem || !appState.startPos) return;
-            if ((e.buttons & 1) !== 1) return;
-
-            const { x, y } = getCanvasCoordinates(e.clientX, e.clientY);
-            const dx = x - appState.startPos.x;
-            const dy = y - appState.startPos.y;
-            const distance = Math.hypot(dx, dy);
-
-            if (!appState.isDragging && distance > 5) {
-                appState.isDragging = true;
-                canvas.style.cursor = 'move';
-            }
-
-            if (appState.isDragging) {
-                const constrainedX = Math.max(20, Math.min(x, appState.baseCanvasSize - 20));
-                const constrainedY = Math.max(20, Math.min(y, appState.baseCanvasSize - 20));
-                appState.draggedItem.x = constrainedX;
-                appState.draggedItem.y = constrainedY;
-                refreshPreview();
-            }
-        }
-
-        function handleMouseUp(e) {
-            if (appState.draggedItem && !appState.isDragging) {
-                const nearest = findClosestSocketIndex(appState.draggedItem.x, appState.draggedItem.y);
-                if (nearest.index != null) {
-                    const s = appState.sockets[nearest.index];
-                    const occupying = appState.radialItems.find(
-                        (it) => it !== appState.draggedItem && Math.abs(it.x - s.x) < 1 && Math.abs(it.y - s.y) < 1
-                    );
-                    if (occupying) {
-                        occupying.x = appState.originalPosition.x;
-                        occupying.y = appState.originalPosition.y;
-                    }
-                    appState.draggedItem.x = s.x;
-                    appState.draggedItem.y = s.y;
-                }
-            } else if (appState.isDragging) {
-                const { x, y } = getCanvasCoordinates(e.clientX, e.clientY);
-                const centerDistance = Math.hypot(x - appState.centerX, y - appState.centerY);
-
-                if (centerDistance <= 60) {
-                    const index = appState.radialItems.indexOf(appState.draggedItem);
-                    if (index > -1) {
-                        appState.radialItems.splice(index, 1);
-                        appState.menuData.items = appState.radialItems;
-                        appState.selectedItem = null;
-                        refreshPreview();
-                        updateItemCounter();
-                        showNotification('Item deleted by dragging to center.');
-                    }
-                } else {
-                    snapToClosestSocket();
-                }
-            }
-
-            appState.isDragging = false;
-            appState.draggedItem = null;
-            appState.startPos = null;
-            appState.originalPosition = null;
-            canvas.style.cursor = 'crosshair';
-            refreshPreview();
-        }
-
-        function snapToClosestSocket() {
-            if (!appState.draggedItem || !appState.originalPosition) return;
-
-            let closestSocket = null;
-            let minDistance = Infinity;
-
-            appState.sockets.forEach((socket) => {
-                const distance = Math.hypot(appState.draggedItem.x - socket.x, appState.draggedItem.y - socket.y);
-                if (distance < minDistance) {
-                    minDistance = distance;
-                    closestSocket = socket;
-                }
-            });
-
-            if (minDistance < 30 && closestSocket) {
-                const existingItem = appState.radialItems.find(
-                    (item) =>
-                        item !== appState.draggedItem &&
-                        Math.abs(item.x - closestSocket.x) < 1 &&
-                        Math.abs(item.y - closestSocket.y) < 1
-                );
-
-                if (existingItem) {
-                    existingItem.x = appState.originalPosition.x;
-                    existingItem.y = appState.originalPosition.y;
-                    appState.draggedItem.x = closestSocket.x;
-                    appState.draggedItem.y = closestSocket.y;
-                    showNotification(`Swapped '${appState.draggedItem.label}' with '${existingItem.label}'.`);
-                } else {
-                    appState.draggedItem.x = closestSocket.x;
-                    appState.draggedItem.y = closestSocket.y;
-                    showNotification(`Item '${appState.draggedItem.label}' repositioned.`);
-                }
+      } catch (error) {
+        console.error('Failed to save radials directory:', error);
+        showNotification(`Failed to save directory: ${error}`, 'error');
+      }
+    }
+
+    function updateDirectoryDisplay() {
+      const directoryDisplay = document.getElementById('currentDirectoryDisplay');
+      if (!directoryDisplay) return;
+      if (appState.savedRadialsDirectory) {
+        const folderName = appState.savedRadialsDirectory.split(/[/\\]/).pop();
+        directoryDisplay.textContent = `Current: ${folderName}`;
+        directoryDisplay.style.color = 'var(--accent)';
+      } else {
+        directoryDisplay.textContent = 'No directory set';
+        directoryDisplay.style.color = 'var(--muted)';
+      }
+    }
+
+    function resizeCanvas() {
+      const canvasContainer = document.querySelector('.canvas-container');
+      const containerRect = canvasContainer.getBoundingClientRect();
+
+      const availableWidth = containerRect.width - 40;
+      const availableHeight = containerRect.height - 80;
+
+      const scaleX = availableWidth / appState.baseCanvasSize;
+      const scaleY = availableHeight / appState.baseCanvasSize;
+      appState.scaleFactor = Math.min(scaleX, scaleY, 1);
+
+      const displaySize = appState.baseCanvasSize * appState.scaleFactor;
+      canvas.style.width = displaySize + 'px';
+      canvas.style.height = displaySize + 'px';
+
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = appState.baseCanvasSize * dpr;
+      canvas.height = appState.baseCanvasSize * dpr;
+
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      appState.centerX = appState.baseCanvasSize / 2;
+      appState.centerY = appState.baseCanvasSize / 2;
+
+      calculateSockets();
+      refreshPreview();
+    }
+
+    function getCanvasCoordinates(clientX, clientY) {
+      const rect = canvas.getBoundingClientRect();
+      const x = (clientX - rect.left) / appState.scaleFactor;
+      const y = (clientY - rect.top) / appState.scaleFactor;
+      return { x, y };
+    }
+
+    async function initApp() {
+      try {
+        const apiAvailable = initTauriAPI();
+
+        if (apiAvailable) {
+          try { await loadSavedRadialsDirectory(); } catch {}
+          try {
+            const commands = await invokeCommand('load_commands', {});
+            appState.commandIcons = commands || {};
+            if (Object.keys(appState.commandIcons).length === 0) {
+              showNotification('No commands loaded (empty dataset).', 'warning');
             } else {
-                appState.draggedItem.x = appState.originalPosition.x;
-                appState.draggedItem.y = appState.originalPosition.y;
-                showNotification('Item returned to original position.', 'warning');
+              showNotification('Application initialized successfully!');
             }
+          } catch (error) {
+            console.error('Failed to load commands via backend:', error);
+            showNotification(`Failed to load commands: ${error}`, 'error');
+            appState.commandIcons = {};
+          }
+        } else {
+          // Pure-HTML fallback (when not running inside Tauri)
+          try {
+            const response = await fetch('./commands.json');
+            if (response.ok) {
+              appState.commandIcons = await response.json();
+              showNotification('Commands loaded (frontend mode)', 'warning');
+            } else {
+              throw new Error('Failed to fetch commands.json');
+            }
+          } catch (error) {
+            console.error('Failed to load commands via fetch:', error);
+            showNotification('Backend unavailable and no commands.json accessible', 'error');
+            appState.commandIcons = {};
+          }
         }
 
-        function handleMouseWheel(e) {
-            e.preventDefault();
+        resizeCanvas();
+        loadCommandsList();
+        refreshPreview();
+        setupEventListeners();
+        updateItemCounter();
+        updateDirectoryDisplay();
 
-            if (e.deltaY < 0 && appState.numSockets < 12) {
-                appState.numSockets++;
-                document.getElementById('socketsInput').value = appState.numSockets;
-                calculateSockets();
-                reassignItemsToSockets();
-                refreshPreview();
-                updateItemCounter();
-            } else if (e.deltaY > 0 && appState.numSockets > Math.max(3, appState.radialItems.length)) {
-                appState.numSockets--;
-                document.getElementById('socketsInput').value = appState.numSockets;
-                calculateSockets();
-                reassignItemsToSockets();
-                refreshPreview();
-                updateItemCounter();
-            }
+        if (apiAvailable && appState.savedRadialsDirectory) {
+          await loadRadialJsonFiles(appState.savedRadialsDirectory);
+        }
+      } catch (error) {
+        console.error('Critical error in initApp:', error);
+        console.error('Error stack:', error.stack);
+      }
+    }
+
+    function calculateSockets() {
+      appState.sockets = [];
+      for (let i = 0; i < appState.numSockets; i++) {
+        const angle = i * (360 / appState.numSockets) - 90;
+        const angleRad = (angle * Math.PI) / 180;
+        const x = appState.centerX + appState.radius * Math.cos(angleRad);
+        const y = appState.centerY + appState.radius * Math.sin(angleRad);
+        appState.sockets.push({ x, y, index: i });
+      }
+    }
+
+    function findFirstEmptySocket() {
+      for (const socket of appState.sockets) {
+        const occupied = appState.radialItems.some(
+          (item) => Math.abs(item.x - socket.x) < 1 && Math.abs(item.y - socket.y) < 1
+        );
+        if (!occupied) return socket;
+      }
+      return null;
+    }
+
+    function findClosestSocketIndex(x, y) {
+      let closest = { index: null, distance: Infinity };
+      appState.sockets.forEach((s, idx) => {
+        const d = Math.hypot(x - s.x, y - s.y);
+        if (d < closest.distance) closest = { index: idx, distance: d };
+      });
+      return closest;
+    }
+
+    function loadCommandsList(filter = '') {
+      const commandsList = document.getElementById('commandsList');
+      if (!commandsList) return;
+      commandsList.innerHTML = '';
+
+      const filteredLoadedCommands = appState.loadedMenuCommands
+        .filter((cmd) => cmd.toLowerCase().includes(filter.toLowerCase()))
+        .sort();
+
+      filteredLoadedCommands.forEach((command) => {
+        const item = document.createElement('div');
+        item.className = 'command-item radial-menu';
+        item.textContent = command;
+        item.dataset.command = command;
+        item.title = 'Nested Radial Menu';
+        item.draggable = true;
+
+        item.addEventListener('dragstart', (e) => {
+          e.dataTransfer.setData('text/plain', command);
+          e.dataTransfer.effectAllowed = 'copy';
+          item.classList.add('dragging');
+        });
+        item.addEventListener('dragend', () => item.classList.remove('dragging'));
+        item.addEventListener('click', () => {
+          document.querySelectorAll('.command-item').forEach((el) => el.classList.remove('selected'));
+          item.classList.add('selected');
+        });
+        item.addEventListener('dblclick', () => addMenuItemFromCommand(command));
+        item.addEventListener('contextmenu', (e) => { e.preventDefault(); addMenuItemFromCommand(command); });
+
+        commandsList.appendChild(item);
+      });
+
+      if (filteredLoadedCommands.length > 0) {
+        const separator = document.createElement('div');
+        separator.style.borderBottom = '2px solid #4A4A4A';
+        separator.style.margin = '5px 0';
+        commandsList.appendChild(separator);
+      }
+
+      const commands = Object.keys(appState.commandIcons)
+        .filter((cmd) => cmd.toLowerCase().includes(filter.toLowerCase()))
+        .sort();
+
+      commands.forEach((command) => {
+        const item = document.createElement('div');
+        item.className = 'command-item';
+        item.textContent = command;
+        item.dataset.command = command;
+        item.draggable = true;
+
+        item.addEventListener('dragstart', (e) => {
+          e.dataTransfer.setData('text/plain', command);
+          e.dataTransfer.effectAllowed = 'copy';
+          item.classList.add('dragging');
+        });
+        item.addEventListener('dragend', () => item.classList.remove('dragging'));
+        item.addEventListener('click', () => {
+          document.querySelectorAll('.command-item').forEach((el) => el.classList.remove('selected'));
+          item.classList.add('selected');
+        });
+        item.addEventListener('dblclick', () => addMenuItemFromCommand(command));
+        item.addEventListener('contextmenu', (e) => { e.preventDefault(); addMenuItemFromCommand(command); });
+
+        commandsList.appendChild(item);
+      });
+
+      if (commands.length === 0 && filteredLoadedCommands.length === 0) {
+        const noCommandsMsg = document.createElement('div');
+        noCommandsMsg.style.padding = '20px';
+        noCommandsMsg.style.textAlign = 'center';
+        noCommandsMsg.style.color = '#888';
+        noCommandsMsg.textContent = 'No commands available. Check that commands.json exists and is properly formatted.';
+        commandsList.appendChild(noCommandsMsg);
+      }
+    }
+
+    function makeLabelFromCommand(command) {
+      const src = command.startsWith('view:radial:') ? command.replace('view:radial:', '') : command;
+      const parts = src.split(':');
+      const raw = parts.length > 1 ? parts[1] : parts[0];
+      return raw.replace(/-/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+    }
+
+    function addMenuItemFromCommand(command) {
+      if (appState.radialItems.length >= appState.numSockets) {
+        showNotification(`The radial menu can have a maximum of ${appState.numSockets} items.`, 'error');
+        return;
+      }
+      const availableSocket = findFirstEmptySocket();
+      if (!availableSocket) {
+        showNotification(`No available slots to add '${command}'.`, 'error');
+        return;
+      }
+      addMenuItemToSocket(command, availableSocket.index);
+    }
+
+    function addMenuItemToSocket(command, socketIndex) {
+      if (socketIndex == null || socketIndex < 0 || socketIndex >= appState.sockets.length) {
+        showNotification('Invalid socket target.', 'error');
+        return;
+      }
+
+      const socket = appState.sockets[socketIndex];
+      const label = makeLabelFromCommand(command);
+      const icon = appState.commandIcons[command] || 'default-icon';
+
+      const occupant = appState.radialItems.find(
+        (it) => Math.abs(it.x - socket.x) < 1 && Math.abs(it.y - socket.y) < 1
+      );
+
+      if (occupant) {
+        const empty = findFirstEmptySocket();
+        if (empty) { occupant.x = empty.x; occupant.y = empty.y; }
+        else {
+          const idx = appState.radialItems.indexOf(occupant);
+          if (idx > -1) appState.radialItems.splice(idx, 1);
+        }
+      }
+
+      const newItem = { command, label, icon, x: socket.x, y: socket.y };
+      appState.radialItems.push(newItem);
+      appState.menuData.items = appState.radialItems;
+
+      appState.selectedItem = newItem;
+      refreshPreview();
+      updateItemCounter();
+      showNotification(`Assigned '${label}' to socket ${socketIndex + 1}.`);
+    }
+
+    function refreshPreview() {
+      if (!canvas || !ctx) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      appState.sockets.forEach((socket, index) => {
+        const occupied = appState.radialItems.some(
+          (item) => Math.abs(item.x - socket.x) < 1 && Math.abs(item.y - socket.y) < 1
+        );
+
+        const socketColor = occupied ? colors.socketFillOccupied : colors.socketFillUnassigned;
+        let socketOutline = occupied ? colors.socketOutlineOccupied : colors.socketOutlineUnassigned;
+        let lineW = 2;
+
+        if (appState.highlightSocket === index) {
+          socketOutline = colors.socketOutlineHighlight; lineW = 3;
         }
 
-        function reassignItemsToSockets() {
-            appState.radialItems.forEach((item, index) => {
-                if (index < appState.sockets.length) {
-                    item.x = appState.sockets[index].x;
-                    item.y = appState.sockets[index].y;
-                }
-            });
-        }
+        ctx.beginPath(); ctx.arc(socket.x, socket.y, 20, 0, Math.PI * 2);
+        ctx.fillStyle = socketColor; ctx.fill();
+        ctx.strokeStyle = socketOutline; ctx.lineWidth = lineW; ctx.stroke();
 
-        function populateProperties() {
-            const customLabelInput = document.getElementById('customLabelInput');
-            if (!customLabelInput) return;
-            customLabelInput.value = appState.selectedItem ? appState.selectedItem.label : '';
-        }
+        ctx.fillStyle = colors.labelFg; ctx.font = '15px Arial'; ctx.textAlign = 'center';
+        ctx.fillText(index + 1, socket.x, socket.y - 30);
+      });
 
-        function deleteSelectedItem() {
-            if (!appState.selectedItem) {
-                showNotification('No item selected to delete.', 'error');
-                return;
-            }
-            const removedItem = appState.selectedItem;
-            const index = appState.radialItems.indexOf(removedItem);
-            if (index > -1) {
-                appState.radialItems.splice(index, 1);
-                appState.menuData.items = appState.radialItems;
-                appState.selectedItem = appState.radialItems.length > 0 ? appState.radialItems[0] : null;
-                refreshPreview();
-                populateProperties();
-                updateItemCounter();
-                showNotification(`Deleted '${removedItem.label}' from the radial menu.`);
-            }
-        }
+      appState.radialItems.forEach((item) => {
+        const isSelected = item === appState.selectedItem;
+        const outlineColor = isSelected ? colors.socketOutlineOccupied : colors.itemOutline;
+        const outlineWidth = isSelected ? 3 : 1;
 
-        function clearAllItems() {
-            if (appState.radialItems.length === 0) {
-                showNotification('No items to clear.', 'error');
-                return;
-            }
-            appState.radialItems = [];
-            appState.menuData.items = [];
+        ctx.beginPath(); ctx.arc(item.x, item.y, 20, 0, Math.PI * 2);
+        ctx.fillStyle = colors.itemFill; ctx.fill();
+        ctx.strokeStyle = outlineColor; ctx.lineWidth = outlineWidth; ctx.stroke();
+
+        ctx.fillStyle = colors.labelFg; ctx.font = 'bold 12px Arial'; ctx.textAlign = 'center';
+        ctx.fillText(item.label, item.x, item.y - 10);
+
+        if (item.command.startsWith('view:radial:')) {
+          ctx.fillStyle = colors.nestedMenuColor; ctx.font = 'italic 10px Arial';
+          ctx.fillText('Nested Menu', item.x, item.y + 35);
+        }
+      });
+
+      if (appState.isDragging && appState.draggedItem) drawTrashCan();
+      updateJsonPreview();
+    }
+
+    function drawTrashCan() {
+      const trashX = appState.centerX, trashY = appState.centerY, trashSize = 32;
+      const highlight =
+        appState.draggedItem &&
+        Math.abs(appState.draggedItem.x - trashX) <= trashSize &&
+        Math.abs(appState.draggedItem.y - trashY) <= trashSize;
+
+      const fillColor = highlight ? '#3A3A3A' : '#232323';
+      const outlineColor = highlight ? colors.trashHighlight : colors.trashNormal;
+
+      ctx.fillStyle = fillColor;
+      ctx.fillRect(trashX - trashSize, trashY - trashSize, trashSize * 2, trashSize * 2);
+      ctx.strokeStyle = outlineColor; ctx.lineWidth = 2;
+      ctx.strokeRect(trashX - trashSize, trashY - trashSize, trashSize * 2, trashSize * 2);
+
+      ctx.fillStyle = outlineColor; ctx.font = '28px Arial'; ctx.textAlign = 'center';
+      ctx.fillText('🗑️', trashX, trashY + 8);
+    }
+
+    function handleMouseDown(e) {
+      const { x, y } = getCanvasCoordinates(e.clientX, e.clientY);
+      appState.startPos = { x, y }; appState.isDragging = false;
+
+      for (const item of appState.radialItems) {
+        const distance = Math.hypot(x - item.x, y - item.y);
+        if (distance <= 25) {
+          appState.draggedItem = item; appState.selectedItem = item;
+          appState.originalPosition = { x: item.x, y: item.y };
+          populateProperties(); refreshPreview();
+          showNotification(`Selected '${item.label}'.`); return;
+        }
+      }
+      appState.selectedItem = null; appState.draggedItem = null; appState.originalPosition = null;
+      populateProperties(); refreshPreview();
+    }
+
+    function handleMouseMove(e) {
+      if (!appState.draggedItem || !appState.startPos) return;
+      if ((e.buttons & 1) !== 1) return;
+
+      const { x, y } = getCanvasCoordinates(e.clientX, e.clientY);
+      const dx = x - appState.startPos.x, dy = y - appState.startPos.y;
+      const distance = Math.hypot(dx, dy);
+
+      if (!appState.isDragging && distance > 5) {
+        appState.isDragging = true; canvas.style.cursor = 'move';
+      }
+      if (appState.isDragging) {
+        const constrainedX = Math.max(20, Math.min(x, appState.baseCanvasSize - 20));
+        const constrainedY = Math.max(20, Math.min(y, appState.baseCanvasSize - 20));
+        appState.draggedItem.x = constrainedX; appState.draggedItem.y = constrainedY;
+        refreshPreview();
+      }
+    }
+
+    function handleMouseUp(e) {
+      if (appState.draggedItem && !appState.isDragging) {
+        const nearest = findClosestSocketIndex(appState.draggedItem.x, appState.draggedItem.y);
+        if (nearest.index != null) {
+          const s = appState.sockets[nearest.index];
+          const occupying = appState.radialItems.find(
+            (it) => it !== appState.draggedItem && Math.abs(it.x - s.x) < 1 && Math.abs(it.y - s.y) < 1
+          );
+          if (occupying) { occupying.x = appState.originalPosition.x; occupying.y = appState.originalPosition.y; }
+          appState.draggedItem.x = s.x; appState.draggedItem.y = s.y;
+        }
+      } else if (appState.isDragging) {
+        const { x, y } = getCanvasCoordinates(e.clientX, e.clientY);
+        const centerDistance = Math.hypot(x - appState.centerX, y - appState.centerY);
+
+        if (centerDistance <= 60) {
+          const index = appState.radialItems.indexOf(appState.draggedItem);
+          if (index > -1) {
+            appState.radialItems.splice(index, 1);
+            appState.menuData.items = appState.radialItems;
             appState.selectedItem = null;
-            refreshPreview();
-            populateProperties();
-            updateItemCounter();
-            showNotification('All items have been cleared from the radial menu.');
+            refreshPreview(); updateItemCounter();
+            showNotification('Item deleted by dragging to center.');
+          }
+        } else { snapToClosestSocket(); }
+      }
+
+      appState.isDragging = false; appState.draggedItem = null; appState.startPos = null;
+      appState.originalPosition = null; canvas.style.cursor = 'crosshair'; refreshPreview();
+    }
+
+    function snapToClosestSocket() {
+      if (!appState.draggedItem || !appState.originalPosition) return;
+
+      let closestSocket = null, minDistance = Infinity;
+
+      appState.sockets.forEach((socket) => {
+        const distance = Math.hypot(appState.draggedItem.x - socket.x, appState.draggedItem.y - socket.y);
+        if (distance < minDistance) { minDistance = distance; closestSocket = socket; }
+      });
+
+      if (minDistance < 30 && closestSocket) {
+        const existingItem = appState.radialItems.find(
+          (item) => item !== appState.draggedItem &&
+            Math.abs(item.x - closestSocket.x) < 1 && Math.abs(item.y - closestSocket.y) < 1
+        );
+
+        if (existingItem) {
+          existingItem.x = appState.originalPosition.x; existingItem.y = appState.originalPosition.y;
+          appState.draggedItem.x = closestSocket.x; appState.draggedItem.y = closestSocket.y;
+          showNotification(`Swapped '${appState.draggedItem.label}' with '${existingItem.label}'.`);
+        } else {
+          appState.draggedItem.x = closestSocket.x; appState.draggedItem.y = closestSocket.y;
+          showNotification(`Item '${appState.draggedItem.label}' repositioned.`);
+        }
+      } else {
+        appState.draggedItem.x = appState.originalPosition.x; appState.draggedItem.y = appState.originalPosition.y;
+        showNotification('Item returned to original position.', 'warning');
+      }
+    }
+
+    function handleMouseWheel(e) {
+      e.preventDefault();
+      if (e.deltaY < 0 && appState.numSockets < 12) {
+        appState.numSockets++; document.getElementById('socketsInput').value = appState.numSockets;
+        calculateSockets(); reassignItemsToSockets(); refreshPreview(); updateItemCounter();
+      } else if (e.deltaY > 0 && appState.numSockets > Math.max(3, appState.radialItems.length)) {
+        appState.numSockets--; document.getElementById('socketsInput').value = appState.numSockets;
+        calculateSockets(); reassignItemsToSockets(); refreshPreview(); updateItemCounter();
+      }
+    }
+
+    function reassignItemsToSockets() {
+      appState.radialItems.forEach((item, index) => {
+        if (index < appState.sockets.length) {
+          item.x = appState.sockets[index].x; item.y = appState.sockets[index].y;
+        }
+      });
+    }
+
+    function populateProperties() {
+      const customLabelInput = document.getElementById('customLabelInput');
+      if (!customLabelInput) return;
+      customLabelInput.value = appState.selectedItem ? appState.selectedItem.label : '';
+    }
+
+    function deleteSelectedItem() {
+      if (!appState.selectedItem) { showNotification('No item selected to delete.', 'error'); return; }
+      const removedItem = appState.selectedItem;
+      const index = appState.radialItems.indexOf(removedItem);
+      if (index > -1) {
+        appState.radialItems.splice(index, 1);
+        appState.menuData.items = appState.radialItems;
+        appState.selectedItem = appState.radialItems.length > 0 ? appState.radialItems[0] : null;
+        refreshPreview(); populateProperties(); updateItemCounter();
+        showNotification(`Deleted '${removedItem.label}' from the radial menu.`);
+      }
+    }
+
+    function clearAllItems() {
+      if (appState.radialItems.length === 0) { showNotification('No items to clear.', 'error'); return; }
+      appState.radialItems = []; appState.menuData.items = []; appState.selectedItem = null;
+      refreshPreview(); populateProperties(); updateItemCounter();
+      showNotification('All items have been cleared from the radial menu.');
+    }
+
+    async function exportJSON() {
+      const menuNameEl = document.getElementById('menuNameInput');
+      const menuName = menuNameEl ? menuNameEl.value.trim() : '';
+      if (!menuName) {
+        showNotification('Please provide a name for the radial menu.', 'error');
+        return;
+      }
+
+      const menuNameCommand = menuName.toLowerCase().replace(/\s+/g, '-');
+      appState.menuData.name = menuName;
+      appState.menuData.command = `default-menu:${menuNameCommand}`;
+
+      const sortedItems = appState.radialItems
+        .slice()
+        .sort((a, b) => getAngle(a) - getAngle(b));
+
+      const exportData = {
+        name: appState.menuData.name,
+        command: appState.menuData.command,
+        items: sortedItems.map((item) => ({
+          command: item.command,
+          icon: item.icon,
+          label: item.label
+        }))
+      };
+
+      try {
+        const suggested = `${menuName.replace(/\s+/g, '-')}.json`;
+        const filePath = await invokeCommand('pick_save_json_path', { suggested_name: suggested });
+
+        if (!filePath) {
+          showNotification('Save cancelled.', 'warning');
+          return;
         }
 
-        async function exportJSON() {
-            const menuName = document.getElementById('menuNameInput').value.trim();
-            if (!menuName) {
-                showNotification('Please provide a name for the radial menu.', 'error');
-                return;
-            }
+        await invokeCommand('save_radial_menu', { menu: exportData, path: filePath });
+        showNotification(`Radial menu '${menuName}' saved successfully!`);
+        resetMenu();
+      } catch (error) {
+        showNotification(`Failed to save JSON file: ${error}`, 'error');
+      }
+    }
 
-            const menuNameCommand = menuName.toLowerCase().replace(/\s+/g, '-');
-            appState.menuData.name = menuName;
-            appState.menuData.command = `default-menu:${menuNameCommand}`;
+    function getAngle(item) {
+      const dx = item.x - appState.centerX;
+      const dy = item.y - appState.centerY;
+      return (Math.atan2(dy, dx) * 180) / Math.PI + 90;
+    }
 
-            const sortedItems = appState.radialItems.slice().sort((a, b) => getAngle(a) - getAngle(b));
+    function resetMenu() {
+      appState.menuData = { name: '', command: 'default-menu', items: [] };
+      appState.radialItems = []; appState.selectedItem = null;
+      refreshPreview();
+      document.getElementById('menuNameInput').value = '';
+      document.getElementById('customLabelInput').value = '';
+      updateItemCounter();
+      showNotification('Radial menu has been reset.');
+    }
 
-            const exportData = {
-                name: appState.menuData.name,
-                command: appState.menuData.command,
-                items: sortedItems.map((item) => ({ command: item.command, icon: item.icon, label: item.label }))
-            };
-
-            try {
-                if (typeof save === 'function') {
-                    const filePath = await save({ filters: [{ name: 'JSON', extensions: ['json'] }] });
-                    if (filePath) {
-                        await invoke('save_radial_menu', { menu: exportData, path: filePath });
-                        showNotification(`Radial menu '${menuName}' saved successfully!`);
-                        resetMenu();
-                    }
-                } else {
-                    const blob = new Blob([JSON.stringify(exportData, null, 4)], { type: 'application/json' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `${menuName.replace(/\s+/g, '-')}.json`;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                    showNotification(`Radial menu '${menuName}' downloaded successfully!`);
-                }
-            } catch (error) {
-                showNotification(`Failed to save JSON file: ${error}`, 'error');
-            }
+    async function selectDirectory() {
+      try {
+        const selected = await invokeCommand('pick_directory');
+        if (selected) {
+          await loadRadialJsonFiles(selected);
+          await saveRadialsDirectory(selected);
         }
+      } catch (error) {
+        showNotification(`Failed to select directory: ${error}`, 'error');
+      }
+    }
 
-        function getAngle(item) {
-            const dx = item.x - appState.centerX;
-            const dy = item.y - appState.centerY;
-            return (Math.atan2(dy, dx) * 180) / Math.PI + 90;
-        }
+    async function loadRadialJsonFiles(directory) {
+      try {
+        const files = await invokeCommand('list_json_files', { directory });
+        appState.loadedFiles = files.map((file) => `${directory}/${file}`);
 
-        function resetMenu() {
-            appState.menuData = { name: '', command: 'default-menu', items: [] };
-            appState.radialItems = [];
-            appState.selectedItem = null;
-            refreshPreview();
-            document.getElementById('menuNameInput').value = '';
-            document.getElementById('customLabelInput').value = '';
-            updateItemCounter();
-            showNotification('Radial menu has been reset.');
-        }
+        const loadedMenusList = document.getElementById('loadedMenusList');
+        loadedMenusList.innerHTML = '';
+        appState.loadedMenuCommands = [];
 
-        async function selectDirectory() {
-            try {
-                if (typeof open === 'function') {
-                    const selected = await open({ directory: true, multiple: false });
-                    if (selected) {
-                        await loadRadialJsonFiles(selected);
-                        await saveRadialsDirectory(selected);
-                    }
-                } else {
-                    showNotification('Directory selection not available in this environment.', 'error');
-                }
-            } catch (error) {
-                showNotification(`Failed to select directory: ${error}`, 'error');
-            }
-        }
-
-        async function loadRadialJsonFiles(directory) {
-            try {
-                const files = await invoke('list_json_files', { directory });
-                appState.loadedFiles = files.map((file) => `${directory}/${file}`);
-
-                const loadedMenusList = document.getElementById('loadedMenusList');
-                loadedMenusList.innerHTML = '';
-                appState.loadedMenuCommands = [];
-
-                files.forEach((filename, index) => {
-                    const item = document.createElement('div');
-                    item.className = 'menu-item';
-                    item.textContent = filename;
-                    item.addEventListener('click', () => {
-                        document.querySelectorAll('.menu-item').forEach((el) => el.classList.remove('selected'));
-                        item.classList.add('selected');
-                        loadSelectedMenu(index);
-                    });
-                    loadedMenusList.appendChild(item);
-                });
-
-                for (const filePath of appState.loadedFiles) {
-                    try {
-                        const menuData = await invoke('load_radial_menu', { path: filePath });
-                        if (menuData.command) {
-                            const nestedCommand = `view:radial:${menuData.command}`;
-                            if (!appState.loadedMenuCommands.includes(nestedCommand)) {
-                                appState.loadedMenuCommands.unshift(nestedCommand);
-                            }
-                        }
-                    } catch (error) {
-                        console.warn(`Failed to load menu data from ${filePath}:`, error);
-                    }
-                }
-
-                loadCommandsList();
-                showNotification(`Loaded ${files.length} file(s) from the directory.`);
-            } catch (error) {
-                showNotification(`Failed to load directory: ${error}`, 'error');
-            }
-        }
-
-        async function loadSelectedMenu(index) {
-            if (index < 0 || index >= appState.loadedFiles.length) return;
-            try {
-                const filePath = appState.loadedFiles[index];
-                const menuData = await invoke('load_radial_menu', { path: filePath });
-
-                appState.menuData = menuData;
-                document.getElementById('menuNameInput').value = menuData.name;
-
-                appState.radialItems = menuData.items.map((item) => ({
-                    command: item.command,
-                    label: item.label,
-                    icon: item.icon,
-                    x: 0,
-                    y: 0
-                }));
-
-                const requiredSockets = Math.max(3, Math.min(12, appState.radialItems.length));
-                appState.numSockets = requiredSockets;
-                document.getElementById('socketsInput').value = appState.numSockets;
-
-                calculateSockets();
-                reassignItemsToSockets();
-                appState.menuData.items = appState.radialItems;
-                refreshPreview();
-                updateItemCounter();
-                showNotification(`Radial menu '${menuData.name}' loaded successfully!`);
-            } catch (error) {
-                showNotification(`Failed to load JSON file: ${error}`, 'error');
-            }
-        }
-
-        async function loadCustomDictionary() {
-            try {
-                if (typeof open === 'function') {
-                    const selected = await open({ filters: [{ name: 'JSON', extensions: ['json'] }] });
-                    if (selected) {
-                        const customCommands = await invoke('load_commands_from_file', { path: selected });
-                        let overwriteCount = 0;
-                        for (const [key, value] of Object.entries(customCommands)) {
-                            if (appState.commandIcons.hasOwnProperty(key)) overwriteCount++;
-                            appState.commandIcons[key] = value;
-                        }
-                        loadCommandsList();
-                        if (overwriteCount > 0) {
-                            showNotification(`Custom dictionary loaded! Overwritten ${overwriteCount} commands.`, 'warning');
-                        } else {
-                            showNotification(`Custom dictionary loaded! Added ${Object.keys(customCommands).length} commands.`);
-                        }
-                    }
-                } else {
-                    showNotification('File selection not available in this environment.', 'error');
-                }
-            } catch (error) {
-                showNotification(`Failed to load custom dictionary: ${error}`, 'error');
-            }
-        }
-
-        function toggleJsonPreview() {
-            const jsonPreview = document.getElementById('jsonPreview');
-            appState.jsonPreviewVisible = !appState.jsonPreviewVisible;
-            jsonPreview.style.display = appState.jsonPreviewVisible ? 'block' : 'none';
-            if (appState.jsonPreviewVisible) updateJsonPreview();
-        }
-
-        function updateJsonPreview() {
-            if (!appState.jsonPreviewVisible) return;
-            const sortedItems = appState.radialItems.slice().sort((a, b) => getAngle(a) - getAngle(b));
-            const exportData = {
-                name: appState.menuData.name || '',
-                command: appState.menuData.command || 'default-menu',
-                items: sortedItems.map((item) => ({ command: item.command, icon: item.icon, label: item.label }))
-            };
-            const jsonContent = document.getElementById('jsonPreviewContent');
-            jsonContent.textContent = JSON.stringify(exportData, null, 4);
-        }
-
-        function updateItemCounter() {
-            const counter = document.getElementById('itemCounter');
-            if (counter) counter.textContent = `Items: ${appState.radialItems.length}/${appState.numSockets}`;
-        }
-
-        function showNotification(message, type = 'success') {
-            const notification = document.getElementById('notification');
-            if (!notification) return;
-
-            notification.textContent = message;
-            notification.className = `notification ${type}`;
-
-            clearTimeout(showNotification._t);
-            showNotification._t = setTimeout(() => {
-                notification.textContent = '';
-                notification.className = 'notification';
-            }, 4000);
-        }
-
-        function setupEventListeners() {
-            const searchInput = document.getElementById('searchInput');
-            if (searchInput) {
-                searchInput.addEventListener('input', (e) => loadCommandsList(e.target.value));
-            }
-
-            const clearSearchBtn = document.getElementById('clearSearchBtn');
-            if (clearSearchBtn) {
-                clearSearchBtn.addEventListener('click', () => {
-                    searchInput.value = '';
-                    loadCommandsList();
-                });
-            }
-
-            const addCommandBtn = document.getElementById('addCommandBtn');
-            if (addCommandBtn) {
-                addCommandBtn.addEventListener('click', () => {
-                    const selected = document.querySelector('.command-item.selected');
-                    if (selected) {
-                        addMenuItemFromCommand(selected.dataset.command);
-                    } else {
-                        showNotification('Please select a command to add.', 'error');
-                    }
-                });
-            }
-
-            const menuNameInput = document.getElementById('menuNameInput');
-            if (menuNameInput) {
-                menuNameInput.addEventListener('input', (e) => {
-                    appState.menuData.name = e.target.value;
-                    updateJsonPreview();
-                });
-            }
-
-            const customLabelInput = document.getElementById('customLabelInput');
-            if (customLabelInput) {
-                customLabelInput.addEventListener('input', (e) => {
-                    if (appState.selectedItem) {
-                        const newLabel = e.target.value.trim();
-                        if (newLabel === '') {
-                            // If empty, restore the original label from the command
-                            appState.selectedItem.label = makeLabelFromCommand(appState.selectedItem.command);
-                        } else {
-                            appState.selectedItem.label = newLabel;
-                        }
-                        refreshPreview();
-                    }
-                });
-            }
-
-            const socketsInput = document.getElementById('socketsInput');
-            if (socketsInput) {
-                socketsInput.addEventListener('change', (e) => {
-                    const newNum = parseInt(e.target.value, 10);
-                    if (newNum < appState.radialItems.length) {
-                        showNotification('Please delete some items before reducing the number of sockets.', 'error');
-                        e.target.value = appState.numSockets;
-                        return;
-                    }
-                    appState.numSockets = Math.max(3, Math.min(12, newNum));
-                    calculateSockets();
-                    reassignItemsToSockets();
-                    refreshPreview();
-                    updateItemCounter();
-                    showNotification(`Number of sockets updated to ${appState.numSockets}.`);
-                });
-            }
-
-            if (canvas) {
-                canvas.addEventListener('mousedown', handleMouseDown);
-                canvas.addEventListener('mousemove', handleMouseMove);
-                canvas.addEventListener('mouseup', handleMouseUp);
-                canvas.addEventListener('wheel', handleMouseWheel, { passive: false });
-
-                canvas.addEventListener('dragenter', (e) => {
-                    e.preventDefault();
-                    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
-                });
-
-                canvas.ondragover = function (e) {
-                    e.preventDefault();
-                    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
-
-                    canvas.classList.add('drag-over');
-
-                    const firstEmpty = findFirstEmptySocket();
-                    appState.highlightSocket = firstEmpty ? firstEmpty.index : null;
-
-                    refreshPreview();
-                };
-
-                canvas.ondrop = function (e) {
-                    e.preventDefault();
-                    canvas.classList.remove('drag-over');
-                    appState.highlightSocket = null;
-
-                    const command = e.dataTransfer.getData('text/plain');
-                    if (!command) {
-                        refreshPreview();
-                        return;
-                    }
-
-                    const firstEmpty = findFirstEmptySocket();
-                    if (firstEmpty) {
-                        addMenuItemToSocket(command, firstEmpty.index);
-                    } else {
-                        showNotification('All sockets are filled.', 'error');
-                    }
-
-                    refreshPreview();
-                };
-
-                canvas.ondragleave = function () {
-                    canvas.classList.remove('drag-over');
-                    appState.highlightSocket = null;
-                    refreshPreview();
-                };
-            }
-
-            let _rz;
-            window.addEventListener('resize', () => {
-                clearTimeout(_rz);
-                _rz = setTimeout(resizeCanvas, 100);
-            });
-
-            const exportBtn = document.getElementById('exportBtn');
-            if (exportBtn) exportBtn.addEventListener('click', exportJSON);
-
-            const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
-            if (deleteSelectedBtn) deleteSelectedBtn.addEventListener('click', deleteSelectedItem);
-
-            const clearAllBtn = document.getElementById('clearAllBtn');
-            if (clearAllBtn) clearAllBtn.addEventListener('click', clearAllItems);
-
-            const selectDirBtn = document.getElementById('selectDirBtn');
-            if (selectDirBtn) selectDirBtn.addEventListener('click', selectDirectory);
-
-            const loadCustomDictBtn = document.getElementById('loadCustomDictBtn');
-            if (loadCustomDictBtn) loadCustomDictBtn.addEventListener('click', loadCustomDictionary);
-
-            const toggleJsonPreviewBtn = document.getElementById('toggleJsonPreviewBtn');
-            if (toggleJsonPreviewBtn) toggleJsonPreviewBtn.addEventListener('click', toggleJsonPreview);
-
-            const closeJsonPreview = document.getElementById('closeJsonPreview');
-            if (closeJsonPreview) {
-                closeJsonPreview.addEventListener('click', () => {
-                    document.getElementById('jsonPreview').style.display = 'none';
-                    appState.jsonPreviewVisible = false;
-                });
-            }
-
-            document.addEventListener('keydown', (e) => {
-                // Only trigger delete if we're not typing in an input field
-                const activeElement = document.activeElement;
-                const isTyping = activeElement && (
-                    activeElement.tagName === 'INPUT' || 
-                    activeElement.tagName === 'TEXTAREA' || 
-                    activeElement.isContentEditable
-                );
-                
-                if ((e.key === 'Delete' || e.key === 'Backspace') && !isTyping) {
-                    if (appState.selectedItem) deleteSelectedItem();
-                }
-            });
-
-            const commandsListEl = document.getElementById('commandsList');
-            if (commandsListEl) {
-                commandsListEl.addEventListener('mouseover', (e) => {
-                    const t = e.target.closest('.command-item');
-                    if (t && !t.draggable) t.draggable = true;
-                });
-
-                commandsListEl.addEventListener('dragstart', (e) => {
-                    const t = e.target.closest('.command-item');
-                    if (!t) return;
-                    const cmd = t.dataset.command || t.textContent.trim();
-                    if (!cmd) return;
-
-                    e.dataTransfer.setData('text/plain', cmd);
-                    e.dataTransfer.effectAllowed = 'copy';
-                    t.classList.add('dragging');
-                });
-
-                commandsListEl.addEventListener('dragend', (e) => {
-                    const t = e.target.closest('.command-item');
-                    if (t) t.classList.remove('dragging');
-                });
-            }
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            setTimeout(initApp, 100);
+        files.forEach((filename, index) => {
+          const item = document.createElement('div');
+          item.className = 'menu-item';
+          item.textContent = filename;
+          item.addEventListener('click', () => {
+            document.querySelectorAll('.menu-item').forEach((el) => el.classList.remove('selected'));
+            item.classList.add('selected');
+            loadSelectedMenu(index);
+          });
+          loadedMenusList.appendChild(item);
         });
 
-    </script>
-</body>
-</html> 'TEXTAREA' || 
-                    activeElement.isContentEditable
-                );
-                
-                if ((e.key === 'Delete' || e.key === 'Backspace') && !isTyping) {
-                    if (appState.selectedItem) deleteSelectedItem();
-                }
-            });
-
-            const commandsListEl = document.getElementById('commandsList');
-            if (commandsListEl) {
-                commandsListEl.addEventListener('mouseover', (e) => {
-                    const t = e.target.closest('.command-item');
-                    if (t && !t.draggable) t.draggable = true;
-                });
-
-                commandsListEl.addEventListener('dragstart', (e) => {
-                    const t = e.target.closest('.command-item');
-                    if (!t) return;
-                    const cmd = t.dataset.command || t.textContent.trim();
-                    if (!cmd) return;
-
-                    e.dataTransfer.setData('text/plain', cmd);
-                    e.dataTransfer.effectAllowed = 'copy';
-                    t.classList.add('dragging');
-                });
-
-                commandsListEl.addEventListener('dragend', (e) => {
-                    const t = e.target.closest('.command-item');
-                    if (t) t.classList.remove('dragging');
-                });
+        for (const filePath of appState.loadedFiles) {
+          try {
+            const menuData = await invokeCommand('load_radial_menu', { path: filePath });
+            if (menuData.command) {
+              const nestedCommand = `view:radial:${menuData.command}`;
+              if (!appState.loadedMenuCommands.includes(nestedCommand)) {
+                appState.loadedMenuCommands.unshift(nestedCommand);
+              }
             }
+          } catch (error) {
+            console.warn(`Failed to load menu data from ${filePath}:`, error);
+          }
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
-            setTimeout(initApp, 100);
-        });
+        loadCommandsList();
+        showNotification(`Loaded ${files.length} file(s) from the directory.`);
+      } catch (error) {
+        showNotification(`Failed to load directory: ${error}`, 'error');
+      }
+    }
 
-    </script>
-</body>
-</html> 'TEXTAREA' || 
-                    activeElement.isContentEditable
-                );
-                
-                if ((e.key === 'Delete' || e.key === 'Backspace') && !isTyping) {
-                    if (appState.selectedItem) deleteSelectedItem();
-                }
-            });
+    async function loadSelectedMenu(index) {
+      if (index < 0 || index >= appState.loadedFiles.length) return;
+      try {
+        const filePath = appState.loadedFiles[index];
+        const menuData = await invokeCommand('load_radial_menu', { path: filePath });
 
-            const commandsListEl = document.getElementById('commandsList');
-            if (commandsListEl) {
-                commandsListEl.addEventListener('mouseover', (e) => {
-                    const t = e.target.closest('.command-item');
-                    if (t && !t.draggable) t.draggable = true;
-                });
+        appState.menuData = menuData;
+        document.getElementById('menuNameInput').value = menuData.name;
 
-                commandsListEl.addEventListener('dragstart', (e) => {
-                    const t = e.target.closest('.command-item');
-                    if (!t) return;
-                    const cmd = t.dataset.command || t.textContent.trim();
-                    if (!cmd) return;
+        appState.radialItems = menuData.items.map((item) => ({
+          command: item.command, label: item.label, icon: item.icon, x: 0, y: 0
+        }));
 
-                    e.dataTransfer.setData('text/plain', cmd);
-                    e.dataTransfer.effectAllowed = 'copy';
-                    t.classList.add('dragging');
-                });
+        const requiredSockets = Math.max(3, Math.min(12, appState.radialItems.length));
+        appState.numSockets = requiredSockets;
+        document.getElementById('socketsInput').value = appState.numSockets;
 
-                commandsListEl.addEventListener('dragend', (e) => {
-                    const t = e.target.closest('.command-item');
-                    if (t) t.classList.remove('dragging');
-                });
+        calculateSockets(); reassignItemsToSockets();
+        appState.menuData.items = appState.radialItems;
+        refreshPreview(); updateItemCounter();
+        showNotification(`Radial menu '${menuData.name}' loaded successfully!`);
+      } catch (error) {
+        showNotification(`Failed to load JSON file: ${error}`, 'error');
+      }
+    }
+
+    async function loadCustomDictionary() {
+      try {
+        if (tauriAvailable) {
+          const selected = await invokeCommand('pick_json_file');
+          if (selected) {
+            const customCommands = await invokeCommand('load_commands_from_file', { path: selected });
+            let overwriteCount = 0;
+            for (const [key, value] of Object.entries(customCommands)) {
+              if (Object.prototype.hasOwnProperty.call(appState.commandIcons, key)) overwriteCount++;
+              appState.commandIcons[key] = value;
             }
+            loadCommandsList();
+            if (overwriteCount > 0) {
+              showNotification(`Custom dictionary loaded! Overwritten ${overwriteCount} commands.`, 'warning');
+            } else {
+              showNotification(`Custom dictionary loaded! Added ${Object.keys(customCommands).length} commands.`);
+            }
+          }
+        } else {
+          showNotification('File selection not available in this environment.', 'error');
         }
+      } catch (error) {
+        showNotification(`Failed to load custom dictionary: ${error}`, 'error');
+      }
+    }
 
-        document.addEventListener('DOMContentLoaded', () => {
-            setTimeout(initApp, 100);
+    function toggleJsonPreview() {
+      const jsonPreview = document.getElementById('jsonPreview');
+      appState.jsonPreviewVisible = !appState.jsonPreviewVisible;
+      jsonPreview.style.display = appState.jsonPreviewVisible ? 'block' : 'none';
+      if (appState.jsonPreviewVisible) updateJsonPreview();
+    }
+
+    function updateJsonPreview() {
+      if (!appState.jsonPreviewVisible) return;
+      const sortedItems = appState.radialItems.slice().sort((a, b) => getAngle(a) - getAngle(b));
+      const exportData = {
+        name: appState.menuData.name || '',
+        command: appState.menuData.command || 'default-menu',
+        items: sortedItems.map((item) => ({ command: item.command, icon: item.icon, label: item.label }))
+      };
+      const jsonContent = document.getElementById('jsonPreviewContent');
+      jsonContent.textContent = JSON.stringify(exportData, null, 4);
+    }
+
+    function updateItemCounter() {
+      const counter = document.getElementById('itemCounter');
+      if (counter) counter.textContent = `Items: ${appState.radialItems.length}/${appState.numSockets}`;
+    }
+
+    function showNotification(message, type = 'success') {
+      const notification = document.getElementById('notification');
+      if (!notification) return;
+      notification.textContent = message;
+      notification.className = `notification ${type}`;
+      clearTimeout(showNotification._t);
+      showNotification._t = setTimeout(() => {
+        notification.textContent = '';
+        notification.className = 'notification';
+      }, 4000);
+    }
+
+    function setupEventListeners() {
+      const searchInput = document.getElementById('searchInput');
+      if (searchInput) searchInput.addEventListener('input', (e) => loadCommandsList(e.target.value));
+
+      const clearSearchBtn = document.getElementById('clearSearchBtn');
+      if (clearSearchBtn) clearSearchBtn.addEventListener('click', () => { searchInput.value = ''; loadCommandsList(); });
+
+      const addCommandBtn = document.getElementById('addCommandBtn');
+      if (addCommandBtn) addCommandBtn.addEventListener('click', () => {
+        const selected = document.querySelector('.command-item.selected');
+        if (selected) addMenuItemFromCommand(selected.dataset.command);
+        else showNotification('Please select a command to add.', 'error');
+      });
+
+      const menuNameInput = document.getElementById('menuNameInput');
+      if (menuNameInput) menuNameInput.addEventListener('input', (e) => { appState.menuData.name = e.target.value; updateJsonPreview(); });
+
+      const customLabelInput = document.getElementById('customLabelInput');
+      if (customLabelInput) customLabelInput.addEventListener('input', (e) => {
+        if (appState.selectedItem) {
+          const newLabel = e.target.value.trim();
+          appState.selectedItem.label = newLabel === '' ? makeLabelFromCommand(appState.selectedItem.command) : newLabel;
+          refreshPreview();
+        }
+      });
+
+      const socketsInput = document.getElementById('socketsInput');
+      if (socketsInput) socketsInput.addEventListener('change', (e) => {
+        const newNum = parseInt(e.target.value, 10);
+        if (newNum < appState.radialItems.length) {
+          showNotification('Please delete some items before reducing the number of sockets.', 'error');
+          e.target.value = appState.numSockets; return;
+        }
+        appState.numSockets = Math.max(3, Math.min(12, newNum));
+        calculateSockets(); reassignItemsToSockets(); refreshPreview(); updateItemCounter();
+        showNotification(`Number of sockets updated to ${appState.numSockets}.`);
+      });
+
+      if (canvas) {
+        canvas.addEventListener('mousedown', handleMouseDown);
+        canvas.addEventListener('mousemove', handleMouseMove);
+        canvas.addEventListener('mouseup', handleMouseUp);
+        canvas.addEventListener('wheel', handleMouseWheel, { passive: false });
+
+        canvas.addEventListener('dragenter', (e) => { e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'; });
+
+        canvas.ondragover = function (e) {
+          e.preventDefault();
+          if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+          canvas.classList.add('drag-over');
+          const firstEmpty = findFirstEmptySocket();
+          appState.highlightSocket = firstEmpty ? firstEmpty.index : null;
+          refreshPreview();
+        };
+
+        canvas.ondrop = function (e) {
+          e.preventDefault();
+          canvas.classList.remove('drag-over');
+          appState.highlightSocket = null;
+
+          const command = e.dataTransfer.getData('text/plain');
+          if (!command) { refreshPreview(); return; }
+
+          const firstEmpty = findFirstEmptySocket();
+          if (firstEmpty) addMenuItemToSocket(command, firstEmpty.index);
+          else showNotification('All sockets are filled.', 'error');
+
+          refreshPreview();
+        };
+
+        canvas.ondragleave = function () {
+          canvas.classList.remove('drag-over');
+          appState.highlightSocket = null;
+          refreshPreview();
+        };
+      }
+
+      let _rz;
+      window.addEventListener('resize', () => { clearTimeout(_rz); _rz = setTimeout(resizeCanvas, 100); });
+
+      const exportBtn = document.getElementById('exportBtn');
+      if (exportBtn) exportBtn.addEventListener('click', exportJSON);
+
+      const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
+      if (deleteSelectedBtn) deleteSelectedBtn.addEventListener('click', deleteSelectedItem);
+
+      const clearAllBtn = document.getElementById('clearAllBtn');
+      if (clearAllBtn) clearAllBtn.addEventListener('click', clearAllItems);
+
+      const selectDirBtn = document.getElementById('selectDirBtn');
+      if (selectDirBtn) selectDirBtn.addEventListener('click', selectDirectory);
+
+      const loadCustomDictBtn = document.getElementById('loadCustomDictBtn');
+      if (loadCustomDictBtn) loadCustomDictBtn.addEventListener('click', loadCustomDictionary);
+
+      const toggleJsonPreviewBtn = document.getElementById('toggleJsonPreviewBtn');
+      if (toggleJsonPreviewBtn) toggleJsonPreviewBtn.addEventListener('click', toggleJsonPreview);
+
+      const closeJsonPreviewBtn = document.getElementById('closeJsonPreview');
+      if (closeJsonPreviewBtn) closeJsonPreviewBtn.addEventListener('click', () => {
+        document.getElementById('jsonPreview').style.display = 'none';
+        appState.jsonPreviewVisible = false;
+      });
+
+      document.addEventListener('keydown', (e) => {
+        const activeElement = document.activeElement;
+        const isTyping = activeElement && (
+          activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA' || activeElement.isContentEditable
+        );
+        if ((e.key === 'Delete' || e.key === 'Backspace') && !isTyping) {
+          if (appState.selectedItem) deleteSelectedItem();
+        }
+      });
+
+      const commandsListEl = document.getElementById('commandsList');
+      if (commandsListEl) {
+        commandsListEl.addEventListener('mouseover', (e) => {
+          const t = e.target.closest('.command-item');
+          if (t && !t.draggable) t.draggable = true;
         });
+        commandsListEl.addEventListener('dragstart', (e) => {
+          const t = e.target.closest('.command-item');
+          if (!t) return;
+          const cmd = t.dataset.command || t.textContent.trim();
+          if (!cmd) return;
+          e.dataTransfer.setData('text/plain', cmd);
+          e.dataTransfer.effectAllowed = 'copy';
+          t.classList.add('dragging');
+        });
+        commandsListEl.addEventListener('dragend', (e) => {
+          const t = e.target.closest('.command-item');
+          if (t) t.classList.remove('dragging');
+        });
+      }
+    }
 
-    </script>
+    document.addEventListener('DOMContentLoaded', () => {
+      setTimeout(initApp, 100);
+    });
+  </script>
 </body>
 </html>

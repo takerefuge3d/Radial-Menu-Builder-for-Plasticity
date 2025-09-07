@@ -1,0 +1,17 @@
+{
+  "$schema": "https://schema.tauri.app/v2/capabilities.json",
+  "identifier": "radial",
+  "description": "Capabilities for Radial Menu Builder (dialog pickers + basic FS access).",
+  "permissions": [
+    "core:default",
+
+    "dialog:default",
+    "dialog:allow-open",
+    "dialog:allow-save",
+
+    "fs:default",
+    "fs:allow-read-dir",
+    "fs:allow-read-file",
+    "fs:allow-write-file"
+  ]
+}

@@ -1,26 +1,25 @@
 [package]
 name = "radial-menu-builder"
 version = "0.1.0"
-description = "A Tauri App for building radial menus"
-authors = ["you"]
-license = ""
-repository = ""
-default-run = "radial-menu-builder"
+description = "A Tauri 2 App for building radial menus"
 edition = "2021"
-rust-version = "1.77"
-
-[build-dependencies]
-tauri-build = { version = "2.0.0", features = [] }
+rust-version = "1.70"
 
 [dependencies]
-serde_json = "1.0"
+# Core
 serde = { version = "1.0", features = ["derive"] }
-tauri = { version = "2.0.0", features = [] }
-tauri-plugin-shell = "2.0.0"
-tauri-plugin-dialog = "2.0.0"
-tauri-plugin-fs = "2.0.0"
+serde_json = "1.0"
 tokio = { version = "1", features = ["full"] }
 
+# Tauri 2 (stable 2.x line)
+tauri = { version = "2", features = [] }
+
+# Plugins you use
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
 [features]
-default = ["custom-protocol"]
-custom-protocol = ["tauri/custom-protocol"]
+default = []

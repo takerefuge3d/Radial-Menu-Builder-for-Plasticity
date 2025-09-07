@@ -1,0 +1,1 @@
+{"radial":{"identifier":"radial","description":"Capabilities for Radial Menu Builder (dialog pickers + basic FS access).","local":true,"permissions":["core:default","dialog:default","dialog:allow-open","dialog:allow-save","fs:default","fs:allow-read-dir","fs:allow-read-file","fs:allow-write-file"]}}

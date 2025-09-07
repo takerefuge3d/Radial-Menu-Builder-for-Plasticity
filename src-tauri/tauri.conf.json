@@ -1,52 +1,37 @@
 {
+  "$schema": "https://schema.tauri.app/config_2",
+  "identifier": "com.radial.builder",
   "productName": "Radial Menu Builder",
   "version": "0.1.0",
-  "identifier": "com.radialmenu.builder",
+
   "build": {
-    "beforeDevCommand": "",
-    "beforeBuildCommand": "",
     "frontendDist": "../dist"
   },
+
   "app": {
+    "security": {
+      "capabilities": ["radial"]
+    },
     "windows": [
       {
-        "fullscreen": false,
-        "height": 800,
-        "resizable": true,
         "title": "Radial Menu Builder",
-        "width": 1400,
-        "minWidth": 1200,
-        "minHeight": 700
+        "width": 1200,
+        "height": 800,
+        "resizable": true
       }
-    ],
-    "security": {
-      "csp": null
-    }
-  },
-  "bundle": {
-    "active": true,
-    "category": "DeveloperTool",
-    "icon": [
-      "icons/32x32.png",
-      "icons/128x128.png",
-      "icons/128x128@2x.png",
-      "icons/icon.icns",
-      "icons/icon.ico"
     ]
   },
-  "plugins": {
-    "shell": {
-      "open": true
+
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "windows": {
+      "digestAlgorithm": "sha256"
     },
-    "dialog": {
-      "ask": true,
-      "confirm": true,
-      "message": true,
-      "open": true,
-      "save": true
-    },
-    "fs": {
-      "scope": ["**"]
+    "macOS": {
+      "signingIdentity": null
     }
-  }
+  },
+
+  "plugins": {}
 }

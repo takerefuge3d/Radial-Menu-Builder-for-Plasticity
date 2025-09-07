@@ -3,14 +3,17 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
-    "dev": "tauri dev",
-    "build": "tauri build",
-    "tauri": "tauri"
+    "dev": "npx tauri dev",
+    "build": "npx tauri build",
+    "tauri": "npx tauri",
+    "clean": "cd src-tauri && cargo clean"
   },
   "dependencies": {
-    "@tauri-apps/api": "2.0.0"
+    "@tauri-apps/api": "^2.0.1",
+    "@tauri-apps/plugin-dialog": "^2.4.0",
+    "@tauri-apps/plugin-fs": "^2.4.2"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "2.0.0"
+    "@tauri-apps/cli": "^2.0.0-rc.18"
   }
 }
