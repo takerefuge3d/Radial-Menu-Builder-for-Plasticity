@@ -1,169 +1,64 @@
-name: Build Radial Menu Builder for Plasticity
+name: 'Build and Release'
 
 on:
   push:
-    tags:
-      - 'v*'
+    tags: ['v*']
   workflow_dispatch:
 
 jobs:
-  build:
+  publish-tauri:
+    permissions:
+      contents: write
     strategy:
+      fail-fast: false
       matrix:
         include:
-          - platform: ubuntu-latest
-            rust-target: x86_64-unknown-linux-gnu
-            artifact-name: plasticity-radial-menu-builder-linux
-            bundle-path: src-tauri/target/release/bundle/appimage/*.AppImage
-          - platform: windows-latest
-            rust-target: x86_64-pc-windows-msvc
-            artifact-name: plasticity-radial-menu-builder-windows
-            bundle-path: src-tauri/target/release/bundle/msi/*.msi
-          - platform: macos-latest
-            rust-target: x86_64-apple-darwin
-            artifact-name: plasticity-radial-menu-builder-macos-intel
-            bundle-path: src-tauri/target/release/bundle/macos/*.app
-          - platform: macos-latest
-            rust-target: aarch64-apple-darwin
-            artifact-name: plasticity-radial-menu-builder-macos-silicon
-            bundle-path: src-tauri/target/release/bundle/macos/*.app
+          - platform: 'macos-latest'
+            args: '--target aarch64-apple-darwin'
+          - platform: 'macos-latest'
+            args: '--target x86_64-apple-darwin'
+          - platform: 'ubuntu-20.04'
+            args: ''
+          - platform: 'windows-latest'
+            args: ''
 
     runs-on: ${{ matrix.platform }}
-
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-          cache: 'npm'
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.rust-target }}
-
-      - name: Install Linux dependencies
-        if: matrix.platform == 'ubuntu-latest'
+      - name: Install dependencies (ubuntu only)
+        if: matrix.platform == 'ubuntu-20.04'
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            libgtk-3-dev \
-            libwebkit2gtk-4.1-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            libssl-dev
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev libayatana-appindicator3-dev librsvg2-dev
 
-      - name: Install npm dependencies
+      - name: Rust setup
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Sync node version and setup cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: 'npm'
+
+      - name: Install frontend dependencies
         run: npm install
 
-      - name: Build Tauri app
-        run: npm run build
-
-      - name: Create distribution package (Windows)
-        if: matrix.platform == 'windows-latest'
-        run: |
-          mkdir PlasticityRadialMenuBuilder
-          copy "src-tauri\target\release\radial-menu-builder.exe" "PlasticityRadialMenuBuilder\"
-          copy "dist\commands.json" "PlasticityRadialMenuBuilder\"
-          echo "Radial Menu Builder for Plasticity 3D - Edit commands.json to customize available Plasticity commands" > PlasticityRadialMenuBuilder\README.txt
-        shell: cmd
-
-      - name: Create distribution package (Linux)
-        if: matrix.platform == 'ubuntu-latest'
-        run: |
-          mkdir PlasticityRadialMenuBuilder
-          cp src-tauri/target/release/radial-menu-builder PlasticityRadialMenuBuilder/
-          cp dist/commands.json PlasticityRadialMenuBuilder/
-          echo "Radial Menu Builder for Plasticity 3D - Edit commands.json to customize available Plasticity commands" > PlasticityRadialMenuBuilder/README.txt
-
-      - name: Create distribution package (macOS Intel)
-        if: matrix.platform == 'macos-latest' && matrix.rust-target == 'x86_64-apple-darwin'
-        run: |
-          mkdir PlasticityRadialMenuBuilder
-          cp -r src-tauri/target/release/bundle/macos/*.app PlasticityRadialMenuBuilder/
-          cp dist/commands.json PlasticityRadialMenuBuilder/
-          echo "Radial Menu Builder for Plasticity 3D (Intel Macs) - Edit commands.json to customize available Plasticity commands" > PlasticityRadialMenuBuilder/README.txt
-
-      - name: Create distribution package (macOS Apple Silicon)
-        if: matrix.platform == 'macos-latest' && matrix.rust-target == 'aarch64-apple-darwin'
-        run: |
-          mkdir PlasticityRadialMenuBuilder
-          cp -r src-tauri/target/release/bundle/macos/*.app PlasticityRadialMenuBuilder/
-          cp dist/commands.json PlasticityRadialMenuBuilder/
-          echo "Radial Menu Builder for Plasticity 3D (Apple Silicon Macs) - Edit commands.json to customize available Plasticity commands" > PlasticityRadialMenuBuilder/README.txt
-
-      - name: Archive Windows build
-        if: matrix.platform == 'windows-latest'
-        run: |
-          Compress-Archive -Path "PlasticityRadialMenuBuilder\*" -DestinationPath "plasticity-radial-menu-builder-windows.zip"
-        shell: powershell
-
-      - name: Archive Linux build
-        if: matrix.platform == 'ubuntu-latest'
-        run: |
-          tar -czf plasticity-radial-menu-builder-linux.tar.gz PlasticityRadialMenuBuilder/
-
-      - name: Archive macOS Intel build
-        if: matrix.platform == 'macos-latest' && matrix.rust-target == 'x86_64-apple-darwin'
-        run: |
-          tar -czf plasticity-radial-menu-builder-macos-intel.tar.gz PlasticityRadialMenuBuilder/
-
-      - name: Archive macOS Apple Silicon build
-        if: matrix.platform == 'macos-latest' && matrix.rust-target == 'aarch64-apple-darwin'
-        run: |
-          tar -czf plasticity-radial-menu-builder-macos-silicon.tar.gz PlasticityRadialMenuBuilder/
-
-      - name: Upload Windows artifact
-        if: matrix.platform == 'windows-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: plasticity-radial-menu-builder-windows
-          path: plasticity-radial-menu-builder-windows.zip
-
-      - name: Upload Linux artifact
-        if: matrix.platform == 'ubuntu-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: plasticity-radial-menu-builder-linux
-          path: plasticity-radial-menu-builder-linux.tar.gz
-
-      - name: Upload macOS Intel artifact
-        if: matrix.platform == 'macos-latest' && matrix.rust-target == 'x86_64-apple-darwin'
-        uses: actions/upload-artifact@v4
-        with:
-          name: plasticity-radial-menu-builder-macos-intel
-          path: plasticity-radial-menu-builder-macos-intel.tar.gz
-
-      - name: Upload macOS Apple Silicon artifact
-        if: matrix.platform == 'macos-latest' && matrix.rust-target == 'aarch64-apple-darwin'
-        uses: actions/upload-artifact@v4
-        with:
-          name: plasticity-radial-menu-builder-macos-silicon
-          path: plasticity-radial-menu-builder-macos-silicon.tar.gz
-
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
-    
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            plasticity-radial-menu-builder-windows/plasticity-radial-menu-builder-windows.zip
-            plasticity-radial-menu-builder-linux/plasticity-radial-menu-builder-linux.tar.gz
-            plasticity-radial-menu-builder-macos-intel/plasticity-radial-menu-builder-macos-intel.tar.gz
-            plasticity-radial-menu-builder-macos-silicon/plasticity-radial-menu-builder-macos-silicon.tar.gz
-          tag_name: ${{ github.ref_name }}
-          name: Release ${{ github.ref_name }}
-          draft: false
-          prerelease: false
+      - name: Build the app
+        uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'Plasticity Radial Menu Builder v__VERSION__'
+          releaseBody: 'See the assets to download and install this version.'
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}
