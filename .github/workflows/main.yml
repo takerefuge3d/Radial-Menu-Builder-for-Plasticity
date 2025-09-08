@@ -54,16 +54,25 @@ jobs:
           prerelease: false
           args: ${{ matrix.args }}
           
-      - name: Self-sign macOS app
+      - name: Fix macOS bundle for proper quarantine behavior
         if: matrix.platform == 'macos-latest'
         run: |
-          echo "Looking for .app files..."
-          find . -name "*.app" -type d 2>/dev/null || echo "No .app files found"
-          echo "Directory structure:"
-          ls -la src-tauri/target/release/ || echo "Release directory not found"
-          if [ -d "src-tauri/target/release/bundle" ]; then
-            find src-tauri/target/release/bundle -name "*.app" -exec codesign --force --deep --sign - {} \;
+          # Find the .app bundle
+          APP_PATH=$(find src-tauri/target -name "*.app" -type d | head -1)
+          if [ -n "$APP_PATH" ]; then
+            echo "Found app bundle: $APP_PATH"
+            
+            # Remove extended attributes that cause "damaged" dialog
+            xattr -cr "$APP_PATH"
+            
+            # Modify Info.plist to reduce security scrutiny
+            /usr/libexec/PlistBuddy -c "Set :LSUIElement false" "$APP_PATH/Contents/Info.plist" || true
+            /usr/libexec/PlistBuddy -c "Delete :NSAppTransportSecurity" "$APP_PATH/Contents/Info.plist" || true
+            
+            # Self-sign with minimal identity to avoid corruption detection
+            codesign --force --deep --sign - --preserve-metadata=entitlements "$APP_PATH"
+            
+            echo "Bundle modifications complete"
           else
-            echo "Bundle directory not found, checking alternate locations..."
-            find src-tauri/target -name "*.app" -exec codesign --force --deep --sign - {} \;
+            echo "No .app bundle found"
           fi
