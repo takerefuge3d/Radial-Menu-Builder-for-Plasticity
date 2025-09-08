@@ -136,33 +136,35 @@ fn get_saved_radials_directory(app: tauri::AppHandle) -> Result<Option<String>, 
     }
 }
 
-// ---------- Dialog commands (blocking pickers; simple to call from JS) ----------
+// ---------- Dialog commands (ASYNC pickers to prevent macOS freezing) ----------
 #[tauri::command]
-fn pick_directory(app: tauri::AppHandle) -> Result<Option<String>, String> {
-    let picked = app.dialog().file().blocking_pick_folder();
+async fn pick_directory(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    let picked = app.dialog().file().pick_folder().await;
     Ok(picked.map(|p| p.to_string()))
 }
 
 #[tauri::command]
-fn pick_json_file(app: tauri::AppHandle) -> Result<Option<String>, String> {
+async fn pick_json_file(app: tauri::AppHandle) -> Result<Option<String>, String> {
     let picked = app
         .dialog()
         .file()
         .add_filter("JSON", &["json"])
         .set_title("Select a commands JSON")
-        .blocking_pick_file();
+        .pick_file()
+        .await;
     Ok(picked.map(|p| p.to_string()))
 }
 
 #[tauri::command]
-fn pick_save_json_path(app: tauri::AppHandle, suggested_name: Option<String>) -> Result<Option<String>, String> {
+async fn pick_save_json_path(app: tauri::AppHandle, suggested_name: Option<String>) -> Result<Option<String>, String> {
     let mut builder = app.dialog().file().add_filter("JSON", &["json"]);
     if let Some(name) = suggested_name {
         builder = builder.set_file_name(&name);
     }
     let picked = builder
         .set_title("Save radial menu as…")
-        .blocking_save_file();
+        .save_file()
+        .await;
     Ok(picked.map(|p| p.to_string()))
 }
 
