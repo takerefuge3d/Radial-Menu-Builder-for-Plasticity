@@ -3,11 +3,9 @@
   "identifier": "com.radial.builder",
   "productName": "Radial Menu Builder",
   "version": "0.1.0",
-
   "build": {
     "frontendDist": "../dist"
   },
-
   "app": {
     "security": {
       "capabilities": ["radial"]
@@ -21,7 +19,6 @@
       }
     ]
   },
-
   "bundle": {
     "active": true,
     "targets": "all",
@@ -29,9 +26,9 @@
       "digestAlgorithm": "sha256"
     },
     "macOS": {
-      "signingIdentity": null
+      "signingIdentity": null,
+      "entitlements": "app.entitlements"
     }
   },
-
   "plugins": {}
 }
