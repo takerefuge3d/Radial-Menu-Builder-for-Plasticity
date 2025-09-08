@@ -1,17 +1,42 @@
 {
   "$schema": "https://schema.tauri.app/v2/capabilities.json",
   "identifier": "radial",
-  "description": "Capabilities for Radial Menu Builder (dialog pickers + basic FS access).",
+  "description": "Capabilities for Radial Menu Builder (dialog pickers + scoped FS access).",
+  "windows": ["main"],
   "permissions": [
     "core:default",
-
     "dialog:default",
     "dialog:allow-open",
     "dialog:allow-save",
-
-    "fs:default",
-    "fs:allow-read-dir",
-    "fs:allow-read-file",
-    "fs:allow-write-file"
+    {
+      "identifier": "fs:allow-read-file",
+      "allow": [
+        {
+          "path": "$HOME/**"
+        },
+        {
+          "path": "$RESOURCE/**"
+        }
+      ]
+    },
+    {
+      "identifier": "fs:allow-write-file", 
+      "allow": [
+        {
+          "path": "$HOME/**"
+        }
+      ]
+    },
+    {
+      "identifier": "fs:allow-read-dir",
+      "allow": [
+        {
+          "path": "$HOME/**"
+        },
+        {
+          "path": "$RESOURCE/**"
+        }
+      ]
+    }
   ]
 }
