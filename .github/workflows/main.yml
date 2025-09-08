@@ -53,8 +53,7 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
-          
-      - name: Self-sign macOS app to prevent corruption detection
-        if: matrix.platform == 'macos-latest'
-        run: |
-          find src-tauri/target/release/bundle -name "*.app" -exec codesign --force --deep --sign - {} \;
+          postBuildScript: |
+            if [ "$RUNNER_OS" = "macOS" ]; then
+              find src-tauri/target/release/bundle -name "*.app" -exec codesign --force --deep --sign - {} \; || true
+            fi
