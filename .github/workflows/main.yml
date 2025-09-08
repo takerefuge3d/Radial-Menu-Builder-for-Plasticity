@@ -53,7 +53,17 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
-          postBuildScript: |
-            if [ "$RUNNER_OS" = "macOS" ]; then
-              find src-tauri/target/release/bundle -name "*.app" -exec codesign --force --deep --sign - {} \; || true
-            fi
+          
+      - name: Self-sign macOS app
+        if: matrix.platform == 'macos-latest'
+        run: |
+          echo "Looking for .app files..."
+          find . -name "*.app" -type d 2>/dev/null || echo "No .app files found"
+          echo "Directory structure:"
+          ls -la src-tauri/target/release/ || echo "Release directory not found"
+          if [ -d "src-tauri/target/release/bundle" ]; then
+            find src-tauri/target/release/bundle -name "*.app" -exec codesign --force --deep --sign - {} \;
+          else
+            echo "Bundle directory not found, checking alternate locations..."
+            find src-tauri/target -name "*.app" -exec codesign --force --deep --sign - {} \;
+          fi
