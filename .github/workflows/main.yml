@@ -104,7 +104,7 @@ jobs:
           
       - name: Upload installation guide
         if: matrix.platform == 'macos-latest'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: macos-installation-guide
           path: INSTALL-MACOS.md
