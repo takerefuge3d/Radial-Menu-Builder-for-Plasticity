@@ -364,8 +364,11 @@ body {
 function saveJsonFileWeb(data, suggestedName = 'menu.json') {
   return new Promise(async (resolve, reject) => {
     try {
-      // Check if File System Access API is available (modern browsers)
+      console.log('File System Access API available:', 'showSaveFilePicker' in window);
+      
+      // Check if File System Access API is available
       if ('showSaveFilePicker' in window) {
+        console.log('Attempting to use File System Access API...');
         try {
           const fileHandle = await window.showSaveFilePicker({
             suggestedName: suggestedName,
@@ -375,23 +378,25 @@ function saveJsonFileWeb(data, suggestedName = 'menu.json') {
             }]
           });
           
+          console.log('File picker succeeded, writing file...');
           const writable = await fileHandle.createWritable();
           const jsonString = JSON.stringify(data, null, 4);
           await writable.write(jsonString);
           await writable.close();
           
+          console.log('File saved successfully via File System Access API');
           resolve(suggestedName);
           return;
         } catch (error) {
-          // User cancelled or API failed, fall back to download
-          if (error.name === 'AbortError') {
-            resolve(null); // User cancelled
-            return;
-          }
+          console.log('File System Access API failed:', error.name, error.message);
+          // Fall through to download method
         }
+      } else {
+        console.log('File System Access API not available, using download method');
       }
       
-      // Fallback to download method (for older browsers or if API fails)
+      // Fallback to download method
+      console.log('Using download fallback method');
       const jsonString = JSON.stringify(data, null, 4);
       const blob = new Blob([jsonString], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -409,6 +414,7 @@ function saveJsonFileWeb(data, suggestedName = 'menu.json') {
       resolve(suggestedName);
       
     } catch (error) {
+      console.error('saveJsonFileWeb error:', error);
       reject(error);
     }
   });
