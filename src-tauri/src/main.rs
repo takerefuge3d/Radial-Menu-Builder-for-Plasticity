@@ -13,6 +13,50 @@ fn fmt_path(p: &Path) -> String {
     p.to_string_lossy().into_owned()
 }
 
+// ---------- macOS specific permissions ----------
+#[cfg(target_os = "macos")]
+fn ensure_file_access() -> Result<(), String> {
+    use std::process::Command;
+    
+    // Try to access a test directory to trigger permission request
+    let home_dir = std::env::var("HOME").unwrap_or_else(|_| "/Users".to_string());
+    let test_path = format!("{}/Documents", home_dir);
+    
+    // Attempt to read the directory - this should trigger macOS permission dialog
+    match std::fs::read_dir(&test_path) {
+        Ok(_) => {
+            println!("File access permissions already granted");
+            Ok(())
+        },
+        Err(e) => {
+            println!("File access not available, error: {}", e);
+            
+            // Try to trigger permission dialog via AppleScript
+            let script = r#"
+                tell application "System Events"
+                    display dialog "This app needs file system access to save and load radial menu files. Please grant permission in the next dialog." buttons {"OK"} default button "OK"
+                end tell
+            "#;
+            
+            let _ = Command::new("osascript")
+                .arg("-e")
+                .arg(script)
+                .output();
+                
+            // After showing the dialog, test access again
+            match std::fs::read_dir(&test_path) {
+                Ok(_) => Ok(()),
+                Err(_) => Err("File system access required. Please grant permission in System Settings > Privacy & Security > Files and Folders".to_string())
+            }
+        }
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn ensure_file_access() -> Result<(), String> {
+    Ok(())
+}
+
 // ---------- App data helpers ----------
 fn app_data_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     let base = app
@@ -33,6 +77,15 @@ fn radials_dir_marker_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 
 // ---------- JSON file helpers ----------
 fn read_json_file(path: &Path) -> Result<serde_json::Value, String> {
+    // Only try to ensure file access on macOS and only for user-selected files
+    #[cfg(target_os = "macos")]
+    {
+        // Only check permissions for files outside the app bundle
+        if !path.starts_with("/Applications") && !path.to_string_lossy().contains("_MEIPASS") {
+            ensure_file_access()?;
+        }
+    }
+    
     let data = fs::read_to_string(path)
         .map_err(|e| io_err(format!("read {} failed: {e}", fmt_path(path))))?;
     serde_json::from_str(&data)
@@ -40,6 +93,12 @@ fn read_json_file(path: &Path) -> Result<serde_json::Value, String> {
 }
 
 fn write_json_file(path: &Path, value: &serde_json::Value) -> Result<(), String> {
+    // Only try to ensure file access on macOS
+    #[cfg(target_os = "macos")]
+    {
+        ensure_file_access()?;
+    }
+    
     let pretty = serde_json::to_string_pretty(value)
         .map_err(|e| io_err(format!("serialize json failed: {e}")))?;
     if let Some(parent) = path.parent() {
@@ -88,6 +147,12 @@ fn load_commands_from_file(path: String) -> Result<serde_json::Value, String> {
 
 #[tauri::command]
 fn list_json_files(directory: String) -> Result<Vec<String>, String> {
+    // Only check permissions on macOS for user-selected directories
+    #[cfg(target_os = "macos")]
+    {
+        ensure_file_access()?;
+    }
+    
     let dir = PathBuf::from(&directory);
     if !dir.exists() {
         return Err(io_err(format!("directory {} does not exist", directory)));
@@ -139,12 +204,24 @@ fn get_saved_radials_directory(app: tauri::AppHandle) -> Result<Option<String>, 
 // ---------- Dialog commands (blocking but reliable) ----------
 #[tauri::command]
 fn pick_directory(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    // Request file access before showing dialog on macOS
+    #[cfg(target_os = "macos")]
+    {
+        ensure_file_access()?;
+    }
+    
     let picked = app.dialog().file().blocking_pick_folder();
     Ok(picked.map(|p| p.to_string()))
 }
 
 #[tauri::command]
 fn pick_json_file(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    // Request file access before showing dialog on macOS
+    #[cfg(target_os = "macos")]
+    {
+        ensure_file_access()?;
+    }
+    
     let picked = app
         .dialog()
         .file()
@@ -156,6 +233,12 @@ fn pick_json_file(app: tauri::AppHandle) -> Result<Option<String>, String> {
 
 #[tauri::command]
 fn pick_save_json_path(app: tauri::AppHandle, suggested_name: Option<String>) -> Result<Option<String>, String> {
+    // Request file access before showing dialog on macOS
+    #[cfg(target_os = "macos")]
+    {
+        ensure_file_access()?;
+    }
+    
     let mut builder = app.dialog().file().add_filter("JSON", &["json"]);
     if let Some(name) = suggested_name {
         builder = builder.set_file_name(&name);
