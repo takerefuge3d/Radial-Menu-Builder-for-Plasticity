@@ -361,7 +361,37 @@ body {
       });
     }
 
-    function saveJsonFileWeb(data, suggestedName = 'menu.json') {
+function saveJsonFileWeb(data, suggestedName = 'menu.json') {
+  return new Promise(async (resolve, reject) => {
+    try {
+      // Check if File System Access API is available (modern browsers)
+      if ('showSaveFilePicker' in window) {
+        try {
+          const fileHandle = await window.showSaveFilePicker({
+            suggestedName: suggestedName,
+            types: [{
+              description: 'JSON files',
+              accept: { 'application/json': ['.json'] }
+            }]
+          });
+          
+          const writable = await fileHandle.createWritable();
+          const jsonString = JSON.stringify(data, null, 4);
+          await writable.write(jsonString);
+          await writable.close();
+          
+          resolve(suggestedName);
+          return;
+        } catch (error) {
+          // User cancelled or API failed, fall back to download
+          if (error.name === 'AbortError') {
+            resolve(null); // User cancelled
+            return;
+          }
+        }
+      }
+      
+      // Fallback to download method (for older browsers or if API fails)
       const jsonString = JSON.stringify(data, null, 4);
       const blob = new Blob([jsonString], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -375,11 +405,14 @@ body {
       a.click();
       document.body.removeChild(a);
       
-      // Clean up the URL object
       setTimeout(() => URL.revokeObjectURL(url), 100);
+      resolve(suggestedName);
       
-      return Promise.resolve(suggestedName);
+    } catch (error) {
+      reject(error);
     }
+  });
+}
 
     // Web-based radial files loading
     async function loadRadialJsonFilesWeb(filenames, fileObjects) {
