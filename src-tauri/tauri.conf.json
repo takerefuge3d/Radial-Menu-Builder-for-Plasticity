@@ -34,7 +34,7 @@
       "digestAlgorithm": "sha256"
     },
     "macOS": {
-      "entitlements": null,
+      "entitlements": "app.entitlements",
       "signingIdentity": null,
       "hardenedRuntime": false
     }
