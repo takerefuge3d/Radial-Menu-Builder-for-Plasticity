@@ -3,6 +3,7 @@ on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    
 jobs:
   publish-tauri:
     permissions:
@@ -49,30 +50,61 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'Plasticity Radial Menu Builder v__VERSION__'
-          releaseBody: 'See the assets to download and install this version.'
+          releaseBody: |
+            Download and install this version.
+            
+            **macOS Users**: After downloading, right-click the app and select "Open" to bypass security warnings.
+            See the macOS installation guide in the release assets.
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
           
-      - name: Fix macOS bundle for proper quarantine behavior
+      - name: Create macOS installation guide
         if: matrix.platform == 'macos-latest'
         run: |
-          # Find the .app bundle
-          APP_PATH=$(find src-tauri/target -name "*.app" -type d | head -1)
-          if [ -n "$APP_PATH" ]; then
-            echo "Found app bundle: $APP_PATH"
-            
-            # Remove extended attributes that cause "damaged" dialog
-            xattr -cr "$APP_PATH"
-            
-            # Modify Info.plist to reduce security scrutiny
-            /usr/libexec/PlistBuddy -c "Set :LSUIElement false" "$APP_PATH/Contents/Info.plist" || true
-            /usr/libexec/PlistBuddy -c "Delete :NSAppTransportSecurity" "$APP_PATH/Contents/Info.plist" || true
-            
-            # Self-sign with minimal identity to avoid corruption detection
-            codesign --force --deep --sign - --preserve-metadata=entitlements "$APP_PATH"
-            
-            echo "Bundle modifications complete"
-          else
-            echo "No .app bundle found"
-          fi
+          cat > INSTALL-MACOS.md << 'EOF'
+          # macOS Installation Guide
+          
+          This app is unsigned but safe to use. Follow these steps:
+          
+          ## Installation Steps
+          1. Download the `.dmg` file from the release
+          2. Double-click to mount the DMG
+          3. Drag the app to your Applications folder
+          4. **Important**: Don't double-click to open the app yet
+          
+          ## First Launch
+          1. Go to Applications folder
+          2. **Right-click** on "Plasticity Radial Menu Builder"
+          3. Select "Open" from the context menu
+          4. Click "Open" when macOS warns about unsigned app
+          
+          ## File Access Permissions
+          When you first try to save/load files, macOS will ask for permissions:
+          1. Grant access when prompted
+          2. If no prompt appears, go to System Settings > Privacy & Security > Files and Folders
+          3. Enable access for "Plasticity Radial Menu Builder"
+          
+          ## Troubleshooting
+          - **"App is damaged"**: Try the terminal command below
+          - **Spinning wheel when saving**: Check file permissions in System Settings
+          - **Won't open at all**: Make sure you used right-click → Open
+          
+          ## Terminal Fix (if needed)
+          If the app shows "damaged" even after right-clicking:
+          ```bash
+          sudo xattr -r -d com.apple.quarantine "/Applications/Plasticity Radial Menu Builder.app"
+          ```
+          
+          ## What This App Does
+          - Creates radial menus for design software
+          - Saves/loads menu configurations as JSON files
+          - Requires file access to function properly
+          EOF
+          
+      - name: Upload installation guide
+        if: matrix.platform == 'macos-latest'
+        uses: actions/upload-artifact@v3
+        with:
+          name: macos-installation-guide
+          path: INSTALL-MACOS.md
