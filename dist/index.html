@@ -364,11 +364,9 @@ body {
 function saveJsonFileWeb(data, suggestedName = 'menu.json') {
   return new Promise(async (resolve, reject) => {
     try {
-      console.log('File System Access API available:', 'showSaveFilePicker' in window);
-      
       // Check if File System Access API is available
       if ('showSaveFilePicker' in window) {
-        console.log('Attempting to use File System Access API...');
+        showNotification('File System Access API detected. Opening save dialog...', 'success');
         try {
           const fileHandle = await window.showSaveFilePicker({
             suggestedName: suggestedName,
@@ -378,25 +376,25 @@ function saveJsonFileWeb(data, suggestedName = 'menu.json') {
             }]
           });
           
-          console.log('File picker succeeded, writing file...');
+          showNotification('Save dialog opened successfully. Writing file...', 'success');
           const writable = await fileHandle.createWritable();
           const jsonString = JSON.stringify(data, null, 4);
           await writable.write(jsonString);
           await writable.close();
           
-          console.log('File saved successfully via File System Access API');
+          showNotification('File saved successfully via save dialog!', 'success');
           resolve(suggestedName);
           return;
         } catch (error) {
-          console.log('File System Access API failed:', error.name, error.message);
+          showNotification(`Save dialog failed: ${error.name} - ${error.message}. Using download instead.`, 'warning');
           // Fall through to download method
         }
       } else {
-        console.log('File System Access API not available, using download method');
+        showNotification('File System Access API not available. Using download method.', 'warning');
       }
       
       // Fallback to download method
-      console.log('Using download fallback method');
+      showNotification('Downloading to Downloads folder...', 'warning');
       const jsonString = JSON.stringify(data, null, 4);
       const blob = new Blob([jsonString], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -414,7 +412,7 @@ function saveJsonFileWeb(data, suggestedName = 'menu.json') {
       resolve(suggestedName);
       
     } catch (error) {
-      console.error('saveJsonFileWeb error:', error);
+      showNotification(`Export error: ${error.message}`, 'error');
       reject(error);
     }
   });
