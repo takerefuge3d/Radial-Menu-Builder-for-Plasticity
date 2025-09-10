@@ -237,6 +237,9 @@ body {
       }
     }
 
+    // Platform detection
+    const isMacOS = window.navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+
     const appState = {
       commandIcons: {},
       menuData: { name: '', command: 'default-menu', items: [] },
@@ -257,7 +260,8 @@ body {
       highlightSocket: null,
       scaleFactor: 2.5,
       baseCanvasSize: 700,
-      savedRadialsDirectory: null
+      savedRadialsDirectory: null,
+      webSelectedFiles: []
     };
 
     const canvas = document.getElementById('previewCanvas');
@@ -276,6 +280,192 @@ body {
       trashNormal: '#BBBBBB',
       socketOutlineHighlight: '#ff3f7f'
     };
+
+    // Web-based file handling for macOS
+    function selectDirectoryWeb() {
+      return new Promise((resolve) => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.webkitdirectory = true;
+        input.style.display = 'none';
+        
+        input.onchange = (e) => {
+          const files = Array.from(e.target.files);
+          if (files.length > 0) {
+            // Get the directory path from the first file
+            const firstFile = files[0];
+            const pathParts = firstFile.webkitRelativePath.split('/');
+            pathParts.pop(); // Remove filename to get directory
+            const directoryPath = pathParts.join('/');
+            
+            // Filter for JSON files
+            const jsonFiles = files
+              .filter(file => file.name.endsWith('.json'))
+              .map(file => file.name);
+            
+            resolve({
+              directory: directoryPath,
+              files: jsonFiles,
+              fileObjects: files.filter(file => file.name.endsWith('.json'))
+            });
+          } else {
+            resolve(null);
+          }
+          document.body.removeChild(input);
+        };
+        
+        input.oncancel = () => {
+          resolve(null);
+          document.body.removeChild(input);
+        };
+        
+        document.body.appendChild(input);
+        input.click();
+      });
+    }
+
+    function selectJsonFileWeb() {
+      return new Promise((resolve) => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        input.style.display = 'none';
+        
+        input.onchange = (e) => {
+          const file = e.target.files[0];
+          if (file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              try {
+                const data = JSON.parse(e.target.result);
+                resolve({ path: file.name, data: data });
+              } catch (error) {
+                showNotification(`Error parsing JSON file: ${error.message}`, 'error');
+                resolve(null);
+              }
+            };
+            reader.readAsText(file);
+          } else {
+            resolve(null);
+          }
+          document.body.removeChild(input);
+        };
+        
+        input.oncancel = () => {
+          resolve(null);
+          document.body.removeChild(input);
+        };
+        
+        document.body.appendChild(input);
+        input.click();
+      });
+    }
+
+    function saveJsonFileWeb(data, suggestedName = 'menu.json') {
+      const jsonString = JSON.stringify(data, null, 4);
+      const blob = new Blob([jsonString], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = suggestedName;
+      a.style.display = 'none';
+      
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      
+      // Clean up the URL object
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+      
+      return Promise.resolve(suggestedName);
+    }
+
+    // Web-based radial files loading
+    async function loadRadialJsonFilesWeb(filenames, fileObjects) {
+      const loadedMenusList = document.getElementById('loadedMenusList');
+      loadedMenusList.innerHTML = '';
+      appState.loadedFiles = filenames.map(name => name);
+      appState.loadedMenuCommands = [];
+      appState.webSelectedFiles = fileObjects;
+
+      filenames.forEach((filename, index) => {
+        const item = document.createElement('div');
+        item.className = 'menu-item';
+        item.textContent = filename;
+        item.addEventListener('click', () => {
+          document.querySelectorAll('.menu-item').forEach((el) => el.classList.remove('selected'));
+          item.classList.add('selected');
+          loadSelectedMenuWeb(index);
+        });
+        loadedMenusList.appendChild(item);
+      });
+
+      // Process files to extract menu commands
+      for (const file of fileObjects) {
+        try {
+          const text = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = e => resolve(e.target.result);
+            reader.onerror = reject;
+            reader.readAsText(file);
+          });
+          
+          const menuData = JSON.parse(text);
+          if (menuData.command) {
+            const nestedCommand = `view:radial:${menuData.command}`;
+            if (!appState.loadedMenuCommands.includes(nestedCommand)) {
+              appState.loadedMenuCommands.unshift(nestedCommand);
+            }
+          }
+        } catch (error) {
+          console.warn(`Failed to load menu data from ${file.name}:`, error);
+        }
+      }
+
+      loadCommandsList();
+    }
+
+    // Web-based menu loading
+    async function loadSelectedMenuWeb(index) {
+      if (index < 0 || index >= appState.webSelectedFiles.length) return;
+      
+      try {
+        const file = appState.webSelectedFiles[index];
+        const text = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = e => resolve(e.target.result);
+          reader.onerror = reject;
+          reader.readAsText(file);
+        });
+        
+        const menuData = JSON.parse(text);
+
+        appState.menuData = menuData;
+        document.getElementById('menuNameInput').value = menuData.name;
+
+        appState.radialItems = menuData.items.map((item) => ({
+          command: item.command || '',
+          label: item.label || '',
+          icon: item.icon || 'default-icon',
+          x: 0,
+          y: 0
+        }));
+
+        const requiredSockets = Math.max(3, Math.min(12, appState.radialItems.length));
+        appState.numSockets = requiredSockets;
+        document.getElementById('socketsInput').value = appState.numSockets;
+
+        calculateSockets();
+        reassignItemsToSockets();
+        appState.menuData.items = appState.radialItems;
+        refreshPreview();
+        updateItemCounter();
+        showNotification(`Radial menu '${menuData.name}' loaded successfully!`);
+      } catch (error) {
+        showNotification(`Failed to load JSON file: ${error}`, 'error');
+      }
+    }
 
     async function loadSavedRadialsDirectory() {
       try {
@@ -775,6 +965,35 @@ body {
       showNotification('All items have been cleared from the radial menu.');
     }
 
+    // Hybrid directory selection
+    async function selectDirectory() {
+      if (isMacOS) {
+        try {
+          const result = await selectDirectoryWeb();
+          if (result) {
+            // Store files in memory for web-based access
+            appState.webSelectedFiles = result.fileObjects;
+            await loadRadialJsonFilesWeb(result.files, result.fileObjects);
+            showNotification(`Loaded ${result.files.length} file(s) from the directory.`);
+          }
+        } catch (error) {
+          showNotification(`Failed to select directory: ${error}`, 'error');
+        }
+      } else {
+        // Use existing Rust command for Windows/Linux
+        try {
+          const selected = await invokeCommand('pick_directory');
+          if (selected) {
+            await loadRadialJsonFiles(selected);
+            await saveRadialsDirectory(selected);
+          }
+        } catch (error) {
+          showNotification(`Failed to select directory: ${error}`, 'error');
+        }
+      }
+    }
+
+    // Hybrid export function
     async function exportJSON() {
       const menuNameEl = document.getElementById('menuNameInput');
       const menuName = menuNameEl ? menuNameEl.value.trim() : '';
@@ -801,20 +1020,81 @@ body {
         }))
       };
 
-      try {
-        const suggested = `${menuName.replace(/\s+/g, '-')}.json`;
-        const filePath = await invokeCommand('pick_save_json_path', { suggested_name: suggested });
-
-        if (!filePath) {
-          showNotification('Save cancelled.', 'warning');
-          return;
+      if (isMacOS) {
+        // Use web-based saving for macOS
+        try {
+          const suggested = `${menuName.replace(/\s+/g, '-')}.json`;
+          await saveJsonFileWeb(exportData, suggested);
+          showNotification(`Radial menu '${menuName}' saved successfully!`);
+          resetMenu();
+        } catch (error) {
+          showNotification(`Failed to save JSON file: ${error}`, 'error');
         }
+      } else {
+        // Use existing Rust command for Windows/Linux
+        try {
+          const suggested = `${menuName.replace(/\s+/g, '-')}.json`;
+          const filePath = await invokeCommand('pick_save_json_path', { suggested_name: suggested });
 
-        await invokeCommand('save_radial_menu', { menu: exportData, path: filePath });
-        showNotification(`Radial menu '${menuName}' saved successfully!`);
-        resetMenu();
-      } catch (error) {
-        showNotification(`Failed to save JSON file: ${error}`, 'error');
+          if (!filePath) {
+            showNotification('Save cancelled.', 'warning');
+            return;
+          }
+
+          await invokeCommand('save_radial_menu', { menu: exportData, path: filePath });
+          showNotification(`Radial menu '${menuName}' saved successfully!`);
+          resetMenu();
+        } catch (error) {
+          showNotification(`Failed to save JSON file: ${error}`, 'error');
+        }
+      }
+    }
+
+    // Hybrid JSON file loading
+    async function loadCustomDictionary() {
+      if (isMacOS) {
+        try {
+          const result = await selectJsonFileWeb();
+          if (result) {
+            const customCommands = result.data;
+            let overwriteCount = 0;
+            for (const [key, value] of Object.entries(customCommands)) {
+              if (Object.prototype.hasOwnProperty.call(appState.commandIcons, key)) overwriteCount++;
+              appState.commandIcons[key] = value;
+            }
+            loadCommandsList();
+            if (overwriteCount > 0) {
+              showNotification(`Custom dictionary loaded! Overwritten ${overwriteCount} commands.`, 'warning');
+            } else {
+              showNotification(`Custom dictionary loaded! Added ${Object.keys(customCommands).length} commands.`);
+            }
+          }
+        } catch (error) {
+          showNotification(`Failed to load custom dictionary: ${error}`, 'error');
+        }
+      } else {
+        // Use existing Rust command for Windows/Linux
+        try {
+          if (tauriAvailable) {
+            const selected = await invokeCommand('pick_json_file');
+            if (selected) {
+              const customCommands = await invokeCommand('load_commands_from_file', { path: selected });
+              let overwriteCount = 0;
+              for (const [key, value] of Object.entries(customCommands)) {
+                if (Object.prototype.hasOwnProperty.call(appState.commandIcons, key)) overwriteCount++;
+                appState.commandIcons[key] = value;
+              }
+              loadCommandsList();
+              if (overwriteCount > 0) {
+                showNotification(`Custom dictionary loaded! Overwritten ${overwriteCount} commands.`, 'warning');
+              } else {
+                showNotification(`Custom dictionary loaded! Added ${Object.keys(customCommands).length} commands.`);
+              }
+            }
+          }
+        } catch (error) {
+          showNotification(`Failed to load custom dictionary: ${error}`, 'error');
+        }
       }
     }
 
@@ -832,18 +1112,6 @@ body {
       document.getElementById('customLabelInput').value = '';
       updateItemCounter();
       showNotification('Radial menu has been reset.');
-    }
-
-    async function selectDirectory() {
-      try {
-        const selected = await invokeCommand('pick_directory');
-        if (selected) {
-          await loadRadialJsonFiles(selected);
-          await saveRadialsDirectory(selected);
-        }
-      } catch (error) {
-        showNotification(`Failed to select directory: ${error}`, 'error');
-      }
     }
 
     async function loadRadialJsonFiles(directory) {
@@ -911,32 +1179,6 @@ body {
         showNotification(`Radial menu '${menuData.name}' loaded successfully!`);
       } catch (error) {
         showNotification(`Failed to load JSON file: ${error}`, 'error');
-      }
-    }
-
-    async function loadCustomDictionary() {
-      try {
-        if (tauriAvailable) {
-          const selected = await invokeCommand('pick_json_file');
-          if (selected) {
-            const customCommands = await invokeCommand('load_commands_from_file', { path: selected });
-            let overwriteCount = 0;
-            for (const [key, value] of Object.entries(customCommands)) {
-              if (Object.prototype.hasOwnProperty.call(appState.commandIcons, key)) overwriteCount++;
-              appState.commandIcons[key] = value;
-            }
-            loadCommandsList();
-            if (overwriteCount > 0) {
-              showNotification(`Custom dictionary loaded! Overwritten ${overwriteCount} commands.`, 'warning');
-            } else {
-              showNotification(`Custom dictionary loaded! Added ${Object.keys(customCommands).length} commands.`);
-            }
-          }
-        } else {
-          showNotification('File selection not available in this environment.', 'error');
-        }
-      } catch (error) {
-        showNotification(`Failed to load custom dictionary: ${error}`, 'error');
       }
     }
 
