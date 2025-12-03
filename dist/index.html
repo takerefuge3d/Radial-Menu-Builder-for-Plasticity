@@ -361,62 +361,62 @@ body {
       });
     }
 
-function saveJsonFileWeb(data, suggestedName = 'menu.json') {
-  return new Promise(async (resolve, reject) => {
-    try {
-      // Check if File System Access API is available
-      if ('showSaveFilePicker' in window) {
-        showNotification('File System Access API detected. Opening save dialog...', 'success');
+    function saveJsonFileWeb(data, suggestedName = 'menu.json') {
+      return new Promise(async (resolve, reject) => {
         try {
-          const fileHandle = await window.showSaveFilePicker({
-            suggestedName: suggestedName,
-            types: [{
-              description: 'JSON files',
-              accept: { 'application/json': ['.json'] }
-            }]
-          });
+          // Check if File System Access API is available
+          if ('showSaveFilePicker' in window) {
+            showNotification('File System Access API detected. Opening save dialog...', 'success');
+            try {
+              const fileHandle = await window.showSaveFilePicker({
+                suggestedName: suggestedName,
+                types: [{
+                  description: 'JSON files',
+                  accept: { 'application/json': ['.json'] }
+                }]
+              });
+              
+              showNotification('Save dialog opened successfully. Writing file...', 'success');
+              const writable = await fileHandle.createWritable();
+              const jsonString = JSON.stringify(data, null, 4);
+              await writable.write(jsonString);
+              await writable.close();
+              
+              showNotification('File saved successfully via save dialog!', 'success');
+              resolve(suggestedName);
+              return;
+            } catch (error) {
+              showNotification(`Save dialog failed: ${error.name} - ${error.message}. Using download instead.`, 'warning');
+              // Fall through to download method
+            }
+          } else {
+            showNotification('File System Access API not available. Using download method.', 'warning');
+          }
           
-          showNotification('Save dialog opened successfully. Writing file...', 'success');
-          const writable = await fileHandle.createWritable();
+          // Fallback to download method
+          showNotification('Downloading to Downloads folder...', 'warning');
           const jsonString = JSON.stringify(data, null, 4);
-          await writable.write(jsonString);
-          await writable.close();
+          const blob = new Blob([jsonString], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
           
-          showNotification('File saved successfully via save dialog!', 'success');
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = suggestedName;
+          a.style.display = 'none';
+          
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          
+          setTimeout(() => URL.revokeObjectURL(url), 100);
           resolve(suggestedName);
-          return;
+          
         } catch (error) {
-          showNotification(`Save dialog failed: ${error.name} - ${error.message}. Using download instead.`, 'warning');
-          // Fall through to download method
+          showNotification(`Export error: ${error.message}`, 'error');
+          reject(error);
         }
-      } else {
-        showNotification('File System Access API not available. Using download method.', 'warning');
-      }
-      
-      // Fallback to download method
-      showNotification('Downloading to Downloads folder...', 'warning');
-      const jsonString = JSON.stringify(data, null, 4);
-      const blob = new Blob([jsonString], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = suggestedName;
-      a.style.display = 'none';
-      
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      
-      setTimeout(() => URL.revokeObjectURL(url), 100);
-      resolve(suggestedName);
-      
-    } catch (error) {
-      showNotification(`Export error: ${error.message}`, 'error');
-      reject(error);
+      });
     }
-  });
-}
 
     // Web-based radial files loading
     async function loadRadialJsonFilesWeb(filenames, fileObjects) {
@@ -1030,115 +1030,24 @@ function saveJsonFileWeb(data, suggestedName = 'menu.json') {
       }
     }
 
-    // Hybrid export function
-    async function exportJSON() {
-      const menuNameEl = document.getElementById('menuNameInput');
-      const menuName = menuNameEl ? menuNameEl.value.trim() : '';
-      if (!menuName) {
-        showNotification('Please provide a name for the radial menu.', 'error');
-        return;
-      }
-
-      const menuNameCommand = menuName.toLowerCase().replace(/\s+/g, '-');
-      appState.menuData.name = menuName;
-      appState.menuData.command = `default-menu:${menuNameCommand}`;
-
-      const sortedItems = appState.radialItems
-        .slice()
-        .sort((a, b) => getAngle(a) - getAngle(b));
-
-      const exportData = {
-        name: appState.menuData.name,
-        command: appState.menuData.command,
-        items: sortedItems.map((item) => ({
-          command: item.command,
-          icon: item.icon,
-          label: item.label
-        }))
-      };
-
-      if (isMacOS) {
-        // Use web-based saving for macOS
-        try {
-          const suggested = `${menuName.replace(/\s+/g, '-')}.json`;
-          await saveJsonFileWeb(exportData, suggested);
-          showNotification(`Radial menu '${menuName}' saved successfully!`);
-          resetMenu();
-        } catch (error) {
-          showNotification(`Failed to save JSON file: ${error}`, 'error');
-        }
-      } else {
-        // Use existing Rust command for Windows/Linux
-        try {
-          const suggested = `${menuName.replace(/\s+/g, '-')}.json`;
-          const filePath = await invokeCommand('pick_save_json_path', { suggested_name: suggested });
-
-          if (!filePath) {
-            showNotification('Save cancelled.', 'warning');
-            return;
-          }
-
-          await invokeCommand('save_radial_menu', { menu: exportData, path: filePath });
-          showNotification(`Radial menu '${menuName}' saved successfully!`);
-          resetMenu();
-        } catch (error) {
-          showNotification(`Failed to save JSON file: ${error}`, 'error');
-        }
-      }
-    }
-
-    // Hybrid JSON file loading
-    async function loadCustomDictionary() {
-      if (isMacOS) {
-        try {
-          const result = await selectJsonFileWeb();
-          if (result) {
-            const customCommands = result.data;
-            let overwriteCount = 0;
-            for (const [key, value] of Object.entries(customCommands)) {
-              if (Object.prototype.hasOwnProperty.call(appState.commandIcons, key)) overwriteCount++;
-              appState.commandIcons[key] = value;
-            }
-            loadCommandsList();
-            if (overwriteCount > 0) {
-              showNotification(`Custom dictionary loaded! Overwritten ${overwriteCount} commands.`, 'warning');
-            } else {
-              showNotification(`Custom dictionary loaded! Added ${Object.keys(customCommands).length} commands.`);
-            }
-          }
-        } catch (error) {
-          showNotification(`Failed to load custom dictionary: ${error}`, 'error');
-        }
-      } else {
-        // Use existing Rust command for Windows/Linux
-        try {
-          if (tauriAvailable) {
-            const selected = await invokeCommand('pick_json_file');
-            if (selected) {
-              const customCommands = await invokeCommand('load_commands_from_file', { path: selected });
-              let overwriteCount = 0;
-              for (const [key, value] of Object.entries(customCommands)) {
-                if (Object.prototype.hasOwnProperty.call(appState.commandIcons, key)) overwriteCount++;
-                appState.commandIcons[key] = value;
-              }
-              loadCommandsList();
-              if (overwriteCount > 0) {
-                showNotification(`Custom dictionary loaded! Overwritten ${overwriteCount} commands.`, 'warning');
-              } else {
-                showNotification(`Custom dictionary loaded! Added ${Object.keys(customCommands).length} commands.`);
-              }
-            }
-          }
-        } catch (error) {
-          showNotification(`Failed to load custom dictionary: ${error}`, 'error');
-        }
-      }
-    }
-
+    // Helper to order items by socket index (fixes 11/12 → 1/2 ordering bug)
     function getAngle(item) {
       const dx = item.x - appState.centerX;
       const dy = item.y - appState.centerY;
       return (Math.atan2(dy, dx) * 180) / Math.PI + 90;
+    }
+
+    function getItemsOrderedBySocket() {
+      const ordered = [];
+      appState.sockets.forEach((socket) => {
+        const item = appState.radialItems.find(
+          (it) =>
+            Math.abs(it.x - socket.x) < 1 &&
+            Math.abs(it.y - socket.y) < 1
+        );
+        if (item) ordered.push(item);
+      });
+      return ordered;
     }
 
     function resetMenu() {
@@ -1228,11 +1137,15 @@ function saveJsonFileWeb(data, suggestedName = 'menu.json') {
 
     function updateJsonPreview() {
       if (!appState.jsonPreviewVisible) return;
-      const sortedItems = appState.radialItems.slice().sort((a, b) => getAngle(a) - getAngle(b));
+      const orderedItems = getItemsOrderedBySocket();
       const exportData = {
         name: appState.menuData.name || '',
         command: appState.menuData.command || 'default-menu',
-        items: sortedItems.map((item) => ({ command: item.command, icon: item.icon, label: item.label }))
+        items: orderedItems.map((item) => ({
+          command: item.command,
+          icon: item.icon,
+          label: item.label
+        }))
       };
       const jsonContent = document.getElementById('jsonPreviewContent');
       jsonContent.textContent = JSON.stringify(exportData, null, 4);
@@ -1253,6 +1166,109 @@ function saveJsonFileWeb(data, suggestedName = 'menu.json') {
         notification.textContent = '';
         notification.className = 'notification';
       }, 4000);
+    }
+
+    // Hybrid export function (now uses ordered-by-socket items)
+    async function exportJSON() {
+      const menuNameEl = document.getElementById('menuNameInput');
+      const menuName = menuNameEl ? menuNameEl.value.trim() : '';
+      if (!menuName) {
+        showNotification('Please provide a name for the radial menu.', 'error');
+        return;
+      }
+
+      const menuNameCommand = menuName.toLowerCase().replace(/\s+/g, '-');
+      appState.menuData.name = menuName;
+      appState.menuData.command = `default-menu:${menuNameCommand}`;
+
+      const orderedItems = getItemsOrderedBySocket();
+
+      const exportData = {
+        name: appState.menuData.name,
+        command: appState.menuData.command,
+        items: orderedItems.map((item) => ({
+          command: item.command,
+          icon: item.icon,
+          label: item.label
+        }))
+      };
+
+      if (isMacOS) {
+        // Use web-based saving for macOS
+        try {
+          const suggested = `${menuName.replace(/\s+/g, '-')}.json`;
+          await saveJsonFileWeb(exportData, suggested);
+          showNotification(`Radial menu '${menuName}' saved successfully!`);
+          resetMenu();
+        } catch (error) {
+          showNotification(`Failed to save JSON file: ${error}`, 'error');
+        }
+      } else {
+        // Use existing Rust command for Windows/Linux
+        try {
+          const suggested = `${menuName.replace(/\s+/g, '-')}.json`;
+          const filePath = await invokeCommand('pick_save_json_path', { suggested_name: suggested });
+
+          if (!filePath) {
+            showNotification('Save cancelled.', 'warning');
+            return;
+          }
+
+          await invokeCommand('save_radial_menu', { menu: exportData, path: filePath });
+          showNotification(`Radial menu '${menuName}' saved successfully!`);
+          resetMenu();
+        } catch (error) {
+          showNotification(`Failed to save JSON file: ${error}`, 'error');
+        }
+      }
+    }
+
+    // Hybrid JSON file loading
+    async function loadCustomDictionary() {
+      if (isMacOS) {
+        try {
+          const result = await selectJsonFileWeb();
+          if (result) {
+            const customCommands = result.data;
+            let overwriteCount = 0;
+            for (const [key, value] of Object.entries(customCommands)) {
+              if (Object.prototype.hasOwnProperty.call(appState.commandIcons, key)) overwriteCount++;
+              appState.commandIcons[key] = value;
+            }
+            loadCommandsList();
+            if (overwriteCount > 0) {
+              showNotification(`Custom dictionary loaded! Overwritten ${overwriteCount} commands.`, 'warning');
+            } else {
+              showNotification(`Custom dictionary loaded! Added ${Object.keys(customCommands).length} commands.`);
+            }
+          }
+        } catch (error) {
+          showNotification(`Failed to load custom dictionary: ${error}`, 'error');
+        }
+      } else {
+        // Use existing Rust command for Windows/Linux
+        try {
+          if (tauriAvailable) {
+            const selected = await invokeCommand('pick_json_file');
+            if (selected) {
+              const customCommands = await invokeCommand('load_commands_from_file', { path: selected });
+              let overwriteCount = 0;
+              for (const [key, value] of Object.entries(customCommands)) {
+                if (Object.prototype.hasOwnProperty.call(appState.commandIcons, key)) overwriteCount++;
+                appState.commandIcons[key] = value;
+              }
+              loadCommandsList();
+              if (overwriteCount > 0) {
+                showNotification(`Custom dictionary loaded! Overwritten ${overwriteCount} commands.`, 'warning');
+              } else {
+                showNotification(`Custom dictionary loaded! Added ${Object.keys(customCommands).length} commands.`);
+              }
+            }
+          }
+        } catch (error) {
+          showNotification(`Failed to load custom dictionary: ${error}`, 'error');
+        }
+      }
     }
 
     function setupEventListeners() {
