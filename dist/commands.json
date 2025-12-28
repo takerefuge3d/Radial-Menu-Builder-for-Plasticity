@@ -42,6 +42,7 @@
   "command:export-sat": "export-sat",
   "command:export-step": "export-step",
   "command:export-stl": "export-stl",
+  "command:export-svg": "export-svg",
   "command:extend": "extend",
   "command:extrude": "extrude",
   "command:fillet": "fillet",
@@ -135,7 +136,6 @@
   "command:untrim": "untrim",
   "command:unwrap-face": "unwrap-face",
   "command:xnurbs": "xnurbs",
-
   "file:export": "export",
   "file:import": "import",
   "file:new": "new",
@@ -145,13 +145,11 @@
   "file:save-as": "save-as",
   "file:save-as-startup": "save-as-startup",
   "file:save-version": "save-version",
-
   "selection:convert:controlpoints": "convert-controlpoints",
   "selection:convert:edges": "convert-edges",
   "selection:convert:faces": "convert-faces",
   "selection:convert:groups": "convert-groups",
   "selection:convert:solids": "convert-solids",
-
   "selection:mode:set:all": "mode-set-all",
   "selection:mode:set:control-point": "mode-set-control-point",
   "selection:mode:set:edge": "mode-set-edge",
@@ -162,21 +160,17 @@
   "selection:mode:set:set-face": "mode-set-set-face",
   "selection:mode:set:set-solid": "mode-set-set-solid",
   "selection:mode:set:solid": "mode-set-solid",
-
   "selection:toggle:control-point": "toggle-control-point",
   "selection:toggle:controlpoint": "toggle-controlpoint",
   "selection:toggle:edge": "toggle-edge",
   "selection:toggle:face": "toggle-face",
   "selection:toggle:solid": "toggle-solid",
-
   "snaps:toggle-grid": "toggle-grid",
   "snaps:toggle-snaps": "toggle-snaps",
-
   "view:radial:selection:mode": "radial-selection-mode",
   "view:radial:viewport:settings": "radial-viewport-settings",
   "view:sidebar:toggle-left": "sidebar-toggle-left",
   "view:sidebar:toggle-right": "sidebar-toggle-right",
-
   "viewport:cplane:selection": "cplane-selection",
   "viewport:focus": "focus",
   "viewport:grid:decr": "grid-decrease",
