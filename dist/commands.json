@@ -83,7 +83,7 @@
   "command:pipe": "pipe",
   "command:place": "place",
   "command:polygon": "polygon",
-  "command:polysplines": "polysplines",
+  "command:PolySplines": "PolySplines",
   "command:project": "project",
   "command:publish-to-plasticity-share": "publish-to-plasticity-share",
   "command:push-face": "push-face",
