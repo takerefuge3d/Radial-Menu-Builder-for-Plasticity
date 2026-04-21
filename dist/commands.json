@@ -84,6 +84,7 @@
   "command:place": "place",
   "command:polygon": "polygon",
   "command:PolySplines": "PolySplines",
+  "command:PolySpline": "PolySpline",
   "command:project": "project",
   "command:publish-to-plasticity-share": "publish-to-plasticity-share",
   "command:push-face": "push-face",
