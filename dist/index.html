@@ -129,7 +129,7 @@ body {
           <canvas class="canvas" id="previewCanvas" width="530" height="530"></canvas>
         </div>
         <div class="instructions">
-          Click to select items. Drag to move. Mouse wheel to adjust sockets.
+          Click a wedge to select. Mouse wheel to adjust sockets.
           <br /><strong>Double Click or Right Click An Available Command to Add</strong>
         </div>
       </div>
@@ -188,56 +188,33 @@ body {
   <script>
     let tauriAvailable = false;
 
-    // Fixed Tauri v2 API initialization
     function initTauriAPI() {
       try {
-        // Check for Tauri v2 internals API
         if (window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.invoke) {
           tauriAvailable = true;
-          console.log("Tauri v2 API initialized");
           return true;
         }
-        
-        // Fallback check for __TAURI__ object (less reliable in v2)
         if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
           tauriAvailable = true;
-          console.log("Tauri v2 core API initialized (fallback)");
           return true;
         }
-        
-        console.log("No Tauri API detected - running in browser mode");
         return false;
       } catch (err) {
-        console.warn("Tauri API init error:", err);
         return false;
       }
     }
 
-    // Direct invoke function for Tauri v2
     async function invokeCommand(command, args = {}) {
-      if (!tauriAvailable) {
-        throw new Error("Tauri not available");
+      if (!tauriAvailable) throw new Error("Tauri not available");
+      if (window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.invoke) {
+        return await window.__TAURI_INTERNALS__.invoke(command, args);
       }
-      
-      try {
-        // Try the main Tauri v2 API first
-        if (window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.invoke) {
-          return await window.__TAURI_INTERNALS__.invoke(command, args);
-        }
-        
-        // Fallback to core API if available
-        if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
-          return await window.__TAURI__.core.invoke(command, args);
-        }
-        
-        throw new Error("No invoke method available");
-      } catch (error) {
-        console.error(`Command ${command} failed:`, error);
-        throw error;
+      if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
+        return await window.__TAURI__.core.invoke(command, args);
       }
+      throw new Error("No invoke method available");
     }
 
-    // Platform detection
     const isMacOS = window.navigator.platform.toUpperCase().indexOf('MAC') >= 0;
 
     const appState = {
@@ -281,44 +258,85 @@ body {
       socketOutlineHighlight: '#ff3f7f'
     };
 
-    // Web-based file handling for macOS
+    // ─── PIE WEDGE HELPERS ───────────────────────────────────────
+    function polarToCartesian(cx, cy, r, angleDeg) {
+      const rad = ((angleDeg - 90) * Math.PI) / 180;
+      return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+    }
+
+    // Draws a donut slice with constant-pixel-width gaps (not tapered).
+    // The gap is applied as a pixel-constant offset at both inner and outer arcs,
+    // so the separator lines between wedges stay visually parallel.
+    function drawWedge(cx, cy, outerR, innerR, startAngle, endAngle, fillColor, strokeColor, strokeW = 1) {
+      const gapPixels = 4; // constant-width gap between wedges in pixels
+
+      const outerPadDeg = (gapPixels / outerR) * (180 / Math.PI);
+      const innerPadDeg = (gapPixels / innerR) * (180 / Math.PI);
+
+      const outerStart = ((startAngle + outerPadDeg - 90) * Math.PI) / 180;
+      const outerEnd   = ((endAngle   - outerPadDeg - 90) * Math.PI) / 180;
+      const innerStart = ((startAngle + innerPadDeg - 90) * Math.PI) / 180;
+      const innerEnd   = ((endAngle   - innerPadDeg - 90) * Math.PI) / 180;
+
+      ctx.beginPath();
+      ctx.arc(cx, cy, outerR, outerStart, outerEnd);
+      ctx.arc(cx, cy, innerR, innerEnd, innerStart, true);
+      ctx.closePath();
+
+      ctx.fillStyle = fillColor;
+      ctx.fill();
+      ctx.strokeStyle = strokeColor;
+      ctx.lineWidth = strokeW;
+      ctx.stroke();
+    }
+
+    function getWedgeAtPoint(x, y) {
+      const dx = x - appState.centerX;
+      const dy = y - appState.centerY;
+      const dist = Math.hypot(dx, dy);
+
+      const outerR = appState.radius + 40;
+      const innerR = 60;
+      if (dist < innerR || dist > outerR) return -1;
+
+      let angle = (Math.atan2(dy, dx) * 180) / Math.PI + 90;
+      if (angle < 0) angle += 360;
+
+      const anglePerWedge = 360 / appState.numSockets;
+      const offset = anglePerWedge / 2;
+      let adjusted = angle + offset;
+      if (adjusted >= 360) adjusted -= 360;
+
+      return Math.floor(adjusted / anglePerWedge);
+    }
+
+    // ─── WEB-BASED FILE HANDLING (macOS) ─────────────────────────
     function selectDirectoryWeb() {
       return new Promise((resolve) => {
         const input = document.createElement('input');
         input.type = 'file';
         input.webkitdirectory = true;
         input.style.display = 'none';
-        
+
         input.onchange = (e) => {
           const files = Array.from(e.target.files);
           if (files.length > 0) {
-            // Get the directory path from the first file
             const firstFile = files[0];
             const pathParts = firstFile.webkitRelativePath.split('/');
-            pathParts.pop(); // Remove filename to get directory
+            pathParts.pop();
             const directoryPath = pathParts.join('/');
-            
-            // Filter for JSON files
-            const jsonFiles = files
-              .filter(file => file.name.endsWith('.json'))
-              .map(file => file.name);
-            
+            const jsonFiles = files.filter(f => f.name.endsWith('.json')).map(f => f.name);
             resolve({
               directory: directoryPath,
               files: jsonFiles,
-              fileObjects: files.filter(file => file.name.endsWith('.json'))
+              fileObjects: files.filter(f => f.name.endsWith('.json'))
             });
           } else {
             resolve(null);
           }
           document.body.removeChild(input);
         };
-        
-        input.oncancel = () => {
-          resolve(null);
-          document.body.removeChild(input);
-        };
-        
+        input.oncancel = () => { resolve(null); document.body.removeChild(input); };
         document.body.appendChild(input);
         input.click();
       });
@@ -327,10 +345,7 @@ body {
     function selectJsonFileWeb() {
       return new Promise((resolve) => {
         const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = '.json';
-        input.style.display = 'none';
-        
+        input.type = 'file'; input.accept = '.json'; input.style.display = 'none';
         input.onchange = (e) => {
           const file = e.target.files[0];
           if (file) {
@@ -345,17 +360,10 @@ body {
               }
             };
             reader.readAsText(file);
-          } else {
-            resolve(null);
-          }
+          } else { resolve(null); }
           document.body.removeChild(input);
         };
-        
-        input.oncancel = () => {
-          resolve(null);
-          document.body.removeChild(input);
-        };
-        
+        input.oncancel = () => { resolve(null); document.body.removeChild(input); };
         document.body.appendChild(input);
         input.click();
       });
@@ -364,61 +372,34 @@ body {
     function saveJsonFileWeb(data, suggestedName = 'menu.json') {
       return new Promise(async (resolve, reject) => {
         try {
-          // Check if File System Access API is available
           if ('showSaveFilePicker' in window) {
-            showNotification('File System Access API detected. Opening save dialog...', 'success');
             try {
               const fileHandle = await window.showSaveFilePicker({
                 suggestedName: suggestedName,
-                types: [{
-                  description: 'JSON files',
-                  accept: { 'application/json': ['.json'] }
-                }]
+                types: [{ description: 'JSON files', accept: { 'application/json': ['.json'] } }]
               });
-              
-              showNotification('Save dialog opened successfully. Writing file...', 'success');
               const writable = await fileHandle.createWritable();
-              const jsonString = JSON.stringify(data, null, 4);
-              await writable.write(jsonString);
+              await writable.write(JSON.stringify(data, null, 4));
               await writable.close();
-              
-              showNotification('File saved successfully via save dialog!', 'success');
               resolve(suggestedName);
               return;
             } catch (error) {
-              showNotification(`Save dialog failed: ${error.name} - ${error.message}. Using download instead.`, 'warning');
-              // Fall through to download method
+              showNotification(`Save dialog failed. Using download instead.`, 'warning');
             }
-          } else {
-            showNotification('File System Access API not available. Using download method.', 'warning');
           }
-          
-          // Fallback to download method
-          showNotification('Downloading to Downloads folder...', 'warning');
-          const jsonString = JSON.stringify(data, null, 4);
-          const blob = new Blob([jsonString], { type: 'application/json' });
+          const blob = new Blob([JSON.stringify(data, null, 4)], { type: 'application/json' });
           const url = URL.createObjectURL(blob);
-          
           const a = document.createElement('a');
-          a.href = url;
-          a.download = suggestedName;
-          a.style.display = 'none';
-          
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          
+          a.href = url; a.download = suggestedName; a.style.display = 'none';
+          document.body.appendChild(a); a.click(); document.body.removeChild(a);
           setTimeout(() => URL.revokeObjectURL(url), 100);
           resolve(suggestedName);
-          
         } catch (error) {
-          showNotification(`Export error: ${error.message}`, 'error');
           reject(error);
         }
       });
     }
 
-    // Web-based radial files loading
     async function loadRadialJsonFilesWeb(filenames, fileObjects) {
       const loadedMenusList = document.getElementById('loadedMenusList');
       loadedMenusList.innerHTML = '';
@@ -438,7 +419,6 @@ body {
         loadedMenusList.appendChild(item);
       });
 
-      // Process files to extract menu commands
       for (const file of fileObjects) {
         try {
           const text = await new Promise((resolve, reject) => {
@@ -447,7 +427,6 @@ body {
             reader.onerror = reject;
             reader.readAsText(file);
           });
-          
           const menuData = JSON.parse(text);
           if (menuData.command) {
             const nestedCommand = `view:radial:${menuData.command}`;
@@ -455,18 +434,13 @@ body {
               appState.loadedMenuCommands.unshift(nestedCommand);
             }
           }
-        } catch (error) {
-          console.warn(`Failed to load menu data from ${file.name}:`, error);
-        }
+        } catch (error) {}
       }
-
       loadCommandsList();
     }
 
-    // Web-based menu loading
     async function loadSelectedMenuWeb(index) {
       if (index < 0 || index >= appState.webSelectedFiles.length) return;
-      
       try {
         const file = appState.webSelectedFiles[index];
         const text = await new Promise((resolve, reject) => {
@@ -475,29 +449,19 @@ body {
           reader.onerror = reject;
           reader.readAsText(file);
         });
-        
         const menuData = JSON.parse(text);
-
         appState.menuData = menuData;
         document.getElementById('menuNameInput').value = menuData.name;
-
         appState.radialItems = menuData.items.map((item) => ({
-          command: item.command || '',
-          label: item.label || '',
-          icon: item.icon || 'default-icon',
-          x: 0,
-          y: 0
+          command: item.command || '', label: item.label || '',
+          icon: item.icon || 'default-icon', x: 0, y: 0
         }));
-
         const requiredSockets = Math.max(3, Math.min(12, appState.radialItems.length));
         appState.numSockets = requiredSockets;
         document.getElementById('socketsInput').value = appState.numSockets;
-
-        calculateSockets();
-        reassignItemsToSockets();
+        calculateSockets(); reassignItemsToSockets();
         appState.menuData.items = appState.radialItems;
-        refreshPreview();
-        updateItemCounter();
+        refreshPreview(); updateItemCounter();
         showNotification(`Radial menu '${menuData.name}' loaded successfully!`);
       } catch (error) {
         showNotification(`Failed to load JSON file: ${error}`, 'error');
@@ -510,13 +474,9 @@ body {
           const savedPath = await invokeCommand('get_saved_radials_directory');
           if (savedPath) {
             appState.savedRadialsDirectory = savedPath;
-            showNotification(`Loaded saved directory: ${savedPath.split(/[/\\]/).pop()}`, 'success');
           }
         }
-      } catch (error) {
-        console.error('Error loading saved radials directory:', error);
-        showNotification(`Error loading saved directory: ${error}`, 'warning');
-      }
+      } catch (error) {}
     }
 
     async function saveRadialsDirectory(directoryPath) {
@@ -525,10 +485,8 @@ body {
           await invokeCommand('save_radials_directory', { path: directoryPath });
           appState.savedRadialsDirectory = directoryPath;
           updateDirectoryDisplay();
-          showNotification(`Saved directory: ${directoryPath.split(/[/\\]/).pop()}`, 'success');
         }
       } catch (error) {
-        console.error('Failed to save radials directory:', error);
         showNotification(`Failed to save directory: ${error}`, 'error');
       }
     }
@@ -549,28 +507,21 @@ body {
     function resizeCanvas() {
       const canvasContainer = document.querySelector('.canvas-container');
       const containerRect = canvasContainer.getBoundingClientRect();
-
       const availableWidth = containerRect.width - 40;
       const availableHeight = containerRect.height - 80;
-
       const scaleX = availableWidth / appState.baseCanvasSize;
       const scaleY = availableHeight / appState.baseCanvasSize;
       appState.scaleFactor = Math.min(scaleX, scaleY, 1);
-
       const displaySize = appState.baseCanvasSize * appState.scaleFactor;
       canvas.style.width = displaySize + 'px';
       canvas.style.height = displaySize + 'px';
-
       const dpr = window.devicePixelRatio || 1;
       canvas.width = appState.baseCanvasSize * dpr;
       canvas.height = appState.baseCanvasSize * dpr;
-
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
       appState.centerX = appState.baseCanvasSize / 2;
       appState.centerY = appState.baseCanvasSize / 2;
-
       calculateSockets();
       refreshPreview();
     }
@@ -585,7 +536,6 @@ body {
     async function initApp() {
       try {
         const apiAvailable = initTauriAPI();
-
         if (apiAvailable) {
           try { await loadSavedRadialsDirectory(); } catch {}
           try {
@@ -597,40 +547,32 @@ body {
               showNotification('Application initialized successfully!');
             }
           } catch (error) {
-            console.error('Failed to load commands via backend:', error);
             showNotification(`Failed to load commands: ${error}`, 'error');
             appState.commandIcons = {};
           }
         } else {
-          // Pure-HTML fallback (when not running inside Tauri)
           try {
             const response = await fetch('./commands.json');
             if (response.ok) {
               appState.commandIcons = await response.json();
               showNotification('Commands loaded (frontend mode)', 'warning');
-            } else {
-              throw new Error('Failed to fetch commands.json');
-            }
+            } else { throw new Error('Failed to fetch commands.json'); }
           } catch (error) {
-            console.error('Failed to load commands via fetch:', error);
             showNotification('Backend unavailable and no commands.json accessible', 'error');
             appState.commandIcons = {};
           }
         }
-
         resizeCanvas();
         loadCommandsList();
         refreshPreview();
         setupEventListeners();
         updateItemCounter();
         updateDirectoryDisplay();
-
         if (apiAvailable && appState.savedRadialsDirectory) {
           await loadRadialJsonFiles(appState.savedRadialsDirectory);
         }
       } catch (error) {
         console.error('Critical error in initApp:', error);
-        console.error('Error stack:', error.stack);
       }
     }
 
@@ -670,8 +612,7 @@ body {
       commandsList.innerHTML = '';
 
       const filteredLoadedCommands = appState.loadedMenuCommands
-        .filter((cmd) => cmd.toLowerCase().includes(filter.toLowerCase()))
-        .sort();
+        .filter((cmd) => cmd.toLowerCase().includes(filter.toLowerCase())).sort();
 
       filteredLoadedCommands.forEach((command) => {
         const item = document.createElement('div');
@@ -680,7 +621,6 @@ body {
         item.dataset.command = command;
         item.title = 'Nested Radial Menu';
         item.draggable = true;
-
         item.addEventListener('dragstart', (e) => {
           e.dataTransfer.setData('text/plain', command);
           e.dataTransfer.effectAllowed = 'copy';
@@ -693,7 +633,6 @@ body {
         });
         item.addEventListener('dblclick', () => addMenuItemFromCommand(command));
         item.addEventListener('contextmenu', (e) => { e.preventDefault(); addMenuItemFromCommand(command); });
-
         commandsList.appendChild(item);
       });
 
@@ -705,8 +644,7 @@ body {
       }
 
       const commands = Object.keys(appState.commandIcons)
-        .filter((cmd) => cmd.toLowerCase().includes(filter.toLowerCase()))
-        .sort();
+        .filter((cmd) => cmd.toLowerCase().includes(filter.toLowerCase())).sort();
 
       commands.forEach((command) => {
         const item = document.createElement('div');
@@ -714,7 +652,6 @@ body {
         item.textContent = command;
         item.dataset.command = command;
         item.draggable = true;
-
         item.addEventListener('dragstart', (e) => {
           e.dataTransfer.setData('text/plain', command);
           e.dataTransfer.effectAllowed = 'copy';
@@ -727,7 +664,6 @@ body {
         });
         item.addEventListener('dblclick', () => addMenuItemFromCommand(command));
         item.addEventListener('contextmenu', (e) => { e.preventDefault(); addMenuItemFromCommand(command); });
-
         commandsList.appendChild(item);
       });
 
@@ -766,15 +702,12 @@ body {
         showNotification('Invalid socket target.', 'error');
         return;
       }
-
       const socket = appState.sockets[socketIndex];
       const label = makeLabelFromCommand(command);
       const icon = appState.commandIcons[command] || 'default-icon';
-
       const occupant = appState.radialItems.find(
         (it) => Math.abs(it.x - socket.x) < 1 && Math.abs(it.y - socket.y) < 1
       );
-
       if (occupant) {
         const empty = findFirstEmptySocket();
         if (empty) { occupant.x = empty.x; occupant.y = empty.y; }
@@ -783,108 +716,222 @@ body {
           if (idx > -1) appState.radialItems.splice(idx, 1);
         }
       }
-
       const newItem = { command, label, icon, x: socket.x, y: socket.y };
       appState.radialItems.push(newItem);
       appState.menuData.items = appState.radialItems;
-
       appState.selectedItem = newItem;
       refreshPreview();
       updateItemCounter();
       showNotification(`Assigned '${label}' to socket ${socketIndex + 1}.`);
     }
 
+    // ─── PIE-WEDGE REFRESH PREVIEW ────────────────────────────────
     function refreshPreview() {
       if (!canvas || !ctx) return;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+      const outerR = appState.radius + 40;
+      const innerR = 60;
+      const anglePerWedge = 360 / appState.numSockets;
+
+      // ─── BACKGROUND DEPTH LAYERS ───────────────────────────────
+      ctx.beginPath();
+      ctx.arc(appState.centerX, appState.centerY, outerR + 28, 0, Math.PI * 2);
+      ctx.fillStyle = '#0d0d0d';
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(appState.centerX, appState.centerY, outerR + 14, 0, Math.PI * 2);
+      ctx.fillStyle = '#161616';
+      ctx.fill();
+      ctx.strokeStyle = '#2a2a2a';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(appState.centerX, appState.centerY, outerR + 2, 0, Math.PI * 2);
+      ctx.fillStyle = '#0a0a0a';
+      ctx.fill();
+
+      // Draw each wedge with constant-pixel-width gaps
       appState.sockets.forEach((socket, index) => {
-        const occupied = appState.radialItems.some(
+        const startAngle = index * anglePerWedge - anglePerWedge / 2;
+        const endAngle = startAngle + anglePerWedge;
+
+        const occupant = appState.radialItems.find(
           (item) => Math.abs(item.x - socket.x) < 1 && Math.abs(item.y - socket.y) < 1
         );
 
-        const socketColor = occupied ? colors.socketFillOccupied : colors.socketFillUnassigned;
-        let socketOutline = occupied ? colors.socketOutlineOccupied : colors.socketOutlineUnassigned;
-        let lineW = 2;
+        const isSelected = occupant && occupant === appState.selectedItem;
+        const isHighlight = appState.highlightSocket === index;
 
-        if (appState.highlightSocket === index) {
-          socketOutline = colors.socketOutlineHighlight; lineW = 3;
+        let fillColor = occupant ? colors.socketFillOccupied : colors.socketFillUnassigned;
+        let strokeColor = occupant ? colors.socketOutlineOccupied : colors.socketOutlineUnassigned;
+        let strokeW = 1;
+
+        if (isSelected) {
+          fillColor = '#ff6b9f';   // lighter pink fill for selected
+          strokeColor = '#ffffff'; // white border for extra pop
+          strokeW = 3;
         }
+        if (isHighlight) {
+          // Pulsing white highlight for drop target
+          const pulse = Math.abs(Math.sin(Date.now() / 200)); // 0 to 1 oscillation
+          const gray = Math.floor(60 + pulse * 60);            // 200 to 255
+          fillColor = `rgb(${gray}, ${gray}, ${gray})`;
+          strokeColor = '#ffffff';
+          strokeW = 4;
+        }
+        if (isHighlight) { strokeColor = colors.socketOutlineHighlight; strokeW = 3; }
 
-        ctx.beginPath(); ctx.arc(socket.x, socket.y, 20, 0, Math.PI * 2);
-        ctx.fillStyle = socketColor; ctx.fill();
-        ctx.strokeStyle = socketOutline; ctx.lineWidth = lineW; ctx.stroke();
+        drawWedge(
+          appState.centerX, appState.centerY,
+          outerR, innerR,
+          startAngle, endAngle,
+          fillColor, strokeColor, strokeW
+        );
 
-        ctx.fillStyle = colors.labelFg; ctx.font = '15px Arial'; ctx.textAlign = 'center';
-        ctx.fillText(index + 1, socket.x, socket.y - 30);
+        const labelAngle = index * anglePerWedge;
+        const labelPos = polarToCartesian(
+          appState.centerX, appState.centerY,
+          (outerR + innerR) / 2,
+          labelAngle
+        );
+
+        const numPos = polarToCartesian(
+          appState.centerX, appState.centerY,
+          outerR - 14,
+          labelAngle
+        );
+        ctx.fillStyle = colors.labelFg;
+        ctx.font = '11px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(index + 1, numPos.x, numPos.y);
+
+        if (occupant) {
+          ctx.fillStyle = colors.labelFg;
+          ctx.font = 'bold 12px Arial';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(occupant.label, labelPos.x, labelPos.y);
+
+          if (occupant.command.startsWith('view:radial:')) {
+            ctx.fillStyle = colors.nestedMenuColor;
+            ctx.font = 'italic 9px Arial';
+            ctx.fillText('(Nested)', labelPos.x, labelPos.y + 14);
+          }
+        }
       });
 
-      appState.radialItems.forEach((item) => {
-        const isSelected = item === appState.selectedItem;
-        const outlineColor = isSelected ? colors.socketOutlineOccupied : colors.itemOutline;
-        const outlineWidth = isSelected ? 3 : 1;
-
-        ctx.beginPath(); ctx.arc(item.x, item.y, 20, 0, Math.PI * 2);
-        ctx.fillStyle = colors.itemFill; ctx.fill();
-        ctx.strokeStyle = outlineColor; ctx.lineWidth = outlineWidth; ctx.stroke();
-
-        ctx.fillStyle = colors.labelFg; ctx.font = 'bold 12px Arial'; ctx.textAlign = 'center';
-        ctx.fillText(item.label, item.x, item.y - 10);
-
-        if (item.command.startsWith('view:radial:')) {
-          ctx.fillStyle = colors.nestedMenuColor; ctx.font = 'italic 10px Arial';
-          ctx.fillText('Nested Menu', item.x, item.y + 35);
-        }
-      });
-
+      // Inner hub
+      // Inner hub
+      ctx.beginPath();
+      ctx.arc(appState.centerX, appState.centerY, innerR, 0, Math.PI * 2);
+      ctx.fillStyle = '#1a1a1a';       // slightly lighter than background
+      ctx.fill();
+      ctx.strokeStyle = '#ff3f7f';     // pink accent border
+      ctx.lineWidth = 2;                // thicker border for emphasis
+      ctx.stroke();
       if (appState.isDragging && appState.draggedItem) drawTrashCan();
       updateJsonPreview();
     }
 
     function drawTrashCan() {
-      const trashX = appState.centerX, trashY = appState.centerY, trashSize = 32;
-      const highlight =
-        appState.draggedItem &&
+      const trashX = appState.centerX, trashY = appState.centerY;
+      const trashSize = 32;
+      const highlight = appState.draggedItem &&
         Math.abs(appState.draggedItem.x - trashX) <= trashSize &&
         Math.abs(appState.draggedItem.y - trashY) <= trashSize;
 
-      const fillColor = highlight ? '#3A3A3A' : '#232323';
-      const outlineColor = highlight ? colors.trashHighlight : colors.trashNormal;
+      // Icon turns red and scales up slightly on hover
+      const iconColor = highlight ? '#ff3333' : '#ffffff';
+      const iconSize = highlight ? 1.15 : 1;
 
-      ctx.fillStyle = fillColor;
-      ctx.fillRect(trashX - trashSize, trashY - trashSize, trashSize * 2, trashSize * 2);
-      ctx.strokeStyle = outlineColor; ctx.lineWidth = 2;
-      ctx.strokeRect(trashX - trashSize, trashY - trashSize, trashSize * 2, trashSize * 2);
+      // ─── Draw the modern trash icon ──────────────────────────────
+      ctx.save();
+      ctx.translate(trashX, trashY);
+      ctx.scale(iconSize, iconSize);
 
-      ctx.fillStyle = outlineColor; ctx.font = '28px Arial'; ctx.textAlign = 'center';
-      ctx.fillText('🗑️', trashX, trashY + 8);
+      ctx.strokeStyle = iconColor;
+      ctx.fillStyle = iconColor;
+      ctx.lineWidth = 2.5;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      // Lid (horizontal bar across the top)
+      ctx.beginPath();
+      ctx.moveTo(-14, -9);
+      ctx.lineTo(14, -9);
+      ctx.stroke();
+
+      // Handle on top of lid (small bump)
+      ctx.beginPath();
+      ctx.moveTo(-5, -9);
+      ctx.lineTo(-5, -13);
+      ctx.lineTo(5, -13);
+      ctx.lineTo(5, -9);
+      ctx.stroke();
+
+      // Can body (trapezoid with rounded bottom corners)
+      ctx.beginPath();
+      ctx.moveTo(-11, -6);
+      ctx.lineTo(-9, 13);
+      ctx.quadraticCurveTo(-9, 15, -7, 15);
+      ctx.lineTo(7, 15);
+      ctx.quadraticCurveTo(9, 15, 9, 13);
+      ctx.lineTo(11, -6);
+      ctx.stroke();
+
+      // Three vertical lines inside the can
+      ctx.beginPath();
+      ctx.moveTo(-5, -2);
+      ctx.lineTo(-5, 10);
+      ctx.moveTo(0, -2);
+      ctx.lineTo(0, 10);
+      ctx.moveTo(5, -2);
+      ctx.lineTo(5, 10);
+      ctx.stroke();
+
+      ctx.restore();
     }
 
     function handleMouseDown(e) {
       const { x, y } = getCanvasCoordinates(e.clientX, e.clientY);
-      appState.startPos = { x, y }; appState.isDragging = false;
+      appState.startPos = { x, y };
+      appState.isDragging = false;
 
-      for (const item of appState.radialItems) {
-        const distance = Math.hypot(x - item.x, y - item.y);
-        if (distance <= 25) {
-          appState.draggedItem = item; appState.selectedItem = item;
-          appState.originalPosition = { x: item.x, y: item.y };
-          populateProperties(); refreshPreview();
-          showNotification(`Selected '${item.label}'.`); return;
+      const wedgeIndex = getWedgeAtPoint(x, y);
+      if (wedgeIndex >= 0 && wedgeIndex < appState.sockets.length) {
+        const socket = appState.sockets[wedgeIndex];
+        const occupant = appState.radialItems.find(
+          (it) => Math.abs(it.x - socket.x) < 1 && Math.abs(it.y - socket.y) < 1
+        );
+        if (occupant) {
+          appState.draggedItem = occupant;
+          appState.selectedItem = occupant;
+          appState.originalPosition = { x: occupant.x, y: occupant.y };
+          populateProperties();
+          refreshPreview();
+          showNotification(`Selected '${occupant.label}'.`);
+          return;
         }
       }
-      appState.selectedItem = null; appState.draggedItem = null; appState.originalPosition = null;
-      populateProperties(); refreshPreview();
+
+      appState.selectedItem = null;
+      appState.draggedItem = null;
+      appState.highlightSocket = null;
+      appState.originalPosition = null;
+      populateProperties();
+      refreshPreview();
     }
 
     function handleMouseMove(e) {
       if (!appState.draggedItem || !appState.startPos) return;
       if ((e.buttons & 1) !== 1) return;
-
       const { x, y } = getCanvasCoordinates(e.clientX, e.clientY);
       const dx = x - appState.startPos.x, dy = y - appState.startPos.y;
       const distance = Math.hypot(dx, dy);
-
       if (!appState.isDragging && distance > 5) {
         appState.isDragging = true; canvas.style.cursor = 'move';
       }
@@ -892,7 +939,15 @@ body {
         const constrainedX = Math.max(20, Math.min(x, appState.baseCanvasSize - 20));
         const constrainedY = Math.max(20, Math.min(y, appState.baseCanvasSize - 20));
         appState.draggedItem.x = constrainedX; appState.draggedItem.y = constrainedY;
+
+        // Highlight the wedge currently under the dragged item
+        const hoverWedge = getWedgeAtPoint(appState.draggedItem.x, appState.draggedItem.y);
+        appState.highlightSocket = (hoverWedge >= 0) ? hoverWedge : null;
+
         refreshPreview();
+
+        // Keep redrawing while dragging so the pulse animation continues
+        if (appState.highlightSocket !== null) requestAnimationFrame(refreshPreview);
       }
     }
 
@@ -910,7 +965,6 @@ body {
       } else if (appState.isDragging) {
         const { x, y } = getCanvasCoordinates(e.clientX, e.clientY);
         const centerDistance = Math.hypot(x - appState.centerX, y - appState.centerY);
-
         if (centerDistance <= 60) {
           const index = appState.radialItems.indexOf(appState.draggedItem);
           if (index > -1) {
@@ -922,7 +976,6 @@ body {
           }
         } else { snapToClosestSocket(); }
       }
-
       appState.isDragging = false; appState.draggedItem = null; appState.startPos = null;
       appState.originalPosition = null; canvas.style.cursor = 'crosshair'; refreshPreview();
     }
@@ -930,29 +983,35 @@ body {
     function snapToClosestSocket() {
       if (!appState.draggedItem || !appState.originalPosition) return;
 
-      let closestSocket = null, minDistance = Infinity;
+      // Check which wedge area the dragged item is currently over
+      const wedgeIndex = getWedgeAtPoint(appState.draggedItem.x, appState.draggedItem.y);
 
-      appState.sockets.forEach((socket) => {
-        const distance = Math.hypot(appState.draggedItem.x - socket.x, appState.draggedItem.y - socket.y);
-        if (distance < minDistance) { minDistance = distance; closestSocket = socket; }
-      });
+      if (wedgeIndex >= 0 && wedgeIndex < appState.sockets.length) {
+        const targetSocket = appState.sockets[wedgeIndex];
 
-      if (minDistance < 30 && closestSocket) {
+        // Is there already an item in that target wedge?
         const existingItem = appState.radialItems.find(
           (item) => item !== appState.draggedItem &&
-            Math.abs(item.x - closestSocket.x) < 1 && Math.abs(item.y - closestSocket.y) < 1
+            Math.abs(item.x - targetSocket.x) < 1 && Math.abs(item.y - targetSocket.y) < 1
         );
 
         if (existingItem) {
-          existingItem.x = appState.originalPosition.x; existingItem.y = appState.originalPosition.y;
-          appState.draggedItem.x = closestSocket.x; appState.draggedItem.y = closestSocket.y;
+          // Swap: move existing item back to dragged item's original spot
+          existingItem.x = appState.originalPosition.x;
+          existingItem.y = appState.originalPosition.y;
+          appState.draggedItem.x = targetSocket.x;
+          appState.draggedItem.y = targetSocket.y;
           showNotification(`Swapped '${appState.draggedItem.label}' with '${existingItem.label}'.`);
         } else {
-          appState.draggedItem.x = closestSocket.x; appState.draggedItem.y = closestSocket.y;
+          // Empty wedge — just move dragged item there
+          appState.draggedItem.x = targetSocket.x;
+          appState.draggedItem.y = targetSocket.y;
           showNotification(`Item '${appState.draggedItem.label}' repositioned.`);
         }
       } else {
-        appState.draggedItem.x = appState.originalPosition.x; appState.draggedItem.y = appState.originalPosition.y;
+        // Dropped outside any wedge — return to original position
+        appState.draggedItem.x = appState.originalPosition.x;
+        appState.draggedItem.y = appState.originalPosition.y;
         showNotification('Item returned to original position.', 'warning');
       }
     }
@@ -1002,13 +1061,11 @@ body {
       showNotification('All items have been cleared from the radial menu.');
     }
 
-    // Hybrid directory selection
     async function selectDirectory() {
       if (isMacOS) {
         try {
           const result = await selectDirectoryWeb();
           if (result) {
-            // Store files in memory for web-based access
             appState.webSelectedFiles = result.fileObjects;
             await loadRadialJsonFilesWeb(result.files, result.fileObjects);
             showNotification(`Loaded ${result.files.length} file(s) from the directory.`);
@@ -1017,7 +1074,6 @@ body {
           showNotification(`Failed to select directory: ${error}`, 'error');
         }
       } else {
-        // Use existing Rust command for Windows/Linux
         try {
           const selected = await invokeCommand('pick_directory');
           if (selected) {
@@ -1030,20 +1086,11 @@ body {
       }
     }
 
-    // Helper to order items by socket index (fixes 11/12 → 1/2 ordering bug)
-    function getAngle(item) {
-      const dx = item.x - appState.centerX;
-      const dy = item.y - appState.centerY;
-      return (Math.atan2(dy, dx) * 180) / Math.PI + 90;
-    }
-
     function getItemsOrderedBySocket() {
       const ordered = [];
       appState.sockets.forEach((socket) => {
         const item = appState.radialItems.find(
-          (it) =>
-            Math.abs(it.x - socket.x) < 1 &&
-            Math.abs(it.y - socket.y) < 1
+          (it) => Math.abs(it.x - socket.x) < 1 && Math.abs(it.y - socket.y) < 1
         );
         if (item) ordered.push(item);
       });
@@ -1064,11 +1111,9 @@ body {
       try {
         const files = await invokeCommand('list_json_files', { directory });
         appState.loadedFiles = files.map((file) => `${directory}/${file}`);
-
         const loadedMenusList = document.getElementById('loadedMenusList');
         loadedMenusList.innerHTML = '';
         appState.loadedMenuCommands = [];
-
         files.forEach((filename, index) => {
           const item = document.createElement('div');
           item.className = 'menu-item';
@@ -1080,7 +1125,6 @@ body {
           });
           loadedMenusList.appendChild(item);
         });
-
         for (const filePath of appState.loadedFiles) {
           try {
             const menuData = await invokeCommand('load_radial_menu', { path: filePath });
@@ -1090,11 +1134,8 @@ body {
                 appState.loadedMenuCommands.unshift(nestedCommand);
               }
             }
-          } catch (error) {
-            console.warn(`Failed to load menu data from ${filePath}:`, error);
-          }
+          } catch (error) {}
         }
-
         loadCommandsList();
         showNotification(`Loaded ${files.length} file(s) from the directory.`);
       } catch (error) {
@@ -1107,18 +1148,14 @@ body {
       try {
         const filePath = appState.loadedFiles[index];
         const menuData = await invokeCommand('load_radial_menu', { path: filePath });
-
         appState.menuData = menuData;
         document.getElementById('menuNameInput').value = menuData.name;
-
         appState.radialItems = menuData.items.map((item) => ({
           command: item.command, label: item.label, icon: item.icon, x: 0, y: 0
         }));
-
         const requiredSockets = Math.max(3, Math.min(12, appState.radialItems.length));
         appState.numSockets = requiredSockets;
         document.getElementById('socketsInput').value = appState.numSockets;
-
         calculateSockets(); reassignItemsToSockets();
         appState.menuData.items = appState.radialItems;
         refreshPreview(); updateItemCounter();
@@ -1142,13 +1179,10 @@ body {
         name: appState.menuData.name || '',
         command: appState.menuData.command || 'default-menu',
         items: orderedItems.map((item) => ({
-          command: item.command,
-          icon: item.icon,
-          label: item.label
+          command: item.command, icon: item.icon, label: item.label
         }))
       };
-      const jsonContent = document.getElementById('jsonPreviewContent');
-      jsonContent.textContent = JSON.stringify(exportData, null, 4);
+      document.getElementById('jsonPreviewContent').textContent = JSON.stringify(exportData, null, 4);
     }
 
     function updateItemCounter() {
@@ -1168,7 +1202,6 @@ body {
       }, 4000);
     }
 
-    // Hybrid export function (now uses ordered-by-socket items)
     async function exportJSON() {
       const menuNameEl = document.getElementById('menuNameInput');
       const menuName = menuNameEl ? menuNameEl.value.trim() : '';
@@ -1176,25 +1209,18 @@ body {
         showNotification('Please provide a name for the radial menu.', 'error');
         return;
       }
-
       const menuNameCommand = menuName.toLowerCase().replace(/\s+/g, '-');
       appState.menuData.name = menuName;
       appState.menuData.command = `default-menu:${menuNameCommand}`;
-
       const orderedItems = getItemsOrderedBySocket();
-
       const exportData = {
         name: appState.menuData.name,
         command: appState.menuData.command,
         items: orderedItems.map((item) => ({
-          command: item.command,
-          icon: item.icon,
-          label: item.label
+          command: item.command, icon: item.icon, label: item.label
         }))
       };
-
       if (isMacOS) {
-        // Use web-based saving for macOS
         try {
           const suggested = `${menuName.replace(/\s+/g, '-')}.json`;
           await saveJsonFileWeb(exportData, suggested);
@@ -1204,16 +1230,13 @@ body {
           showNotification(`Failed to save JSON file: ${error}`, 'error');
         }
       } else {
-        // Use existing Rust command for Windows/Linux
         try {
           const suggested = `${menuName.replace(/\s+/g, '-')}.json`;
           const filePath = await invokeCommand('pick_save_json_path', { suggested_name: suggested });
-
           if (!filePath) {
             showNotification('Save cancelled.', 'warning');
             return;
           }
-
           await invokeCommand('save_radial_menu', { menu: exportData, path: filePath });
           showNotification(`Radial menu '${menuName}' saved successfully!`);
           resetMenu();
@@ -1223,7 +1246,6 @@ body {
       }
     }
 
-    // Hybrid JSON file loading
     async function loadCustomDictionary() {
       if (isMacOS) {
         try {
@@ -1246,7 +1268,6 @@ body {
           showNotification(`Failed to load custom dictionary: ${error}`, 'error');
         }
       } else {
-        // Use existing Rust command for Windows/Linux
         try {
           if (tauriAvailable) {
             const selected = await invokeCommand('pick_json_file');
@@ -1274,20 +1295,16 @@ body {
     function setupEventListeners() {
       const searchInput = document.getElementById('searchInput');
       if (searchInput) searchInput.addEventListener('input', (e) => loadCommandsList(e.target.value));
-
       const clearSearchBtn = document.getElementById('clearSearchBtn');
       if (clearSearchBtn) clearSearchBtn.addEventListener('click', () => { searchInput.value = ''; loadCommandsList(); });
-
       const addCommandBtn = document.getElementById('addCommandBtn');
       if (addCommandBtn) addCommandBtn.addEventListener('click', () => {
         const selected = document.querySelector('.command-item.selected');
         if (selected) addMenuItemFromCommand(selected.dataset.command);
         else showNotification('Please select a command to add.', 'error');
       });
-
       const menuNameInput = document.getElementById('menuNameInput');
       if (menuNameInput) menuNameInput.addEventListener('input', (e) => { appState.menuData.name = e.target.value; updateJsonPreview(); });
-
       const customLabelInput = document.getElementById('customLabelInput');
       if (customLabelInput) customLabelInput.addEventListener('input', (e) => {
         if (appState.selectedItem) {
@@ -1296,7 +1313,6 @@ body {
           refreshPreview();
         }
       });
-
       const socketsInput = document.getElementById('socketsInput');
       if (socketsInput) socketsInput.addEventListener('change', (e) => {
         const newNum = parseInt(e.target.value, 10);
@@ -1308,73 +1324,126 @@ body {
         calculateSockets(); reassignItemsToSockets(); refreshPreview(); updateItemCounter();
         showNotification(`Number of sockets updated to ${appState.numSockets}.`);
       });
-
       if (canvas) {
         canvas.addEventListener('mousedown', handleMouseDown);
         canvas.addEventListener('mousemove', handleMouseMove);
         canvas.addEventListener('mouseup', handleMouseUp);
         canvas.addEventListener('wheel', handleMouseWheel, { passive: false });
-
         canvas.addEventListener('dragenter', (e) => { e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'; });
-
         canvas.ondragover = function (e) {
           e.preventDefault();
           if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
           canvas.classList.add('drag-over');
-          const firstEmpty = findFirstEmptySocket();
-          appState.highlightSocket = firstEmpty ? firstEmpty.index : null;
+
+          // Highlight the wedge under the mouse
+          const { x, y } = getCanvasCoordinates(e.clientX, e.clientY);
+          const hoverWedge = getWedgeAtPoint(x, y);
+          if (hoverWedge >= 0 && hoverWedge < appState.sockets.length) {
+            appState.highlightSocket = hoverWedge;
+          } else {
+            const firstEmpty = findFirstEmptySocket();
+            appState.highlightSocket = firstEmpty ? firstEmpty.index : null;
+          }
           refreshPreview();
         };
 
         canvas.ondrop = function (e) {
           e.preventDefault();
           canvas.classList.remove('drag-over');
-          appState.highlightSocket = null;
 
           const command = e.dataTransfer.getData('text/plain');
-          if (!command) { refreshPreview(); return; }
+          if (!command) {
+            appState.highlightSocket = null;
+            refreshPreview();
+            return;
+          }
 
-          const firstEmpty = findFirstEmptySocket();
-          if (firstEmpty) addMenuItemToSocket(command, firstEmpty.index);
-          else showNotification('All sockets are filled.', 'error');
+          // Drop where the mouse was released
+          const { x, y } = getCanvasCoordinates(e.clientX, e.clientY);
+          const dropWedge = getWedgeAtPoint(x, y);
 
-          refreshPreview();
-        };
+          let targetIndex = null;
+          if (dropWedge >= 0 && dropWedge < appState.sockets.length) {
+            targetIndex = dropWedge;
+          } else {
+            const firstEmpty = findFirstEmptySocket();
+            targetIndex = firstEmpty ? firstEmpty.index : null;
+          }
 
-        canvas.ondragleave = function () {
-          canvas.classList.remove('drag-over');
+          if (targetIndex !== null) {
+            addMenuItemToSocket(command, targetIndex);
+          } else {
+            showNotification('All sockets are filled.', 'error');
+          }
+
           appState.highlightSocket = null;
           refreshPreview();
         };
-      }
 
+        canvas.ondrop = function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          canvas.classList.remove('drag-over');
+
+          const command = e.dataTransfer.getData('text/plain');
+          if (!command) {
+            appState.highlightSocket = null;
+            refreshPreview();
+            return;
+          }
+
+          // Figure out which wedge the user dropped on
+          const { x, y } = getCanvasCoordinates(e.clientX, e.clientY);
+          const dropWedge = getWedgeAtPoint(x, y);
+
+          let targetIndex = null;
+          if (dropWedge >= 0 && dropWedge < appState.sockets.length) {
+            // Dropped directly on a wedge
+            targetIndex = dropWedge;
+          } else {
+            // Dropped elsewhere — fall back to first empty socket
+            const firstEmpty = findFirstEmptySocket();
+            targetIndex = firstEmpty ? firstEmpty.index : null;
+          }
+
+          if (targetIndex !== null) {
+            addMenuItemToSocket(command, targetIndex);
+          } else {
+            showNotification('All sockets are filled.', 'error');
+          }
+
+          appState.highlightSocket = null;
+          refreshPreview();
+        };
+
+        canvas.ondragleave = function (e) {
+          // Only clear if actually leaving the canvas (not just moving over a child)
+          if (e.target === canvas) {
+            canvas.classList.remove('drag-over');
+            appState.highlightSocket = null;
+            refreshPreview();
+          }
+        };
+      }
       let _rz;
       window.addEventListener('resize', () => { clearTimeout(_rz); _rz = setTimeout(resizeCanvas, 100); });
-
       const exportBtn = document.getElementById('exportBtn');
       if (exportBtn) exportBtn.addEventListener('click', exportJSON);
-
       const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
       if (deleteSelectedBtn) deleteSelectedBtn.addEventListener('click', deleteSelectedItem);
-
       const clearAllBtn = document.getElementById('clearAllBtn');
       if (clearAllBtn) clearAllBtn.addEventListener('click', clearAllItems);
-
       const selectDirBtn = document.getElementById('selectDirBtn');
       if (selectDirBtn) selectDirBtn.addEventListener('click', selectDirectory);
-
       const loadCustomDictBtn = document.getElementById('loadCustomDictBtn');
       if (loadCustomDictBtn) loadCustomDictBtn.addEventListener('click', loadCustomDictionary);
-
       const toggleJsonPreviewBtn = document.getElementById('toggleJsonPreviewBtn');
       if (toggleJsonPreviewBtn) toggleJsonPreviewBtn.addEventListener('click', toggleJsonPreview);
-
       const closeJsonPreviewBtn = document.getElementById('closeJsonPreview');
       if (closeJsonPreviewBtn) closeJsonPreviewBtn.addEventListener('click', () => {
         document.getElementById('jsonPreview').style.display = 'none';
         appState.jsonPreviewVisible = false;
       });
-
       document.addEventListener('keydown', (e) => {
         const activeElement = document.activeElement;
         const isTyping = activeElement && (
@@ -1384,7 +1453,6 @@ body {
           if (appState.selectedItem) deleteSelectedItem();
         }
       });
-
       const commandsListEl = document.getElementById('commandsList');
       if (commandsListEl) {
         commandsListEl.addEventListener('mouseover', (e) => {

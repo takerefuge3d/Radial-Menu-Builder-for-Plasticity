@@ -12,11 +12,12 @@
     },
     "windows": [
       {
-        "title": "Plasticity Radial Menu Builder",
-        "width": 1200,
-        "height": 800,
-        "resizable": true
-      }
+  "title": "Plasticity Radial Menu Builder",
+  "width": 1200,
+  "height": 800,
+  "resizable": true,
+  "dragDropEnabled": false
+}
     ]
   },
   "bundle": {
