@@ -145,6 +145,59 @@ fn pick_save_json_path(app: tauri::AppHandle, suggested_name: Option<String>) ->
     Ok(picked.map(|p| p.to_string()))
 }
 
+// ---------- Theme Preview tab ----------
+// Theme files are read and written as plain text so the key order the editor
+// produces is kept (serde_json::Value would re-sort the keys).
+fn plasticity_dir(app: &tauri::AppHandle) -> Option<PathBuf> {
+    let dir = app.path().home_dir().ok()?.join(".plasticity");
+    if dir.is_dir() {
+        Some(dir)
+    } else {
+        None
+    }
+}
+
+#[tauri::command]
+fn pick_theme_file(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    let mut builder = app
+        .dialog()
+        .file()
+        .add_filter("Theme", &["json", "json5", "js", "txt"])
+        .set_title("Open a Plasticity theme");
+    if let Some(dir) = plasticity_dir(&app) {
+        builder = builder.set_directory(dir);
+    }
+    let picked = builder.blocking_pick_file();
+    Ok(picked.map(|p| p.to_string()))
+}
+
+#[tauri::command]
+fn pick_save_theme_path(app: tauri::AppHandle, suggested_name: Option<String>) -> Result<Option<String>, String> {
+    let mut builder = app
+        .dialog()
+        .file()
+        .add_filter("JSON", &["json"])
+        .set_title("Save Plasticity theme as…");
+    if let Some(dir) = plasticity_dir(&app) {
+        builder = builder.set_directory(dir);
+    }
+    if let Some(name) = suggested_name {
+        builder = builder.set_file_name(&name);
+    }
+    let picked = builder.blocking_save_file();
+    Ok(picked.map(|p| p.to_string()))
+}
+
+#[tauri::command]
+fn read_text_file(path: String) -> Result<String, String> {
+    fs::read_to_string(&path).map_err(|e| io_err(format!("read {} failed: {e}", path)))
+}
+
+#[tauri::command]
+fn write_text_file(path: String, contents: String) -> Result<(), String> {
+    fs::write(&path, contents).map_err(|e| io_err(format!("write {} failed: {e}", path)))
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -159,7 +212,11 @@ fn main() {
             get_saved_radials_directory,
             pick_directory,
             pick_json_file,
-            pick_save_json_path
+            pick_save_json_path,
+            pick_theme_file,
+            pick_save_theme_path,
+            read_text_file,
+            write_text_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

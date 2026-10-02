@@ -101,9 +101,149 @@ body {
 .close-btn:hover { color: var(--accent); }
 @media (max-width: 1200px) { .sidebar { width: 240px; } .properties-panel { width: 260px; } }
 @media (max-width: 900px) { .sidebar { width: 200px; } .properties-panel { width: 220px; } }
+
+/* ===== App tabs ===== */
+.app-tabs { display: flex; gap: 2px; height: 40px; padding: 0 12px; align-items: flex-end; background: var(--bg); border-bottom: 1px solid var(--border); }
+.app-tab {
+  background: none; border: none; border-bottom: 2px solid transparent; color: var(--muted);
+  font-family: inherit; font-size: 13px; font-weight: 600; text-transform: uppercase;
+  height: 36px; padding: 0 14px; cursor: pointer; transition: color .2s, border-color .2s;
+}
+.app-tab:hover { color: var(--text); }
+.app-tab.active { color: var(--text); border-bottom-color: var(--accent); }
+.app-tab:focus-visible { outline: 1px solid var(--accent); outline-offset: -2px; }
+.app-container { height: calc(100vh - 41px); }
+body[data-tab="theme"] > .app-container:not(#tpApp), body[data-tab="theme"] > .json-preview { display: none !important; }
+body:not([data-tab="theme"]) > #tpApp { display: none; }
+
+/* ===== Theme Preview tab ===== */
+#tpApp { color-scheme: dark; }
+#tpApp .tp-panel { width: 340px; }
+.tp-stage {
+  flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; overflow: hidden;
+  background: #0a0a0a; border: 1px solid var(--border); border-radius: 4px; padding: 12px;
+}
+.tp-frame { position: relative; flex: none; overflow: hidden; border-radius: 6px; box-shadow: 0 0 0 1px var(--border); }
+.tp-info { min-height: 32px; margin: 8px 0 0; }
+.tp-info b { color: var(--text); }
+.tp-path { font-size: 12px; margin-bottom: 8px; padding: 6px; background: #121212; border: 1px solid var(--border); border-radius: 4px; word-break: break-all; }
+.tp-path em { color: var(--accent); font-style: normal; }
+.tp-hint { color: var(--muted); font-size: 12px; line-height: 1.45; margin-top: 8px; }
+.tp-starters { height: auto; }
+.tp-pal { margin-bottom: 16px; }
+.tp-pal-head { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.tp-pal-head .section-title { margin: 0; flex: 1; }
+.tp-pal-head select { width: auto; padding: 5px 6px; }
+.tp-pal-head .btn { width: auto; margin: 0; padding: 5px 10px; }
+.tp-ramp, .tp-nums { display: grid; grid-template-columns: repeat(10, 1fr); gap: 3px; }
+.tp-sw { position: relative; height: 34px; padding: 0; border: 1px solid var(--border); border-radius: 3px; cursor: pointer; }
+.tp-sw[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: 1px; }
+.tp-sw:focus-visible { outline: 2px solid var(--text); outline-offset: 1px; }
+.tp-sw.unseen::after {
+  content: ""; position: absolute; left: 50%; bottom: 4px; width: 6px; height: 6px; margin-left: -4px;
+  border-radius: 50%; border: 1.5px solid #fff; mix-blend-mode: difference;
+}
+.tp-nums { margin-top: 3px; font-size: 10px; color: var(--muted); text-align: center; }
+.tp-detail { display: grid; grid-template-columns: 36px 92px 1fr; gap: 8px; align-items: center; margin-top: 8px; font-size: 13px; }
+.tp-color { width: 36px; height: 30px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: #121212; cursor: pointer; }
+.tp-hex { font-family: Consolas, "Courier New", monospace; }
+.tp-use { color: var(--muted); font-size: 12px; line-height: 1.45; margin-top: 6px; min-height: 4.4em; }
+.tp-legend { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+.tp-legend i { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--muted); flex: none; }
+.tp-row { display: grid; grid-template-columns: 1fr 36px 92px; gap: 8px; align-items: center; margin-bottom: 8px; font-size: 13px; }
+.tp-row label, .tp-range label { color: var(--muted); font-weight: 600; }
+.tp-range { display: grid; grid-template-columns: 1fr 130px; gap: 8px; align-items: center; font-size: 13px; }
+.tp-range input { accent-color: var(--accent); width: 100%; }
+
+/* ---------- the stand-in Plasticity window (drawn at 1280 x 800, then scaled) ---------- */
+.tp-mock{
+  --ic:color-mix(in srgb,var(--n50) 80%,transparent);
+  --ic60:color-mix(in srgb,var(--n50) 60%,transparent);
+  --ic55:color-mix(in srgb,var(--n50) 55%,transparent);
+  --ic40:color-mix(in srgb,var(--n50) 40%,transparent);
+  --o4:color-mix(in srgb,var(--n50) 4%,transparent);
+  --o8:color-mix(in srgb,var(--n50) 8%,transparent);
+  --o12:color-mix(in srgb,var(--n50) 12%,transparent);
+  --float:color-mix(in srgb,var(--n800) 95%,transparent);
+  position:absolute;left:0;top:0;width:1280px;height:800px;transform-origin:0 0;overflow:hidden;
+  background:var(--n900);font:13px/1.2 Lato,"Segoe UI",Tahoma,Helvetica,Arial,sans-serif;cursor:default;user-select:none;-webkit-user-select:none
+}
+.tp-mock svg.i{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.tp-mock svg.i .f{fill:currentColor;stroke:none}
+.m-top{position:absolute;left:0;top:0;right:0;height:32px;display:flex;align-items:center;padding:0 10px;gap:6px}
+.m-logo{color:var(--ic);font-weight:700;font-size:15px}
+.m-top .chev{color:var(--n400)}
+.m-top .side{position:absolute;left:192px;color:var(--ic)}
+.m-top .unsaved{position:absolute;left:232px;color:var(--ic40);font-size:12px;letter-spacing:.02em}
+.m-left{position:absolute;left:0;top:32px;width:218px;bottom:0;padding:6px 8px}
+.m-tabs{display:flex;background:var(--n800);border-radius:8px;padding:3px}
+.m-tabs div{flex:1;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--ic);font-size:12px;letter-spacing:.02em}
+.m-tabs .on{background:var(--n600)}
+.m-icons{display:flex;align-items:center;height:36px;color:var(--n400);padding:0 4px;gap:14px}
+.m-icons .sp{flex:1}
+.m-tree{margin-top:6px}
+.m-rowi{height:28px;display:flex;align-items:center;gap:7px;border-radius:5px;padding-right:6px;color:var(--n300);font-weight:700}
+.m-rowi .chev{color:var(--n400)}
+.m-rowi .fold{color:var(--ic60)}
+.m-rowi.hl{background:var(--o4)}
+.m-rowi.sel{background:var(--o12)}
+.m-rowi .a5{color:var(--a500)} .m-rowi .a6{color:var(--a600)} .m-rowi .a9{color:var(--a900)}
+.m-rowi.hid{color:var(--n600)}
+.m-rowi.hid .eye{color:var(--n600);margin-left:auto}
+.m-vp{position:absolute;left:218px;top:32px;right:0;bottom:0;background:var(--vp);border-top-left-radius:8px;overflow:hidden}
+.m-vp>svg{position:absolute;inset:0;width:100%;height:100%}
+.m-fl{position:absolute;background:var(--float);border-radius:8px}
+.m-sel{left:8px;top:8px;display:flex;padding:4px;gap:2px}
+.m-sel div{width:38px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--ic)}
+.m-sel .on{background:var(--a600)}
+.m-handle{position:absolute;left:8px;top:282px;width:32px;height:18px;border-radius:8px 8px 0 0;background:var(--n900);display:flex;align-items:center;justify-content:center;gap:2px}
+.m-handle i{width:2.5px;height:2.5px;border-radius:50%;background:rgba(255,255,255,.55)}
+.m-tools{left:8px;top:298px;width:32px;padding:8px 0;display:flex;flex-direction:column;align-items:center;gap:18px;color:var(--ic)}
+.m-dlg{left:58px;top:56px;width:292px;padding:14px 12px 12px}
+.m-dlg .ttl{display:flex;align-items:center;color:var(--n400);font-weight:700;font-size:12px;letter-spacing:.03em;gap:10px;margin-bottom:12px}
+.m-dlg .ttl span{flex:1}
+.m-step{display:flex;gap:10px;align-items:center;padding:6px 8px;border-radius:6px}
+.m-step .dot{width:16px;height:16px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center}
+.m-step .l1{color:var(--ic)} .m-step .l2{color:var(--n500);font-weight:700;margin-top:2px}
+.m-step .cnt{margin-left:auto;align-self:flex-start;color:var(--n400);font-weight:700}
+.m-step.done .dot{background:var(--a600)}
+.m-step.done .dot svg{width:10px;height:10px;stroke:#fff;stroke-width:2.4}
+.m-step.next{background:var(--o8);border:1px solid color-mix(in srgb,var(--a900) 25%,transparent);margin-top:6px}
+.m-step.next .dot{background:var(--a800)}
+.m-lab{color:var(--n300);margin:12px 0 5px}
+.m-field{height:24px;border-radius:5px;background:var(--o4);color:var(--n300);font-weight:700;display:flex;align-items:center;justify-content:center}
+.m-two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.m-seg{display:flex;border-radius:5px;background:var(--o4);overflow:hidden}
+.m-seg div{flex:1;height:24px;display:flex;align-items:center;justify-content:center;color:var(--ic55)}
+.m-seg .on{background:var(--n600);color:var(--ic);border-radius:5px}
+.m-tog{display:flex;align-items:center;justify-content:space-between;color:var(--n300);margin-top:10px;height:22px}
+.m-swt{width:30px;height:16px;border-radius:9px;background:var(--o8);position:relative;flex:none}
+.m-swt::after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:#fff}
+.m-swt.on{background:var(--a600)} .m-swt.on::after{left:16px}
+.m-foot{display:flex;align-items:center;gap:8px;color:var(--n400);margin-top:14px}
+.m-foot .key{background:var(--o8);border-radius:4px;padding:3px 6px}
+.m-foot .sp{flex:1}
+.m-right{right:8px;top:8px;width:232px;padding:6px 10px 12px}
+.m-rtabs{display:flex;gap:2px;margin:0 -4px 8px}
+.m-rtabs div{flex:1;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--ic)}
+.m-rtabs .on{background:var(--n600)}
+.m-h{display:flex;justify-content:space-between;align-items:center;color:var(--n400);font-size:12px;letter-spacing:.03em;font-weight:700;margin:12px 0 8px}
+.m-caps{display:grid;grid-template-columns:repeat(4,1fr);gap:12px 0;justify-items:center}
+.m-caps i{width:28px;height:28px;border-radius:50%}
+.m-step2{display:grid;grid-template-columns:1fr 24px 44px 24px;gap:2px;align-items:center;color:var(--n300);margin-top:6px}
+.m-step2 .b{height:22px;background:var(--n600);border-radius:4px;display:flex;align-items:center;justify-content:center;color:var(--n300)}
+.m-step2 .v{height:22px;background:var(--o4);border-radius:4px;display:flex;align-items:center;justify-content:center;font-weight:700}
+.m-btn{height:24px;border-radius:5px;background:var(--n600);color:var(--n300);display:flex;align-items:center;justify-content:center;margin-top:8px}
+.m-dd{display:grid;grid-template-columns:1fr 112px;align-items:center;color:var(--n300);margin-top:6px}
+.m-dd div{height:22px;border-radius:4px;background:var(--o8);display:flex;align-items:center;justify-content:space-between;padding:0 8px}
+.m-bot{left:50%;bottom:10px;transform:translateX(-50%);display:flex;gap:22px;padding:9px 14px;color:var(--n400)}
   </style>
 </head>
 <body>
+  <div class="app-tabs" role="tablist">
+    <button class="app-tab active" type="button" role="tab" data-tab="radial" aria-selected="true">Radial Menus</button>
+    <button class="app-tab" type="button" role="tab" data-tab="theme" aria-selected="false">Theme Preview</button>
+  </div>
   <div class="app-container">
     <!-- Left Sidebar - Commands -->
     <div class="sidebar">
@@ -173,6 +313,256 @@ body {
 
       <button class="btn" id="loadCustomDictBtn">Load Commands Dictionary</button>
       <button class="btn" id="toggleJsonPreviewBtn">Toggle JSON Preview</button>
+    </div>
+  </div>
+
+  <!-- ===== Theme Preview tab ===== -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="tpi-chev-d" viewBox="0 0 16 16"><path d="M4 6l4 4 4-4"/></symbol>
+  <symbol id="tpi-chev-r" viewBox="0 0 16 16"><path d="M6 4l4 4-4 4"/></symbol>
+  <symbol id="tpi-folder" viewBox="0 0 16 16"><path d="M2 4h4l1.5 1.5H14V12.5H2z"/><path d="M2 7h12"/></symbol>
+  <symbol id="tpi-folder-plus" viewBox="0 0 16 16"><path d="M2 4h4l1.5 1.5H14V12.5H2z"/><path d="M8 7.5v3M6.5 9h3"/></symbol>
+  <symbol id="tpi-dots" viewBox="0 0 16 16"><circle class="f" cx="3.5" cy="8" r="1.2"/><circle class="f" cx="8" cy="8" r="1.2"/><circle class="f" cx="12.5" cy="8" r="1.2"/></symbol>
+  <symbol id="tpi-search" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></symbol>
+  <symbol id="tpi-sheet" viewBox="0 0 16 16"><path d="M1.5 8L8 4.5 14.5 8 8 11.5z"/></symbol>
+  <symbol id="tpi-curve" viewBox="0 0 16 16"><path d="M3 13C7 13 5 3 13 3"/></symbol>
+  <symbol id="tpi-eye-off" viewBox="0 0 16 16"><path d="M2.5 7c2.5 3.2 8.5 3.2 11 0"/></symbol>
+  <symbol id="tpi-side" viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="10" rx="1.5"/><path d="M6 3v10"/></symbol>
+  <symbol id="tpi-hex-dot" viewBox="0 0 16 16"><path d="M8 2l5.2 3v6L8 14l-5.2-3V5z"/><circle class="f" cx="8" cy="8" r="1.3"/></symbol>
+  <symbol id="tpi-hex-edge" viewBox="0 0 16 16"><path d="M8 2l5.2 3v6L8 14l-5.2-3V5z"/><path d="M8 8v6"/></symbol>
+  <symbol id="tpi-hex-face" viewBox="0 0 16 16"><path d="M8 2l5.2 3v6L8 14l-5.2-3V5z"/><path class="f" d="M8 8l5.2-3v6L8 14z"/></symbol>
+  <symbol id="tpi-cube" viewBox="0 0 16 16"><path d="M8 2l5.2 3v6L8 14l-5.2-3V5z"/><path d="M2.8 5L8 8l5.2-3M8 8v6"/></symbol>
+  <symbol id="tpi-line" viewBox="0 0 16 16"><path d="M3 13L13 3"/></symbol>
+  <symbol id="tpi-circle" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5"/><circle class="f" cx="8" cy="8" r="1.3"/></symbol>
+  <symbol id="tpi-hex" viewBox="0 0 16 16"><path class="f" d="M8 2l5.2 3v6L8 14l-5.2-3V5z"/></symbol>
+  <symbol id="tpi-rect" viewBox="0 0 16 16"><rect x="3" y="3" width="10" height="10"/></symbol>
+  <symbol id="tpi-ball" viewBox="0 0 16 16"><circle class="f" cx="8" cy="8" r="5.5"/></symbol>
+  <symbol id="tpi-cyl" viewBox="0 0 16 16"><ellipse cx="8" cy="4.5" rx="4.5" ry="2"/><path d="M3.5 4.5v7c0 1.1 2 2 4.5 2s4.5-.9 4.5-2v-7"/></symbol>
+  <symbol id="tpi-move" viewBox="0 0 16 16"><path d="M8 2v12M2 8h12M6 4l2-2 2 2M6 12l2 2 2-2M4 6L2 8l2 2M12 6l2 2-2 2"/></symbol>
+  <symbol id="tpi-rot" viewBox="0 0 16 16"><path d="M13 8a5 5 0 1 1-1.5-3.5M13 3v2.5h-2.5"/></symbol>
+  <symbol id="tpi-copy" viewBox="0 0 16 16"><rect x="5" y="5" width="8" height="8" rx="1"/><path d="M3 10V3h7"/></symbol>
+  <symbol id="tpi-info" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5"/><path d="M8 7.5v3M8 5.3v.2"/></symbol>
+  <symbol id="tpi-check" viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></symbol>
+  <symbol id="tpi-grid" viewBox="0 0 16 16"><path d="M3 4h10M3 8h10M3 12h10M5 3l-1.5 10M11 3l1.5 10M8 3v10"/></symbol>
+  <symbol id="tpi-axes" viewBox="0 0 16 16"><path d="M8 3v6M8 9l-4.5 3M8 9l4.5 3"/></symbol>
+</defs></svg>
+  <div class="app-container" id="tpApp">
+    <!-- Center Panel - Plasticity window preview -->
+    <div class="center-panel">
+      <div class="notification" id="tpNote"></div>
+      <div class="section-title" style="text-align:center;">Plasticity Theme Preview</div>
+      <div class="tp-stage" id="tpStage">
+        <div class="tp-frame" id="tpFrame">
+<div class="tp-mock" id="tpMock">
+        <div class="m-top" data-u="Title bar|neutral-900">
+          <span class="m-logo" data-u="Logo|neutral-50|80%">P</span>
+          <svg class="i chev" data-u="Small arrows|neutral-400"><use href="#tpi-chev-d"/></svg>
+          <svg class="i side" data-u="Title bar icons|neutral-50|80%"><use href="#tpi-side"/></svg>
+          <span class="unsaved" data-u="File name in the title bar|neutral-50|40%">UNSAVED</span>
+        </div>
+        <div class="m-left" data-u="Outliner panel background|neutral-900">
+          <div class="m-tabs" data-u="Tab strip|neutral-800">
+            <div class="on" data-u="Active tab|neutral-600"><span data-u="Tab labels|neutral-50|80%">OUTLINER</span></div>
+            <div><span data-u="Tab labels|neutral-50|80%">ASSETS</span></div>
+          </div>
+          <div class="m-icons" data-u="Outliner icons|neutral-400">
+            <svg class="i"><use href="#tpi-folder-plus"/></svg><span class="sp"></span>
+            <svg class="i"><use href="#tpi-dots"/></svg><svg class="i"><use href="#tpi-search"/></svg>
+          </div>
+          <div class="m-tree">
+            <div class="m-rowi hl" style="padding-left:4px" data-u="Highlighted group row|neutral-50|4% over the panel">
+              <svg class="i chev" data-u="Small arrows|neutral-400"><use href="#tpi-chev-d"/></svg>
+              <svg class="i fold" data-u="Folder icons|neutral-50|about 60%"><use href="#tpi-folder"/></svg>
+              <span data-u="Item names|neutral-300">Scene</span></div>
+            <div class="m-rowi" style="padding-left:22px">
+              <svg class="i chev" data-u="Small arrows|neutral-400"><use href="#tpi-chev-r"/></svg>
+              <svg class="i fold" data-u="Folder icons|neutral-50|about 60%"><use href="#tpi-folder"/></svg>
+              <span data-u="Item names|neutral-300">Inbox</span></div>
+            <div class="m-rowi" style="padding-left:22px">
+              <svg class="i chev" data-u="Small arrows|neutral-400"><use href="#tpi-chev-d"/></svg>
+              <span data-u="Item names|neutral-300">Sheets</span></div>
+            <div class="m-rowi sel" style="padding-left:44px" data-u="Selected row|neutral-50|12% over the panel">
+              <svg class="i a5" data-u="Selected item icon|accent-500"><use href="#tpi-sheet"/></svg>
+              <span data-u="Item names|neutral-300">XNurbs.001</span></div>
+            <div class="m-rowi" style="padding-left:22px">
+              <svg class="i chev" data-u="Small arrows|neutral-400"><use href="#tpi-chev-d"/></svg>
+              <span data-u="Item names|neutral-300">Curves</span></div>
+            <div class="m-rowi" style="padding-left:44px">
+              <svg class="i a6" data-u="Curve icon|accent-600"><use href="#tpi-curve"/></svg>
+              <span data-u="Item names|neutral-300">Rectangle.001</span></div>
+            <div class="m-rowi hid" style="padding-left:44px">
+              <svg class="i a9" data-u="Hidden curve icon|accent-900"><use href="#tpi-curve"/></svg>
+              <span data-u="Hidden item name|neutral-600">Curve 9</span>
+              <svg class="i eye" data-u="Hidden marker|neutral-600"><use href="#tpi-eye-off"/></svg></div>
+          </div>
+        </div>
+        <div class="m-vp" data-u="Viewport background|viewport">
+          <svg id="tpScene" viewBox="0 0 1062 768" preserveAspectRatio="xMidYMid slice"></svg>
+
+          <div class="m-fl m-sel" data-u="Floating toolbar|neutral-800|95% over the viewport">
+            <div data-u="Toolbar icons|neutral-50|80%"><svg class="i"><use href="#tpi-hex-dot"/></svg></div>
+            <div data-u="Toolbar icons|neutral-50|80%"><svg class="i"><use href="#tpi-hex-edge"/></svg></div>
+            <div data-u="Toolbar icons|neutral-50|80%"><svg class="i"><use href="#tpi-hex-face"/></svg></div>
+            <div class="on" data-u="Active selection mode|accent-600"><svg class="i"><use href="#tpi-cube"/></svg></div>
+          </div>
+
+          <div class="m-handle" data-u="Tool strip handle|neutral-900"><i></i><i></i><i></i></div>
+          <div class="m-fl m-tools" data-u="Tool strip|neutral-800|95% over the viewport">
+            <svg class="i" data-u="Tool icons|neutral-50|80%"><use href="#tpi-line"/></svg>
+            <svg class="i" data-u="Tool icons|neutral-50|80%"><use href="#tpi-curve"/></svg>
+            <svg class="i" data-u="Tool icons|neutral-50|80%"><use href="#tpi-circle"/></svg>
+            <svg class="i" data-u="Tool icons|neutral-50|80%"><use href="#tpi-hex"/></svg>
+            <svg class="i" data-u="Tool icons|neutral-50|80%"><use href="#tpi-rect"/></svg>
+            <svg class="i" data-u="Tool icons|neutral-50|80%"><use href="#tpi-ball"/></svg>
+            <svg class="i" data-u="Tool icons|neutral-50|80%"><use href="#tpi-cube"/></svg>
+            <svg class="i" data-u="Tool icons|neutral-50|80%"><use href="#tpi-cyl"/></svg>
+          </div>
+
+          <div class="m-fl m-dlg" data-u="Command dialog|neutral-800|95% over the viewport">
+            <div class="ttl" data-u="Dialog title and icons|neutral-400"><span>CURVE ARRAY</span><svg class="i"><use href="#tpi-info"/></svg><svg class="i"><use href="#tpi-chev-d"/></svg></div>
+            <div class="m-step done">
+              <div class="dot" data-u="Completed step|accent-600"><svg class="i"><use href="#tpi-check"/></svg></div>
+              <div><div class="l1" data-u="Prompt, first line|neutral-50|80%">Select items</div><div class="l2" data-u="Prompt, bold line|neutral-500">to duplicate</div></div>
+              <div class="cnt" data-u="Selection count|neutral-400">1 sheet</div>
+            </div>
+            <div class="m-step next" data-u="Waiting step box|neutral-50|8%, with an accent-900 border at 25%">
+              <div class="dot" data-u="Waiting step marker|accent-800"></div>
+              <div><div class="l1" data-u="Prompt, first line|neutral-50|80%">Select path</div><div class="l2" data-u="Prompt, bold line|neutral-500">to follow</div></div>
+            </div>
+            <div class="m-lab" data-u="Field labels|neutral-300">Number</div>
+            <div class="m-field" data-u="Number field|neutral-50|4% fill, value in neutral-300">10</div>
+            <div class="m-two">
+              <div><div class="m-lab" data-u="Field labels|neutral-300">Twist</div><div class="m-field" data-u="Number field|neutral-50|4% fill, value in neutral-300">0</div></div>
+              <div><div class="m-lab" data-u="Field labels|neutral-300">Scale</div><div class="m-field" data-u="Number field|neutral-50|4% fill, value in neutral-300">1.00</div></div>
+            </div>
+            <div class="m-lab" data-u="Field labels|neutral-300">Alignment</div>
+            <div class="m-seg" data-u="Option group|neutral-50|4% fill, labels at about 55%">
+              <div class="on" data-u="Chosen option|neutral-600">Normal</div><div>Parallel</div><div>Transport</div>
+            </div>
+            <div class="m-tog"><span data-u="Field labels|neutral-300">Make instances</span><span class="m-swt" data-u="Switch, off|neutral-50|8% track, white knob"></span></div>
+            <div class="m-foot" data-u="Dialog buttons and key hints|neutral-400">
+              <span class="key" data-u="Key hint|neutral-50|8% fill, text in neutral-400">Esc</span><span>Cancel</span><span class="sp"></span><span>OK</span><span class="key" data-u="Key hint|neutral-50|8% fill, text in neutral-400">↵</span>
+            </div>
+          </div>
+
+          <div class="m-fl m-right" data-u="Settings panel|neutral-800|95% over the viewport|i">
+            <div class="m-rtabs">
+              <div class="on" data-u="Active panel tab|neutral-600||i"><svg class="i"><use href="#tpi-grid"/></svg></div>
+              <div class="on" data-u="Active panel tab|neutral-600||i"><svg class="i"><use href="#tpi-axes"/></svg></div>
+              <div data-u="Panel tab icons|neutral-50|80%|i"><svg class="i"><use href="#tpi-cube"/></svg></div>
+              <div data-u="Panel tab icons|neutral-50|80%|i"><svg class="i"><use href="#tpi-circle"/></svg></div>
+            </div>
+            <div class="m-h" data-u="Section headings|neutral-400||i"><span>SHADER MODE</span><svg class="i"><use href="#tpi-chev-d"/></svg></div>
+            <div class="m-caps" data-u="Matcap previews|fixed">
+              <i style="background:radial-gradient(circle at 35% 30%,#dfe3ea,#59616f 70%,#2a2e36)"></i>
+              <i style="background:radial-gradient(circle at 35% 30%,#f0b3a0,#a03a2a 70%,#3f1410)"></i>
+              <i style="background:linear-gradient(#222,#bbb 48%,#111 52%,#444)"></i>
+              <i style="background:radial-gradient(circle at 35% 30%,#fff,#b9b4b6 70%,#6d6769)"></i>
+              <i style="background:radial-gradient(circle at 35% 30%,#eef2f6,#8d98a6 70%,#4b535e)"></i>
+              <i style="background:linear-gradient(90deg,#c9cbd1 50%,#8a63d2 50%)"></i>
+              <i style="background:#000"></i>
+              <i style="background:linear-gradient(#7c3aed 50%,#111 50%)"></i>
+            </div>
+            <div class="m-tog"><span data-u="Setting labels|neutral-300||i">Show edges</span><span class="m-swt on" data-u="Switch, on|accent-600||i"></span></div>
+            <div class="m-tog"><span data-u="Setting labels|neutral-300||i">Show curves</span><span class="m-swt on" data-u="Switch, on|accent-600||i"></span></div>
+            <div class="m-tog"><span data-u="Setting labels|neutral-300||i">Show faces</span><span class="m-swt on" data-u="Switch, on|accent-600||i"></span></div>
+            <div class="m-h" data-u="Section headings|neutral-400||i"><span>CAMERA</span><svg class="i"><use href="#tpi-chev-d"/></svg></div>
+            <div class="m-step2"><span data-u="Setting labels|neutral-300||i">FOV</span><span class="b" data-u="Plus and minus buttons|neutral-600">−</span><span class="v" data-u="Number field|neutral-50|4% fill, value in neutral-300">50</span><span class="b" data-u="Plus and minus buttons|neutral-600">+</span></div>
+            <div class="m-step2"><span data-u="Setting labels|neutral-300||i">Squish</span><span class="b" data-u="Plus and minus buttons|neutral-600">−</span><span class="v" data-u="Number field|neutral-50|4% fill, value in neutral-300">1.0</span><span class="b" data-u="Plus and minus buttons|neutral-600">+</span></div>
+            <div class="m-btn" data-u="Button|neutral-600|text in neutral-300">Reset to default</div>
+            <div class="m-h" data-u="Section headings|neutral-400||i"><span>GRID</span><svg class="i"><use href="#tpi-chev-d"/></svg></div>
+            <div class="m-tog"><span data-u="Setting labels|neutral-300||i">Snap to grid</span><span class="m-swt" data-u="Switch, off|neutral-50|8% track, white knob"></span></div>
+            <div class="m-h" data-u="Section headings|neutral-400||i"><span>UNITS</span><svg class="i"><use href="#tpi-chev-d"/></svg></div>
+            <div class="m-dd"><span data-u="Setting labels|neutral-300||i">Length</span><div data-u="Drop-down|neutral-50|8% fill|i">Centimeter <svg class="i" style="width:12px;height:12px"><use href="#tpi-chev-d"/></svg></div></div>
+            <div class="m-dd"><span data-u="Setting labels|neutral-300||i">Mass</span><div data-u="Drop-down|neutral-50|8% fill|i">Gram <svg class="i" style="width:12px;height:12px"><use href="#tpi-chev-d"/></svg></div></div>
+          </div>
+
+          <div class="m-fl m-bot" data-u="Command bar|neutral-800|95% over the viewport|i">
+            <svg class="i" data-u="Command bar icons|neutral-400||i"><use href="#tpi-search"/></svg>
+            <svg class="i" data-u="Command bar icons|neutral-400||i"><use href="#tpi-move"/></svg>
+            <svg class="i" data-u="Command bar icons|neutral-400||i"><use href="#tpi-rot"/></svg>
+            <svg class="i" data-u="Command bar icons|neutral-400||i"><use href="#tpi-copy"/></svg>
+            <svg class="i" data-u="Command bar icons|neutral-400||i"><use href="#tpi-dots"/></svg>
+          </div>
+        </div>
+      </div>
+        </div>
+      </div>
+      <div class="instructions tp-info" id="tpInfo">Point at any part of the window to see which colour drives it. Click to edit that colour.</div>
+    </div>
+
+    <!-- Right Panel - Theme editor -->
+    <div class="properties-panel tp-panel">
+      <div class="section-title">Theme File</div>
+      <div class="tp-path" id="tpPath">No file open</div>
+      <button class="btn" id="tpOpen" type="button">Open Theme</button>
+      <button class="btn" id="tpSave" type="button">Save</button>
+      <button class="btn" id="tpSaveAs" type="button">Save As…</button>
+      <button class="btn" id="tpCopy" type="button">Copy JSON</button>
+      <div class="tp-hint">Save as theme.json in your .plasticity folder, then restart Plasticity. Leave the colour choices in Preferences &gt; Appearance unselected, or they replace the file's colours.</div>
+
+      <div class="separator"></div>
+      <div class="section-title">Starter Themes</div>
+      <div class="loaded-menus tp-starters" id="tpStarters"></div>
+
+      <div class="separator"></div>
+
+      <div class="tp-pal" data-pal="neutral">
+        <div class="tp-pal-head">
+          <div class="section-title">Neutral</div>
+          <select class="form-input tp-fill" aria-label="Fill neutral from a palette"></select>
+          <button class="btn tp-rev" type="button">Reverse</button>
+        </div>
+        <div class="tp-ramp"></div>
+        <div class="tp-nums"></div>
+        <div class="tp-detail">
+          <input type="color" class="tp-color" aria-label="Pick neutral colour" />
+          <input type="text" class="form-input tp-hex" spellcheck="false" aria-label="Neutral hex value" />
+          <span class="tp-name"></span>
+        </div>
+        <div class="tp-use"></div>
+      </div>
+
+      <div class="tp-pal" data-pal="accent">
+        <div class="tp-pal-head">
+          <div class="section-title">Accent</div>
+          <select class="form-input tp-fill" aria-label="Fill accent from a palette"></select>
+          <button class="btn tp-rev" type="button">Reverse</button>
+        </div>
+        <div class="tp-ramp"></div>
+        <div class="tp-nums"></div>
+        <div class="tp-detail">
+          <input type="color" class="tp-color" aria-label="Pick accent colour" />
+          <input type="text" class="form-input tp-hex" spellcheck="false" aria-label="Accent hex value" />
+          <span class="tp-name"></span>
+        </div>
+        <div class="tp-use"></div>
+      </div>
+
+      <div class="tp-pal" data-pal="supporting">
+        <div class="tp-pal-head">
+          <div class="section-title">Supporting</div>
+          <select class="form-input tp-fill" aria-label="Fill supporting from a palette"></select>
+          <button class="btn tp-rev" type="button">Reverse</button>
+        </div>
+        <div class="tp-ramp"></div>
+        <div class="tp-nums"></div>
+        <div class="tp-detail">
+          <input type="color" class="tp-color" aria-label="Pick supporting colour" />
+          <input type="text" class="form-input tp-hex" spellcheck="false" aria-label="Supporting hex value" />
+          <span class="tp-name"></span>
+        </div>
+        <div class="tp-use"></div>
+      </div>
+
+      <div class="tp-legend"><i></i> A hollow dot marks a shade the probe never showed on screen.</div>
+
+      <div class="separator"></div>
+      <div class="section-title">Viewport</div>
+      <div class="tp-row"><label for="tpVpT">Background</label><input type="color" class="tp-color" id="tpVpC" aria-label="Pick viewport background" /><input type="text" class="form-input tp-hex" id="tpVpT" spellcheck="false" /></div>
+      <div class="tp-row"><label for="tpGrT">Grid lines</label><input type="color" class="tp-color" id="tpGrC" aria-label="Pick grid colour" /><input type="text" class="form-input tp-hex" id="tpGrT" spellcheck="false" /></div>
+      <div class="tp-range"><label for="tpGrA">Grid strength <span id="tpGrAV"></span></label><input type="range" id="tpGrA" min="0" max="100" step="1" /></div>
+      <div class="tp-hint">Plasticity draws the grid and the selection outline darker than the value in the file. The preview copies that. Edge colours, edge sizes, the matcap tint and the dialog and white values showed no effect in the probe, so they are kept in the file but not drawn here.</div>
     </div>
   </div>
 
@@ -1445,6 +1835,7 @@ body {
         appState.jsonPreviewVisible = false;
       });
       document.addEventListener('keydown', (e) => {
+        if (document.body.dataset.tab === 'theme') return; // Theme Preview tab is showing
         const activeElement = document.activeElement;
         const isTyping = activeElement && (
           activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA' || activeElement.isContentEditable
@@ -1478,6 +1869,477 @@ body {
     document.addEventListener('DOMContentLoaded', () => {
       setTimeout(initApp, 100);
     });
+  </script>
+
+  <!-- ===== Theme Preview tab script ===== -->
+  <script>
+    // Theme Preview tab. Self-contained: it only touches elements inside #tpApp and the tab bar,
+    // and reuses the builder's Tauri helpers (initTauriAPI, invokeCommand, isMacOS, saveJsonFileWeb).
+    (function () {
+      'use strict';
+
+      const STEPS = ['50', '100', '200', '300', '400', '500', '600', '700', '800', '900'];
+      const TW = {
+        red: 'fef2f2 fee2e2 fecaca fca5a5 f87171 ef4444 dc2626 b91c1c 991b1b 7f1d1d',
+        orange: 'fff7ed ffedd5 fed7aa fdba74 fb923c f97316 ea580c c2410c 9a3412 7c2d12',
+        amber: 'fffbeb fef3c7 fde68a fcd34d fbbf24 f59e0b d97706 b45309 92400e 78350f',
+        yellow: 'fefce8 fef9c3 fef08a fde047 facc15 eab308 ca8a04 a16207 854d0e 713f12',
+        lime: 'f7fee7 ecfccb d9f99d bef264 a3e635 84cc16 65a30d 4d7c0f 3f6212 365314',
+        green: 'f0fdf4 dcfce7 bbf7d0 86efac 4ade80 22c55e 16a34a 15803d 166534 14532d',
+        emerald: 'ecfdf5 d1fae5 a7f3d0 6ee7b7 34d399 10b981 059669 047857 065f46 064e3b',
+        teal: 'f0fdfa ccfbf1 99f6e4 5eead4 2dd4bf 14b8a6 0d9488 0f766e 115e59 134e4a',
+        cyan: 'ecfeff cffafe a5f3fc 67e8f9 22d3ee 06b6d4 0891b2 0e7490 155e75 164e63',
+        sky: 'f0f9ff e0f2fe bae6fd 7dd3fc 38bdf8 0ea5e9 0284c7 0369a1 075985 0c4a6e',
+        blue: 'eff6ff dbeafe bfdbfe 93c5fd 60a5fa 3b82f6 2563eb 1d4ed8 1e40af 1e3a8a',
+        indigo: 'eef2ff e0e7ff c7d2fe a5b4fc 818cf8 6366f1 4f46e5 4338ca 3730a3 312e81',
+        violet: 'f5f3ff ede9fe ddd6fe c4b5fd a78bfa 8b5cf6 7c3aed 6d28d9 5b21b6 4c1d95',
+        purple: 'faf5ff f3e8ff e9d5ff d8b4fe c084fc a855f7 9333ea 7e22ce 6b21a8 581c87',
+        fuchsia: 'fdf4ff fae8ff f5d0fe f0abfc e879f9 d946ef c026d3 a21caf 86198f 701a75',
+        pink: 'fdf2f8 fce7f3 fbcfe8 f9a8d4 f472b6 ec4899 db2777 be185d 9d174d 831843',
+        rose: 'fff1f2 ffe4e6 fecdd3 fda4af fb7185 f43f5e e11d48 be123c 9f1239 881337',
+        slate: 'f8fafc f1f5f9 e2e8f0 cbd5e1 94a3b8 64748b 475569 334155 1e293b 0f172a',
+        zinc: 'fafafa f4f4f5 e4e4e7 d4d4d8 a1a1aa 71717a 52525b 3f3f46 27272a 18181b',
+        balanced: 'fafafa f5f5f5 e5e5e5 d4d4d4 a3a3a3 737373 525252 404040 262626 171717',
+        gray: 'f9fafb f3f4f6 e5e7eb d1d5db 9ca3af 6b7280 4b5563 374151 1f2937 111827',
+        stone: 'fafaf9 f5f5f4 e7e5e4 d6d3d1 a8a29e 78716c 57534e 44403c 292524 1c1917'
+      };
+      const GREYS = ['slate', 'gray', 'zinc', 'balanced', 'stone'];
+      const HUES = Object.keys(TW).filter((k) => !GREYS.includes(k));
+
+      function ramp(str, reverse) {
+        const v = str.split(' ').map((x) => '#' + x);
+        if (reverse) v.reverse();
+        const o = {};
+        STEPS.forEach((s, i) => { o[s] = v[i]; });
+        return o;
+      }
+      const pal = (name, reverse) => ramp(TW[name], reverse);
+
+      // The default theme, in the same shape and key order as Plasticity's own file.
+      function defaults() {
+        const c = {
+          viewport: '#27272a', dialog: '#111111', matcap: '#fafafa', white: '#ffffff', grid: '#ffffff1f',
+          solidEdge: '#000000', solidEdgeOccluded: '#0000001F', sheetEdge: '#000000', sheetEdgeOccluded: '#0000001F',
+          neutral: pal('balanced'), accent: pal('purple'), supporting: pal('teal')
+        };
+        Object.keys(TW).forEach((k) => { c[k] = pal(k); });
+        return { colors: c, sizes: { solidEdge: 1.4, solidEdgeOccluded: 1, sheetEdge: 1.4, sheetEdgeOccluded: 1 } };
+      }
+      function lightStarter() {
+        const t = defaults();
+        t.colors.neutral = pal('balanced', true);
+        t.colors.viewport = '#e4e4e7'; t.colors.dialog = '#ffffff'; t.colors.grid = '#0000001f';
+        return t;
+      }
+      function starter(o) {
+        const t = defaults(), c = t.colors;
+        c.viewport = o.viewport; c.dialog = o.dialog; c.matcap = o.matcap; c.grid = o.grid;
+        c.solidEdge = c.sheetEdge = o.edge; c.solidEdgeOccluded = c.sheetEdgeOccluded = o.edgeOccluded;
+        c.neutral = ramp(o.neutral); c.balanced = ramp(o.neutral); c.accent = ramp(o.accent); c.supporting = ramp(o.supporting);
+        return t;
+      }
+      const PRESETS = [
+        ['Plasticity default', defaults],
+        ['Light starter', lightStarter],
+        ['Slate blue', () => starter({
+          viewport: '#5a637b', dialog: '#3c4a69', matcap: '#edf0f9', grid: '#e2e8f624', edge: '#1b2444', edgeOccluded: '#1b244438',
+          neutral: 'f8fafe f0f3fc e7edf9 dde5f5 8e9ec2 637396 59688c 506083 435273 364361',
+          accent: 'f9f7ff f5f1fe e9e1fe d9ccfa beabea 8d79bb 7a65a6 6c5796 5d4b82 493969',
+          supporting: 'fcf4f8 f9e7ef f3d4e3 e9bbd1 d49ab7 b97d9b 9d6280 85506b 6f4259 5a3548'
+        })],
+        ['Take Refuge 3D', () => starter({
+          viewport: '#201e25', dialog: '#15131c', matcap: '#e4e0ee', grid: '#a874d426', edge: '#453a66', edgeOccluded: '#453a6640',
+          neutral: 'faf8fd f2eff8 e4e0ee d6d2e3 625c79 4e4370 36324c 292639 1c1a27 111017',
+          accent: 'fbf2f5 f8e6ed f3cedc eba8c4 de78a6 cf5590 b53978 9f3069 882d5b 73294d',
+          supporting: 'faf7fd f3ebfa e9dcf6 d7bfee be98e2 a874d4 8d54ba 7a45a3 683e8a 53316e'
+        })]
+      ];
+
+      // Where each shade shows up in Plasticity 2026.1, read from probe-theme screenshots.
+      const USE = {
+        neutral: {
+          '50': 'Icons and tab labels at 80%, folder icons at about 60%, the file name at 40%. Also every faint overlay: fields 4%, switches and key hints 8%, the selected row 12%.',
+          '300': 'Item names, field labels and values, headings, and the text on buttons.',
+          '400': 'Small icons and arrows, dialog titles, menu items, section headings, key hints.',
+          '500': 'The bold prompt line in command dialogs.',
+          '600': 'Active tab, chosen option, plus and minus buttons, main buttons. Also hidden items in the outliner.',
+          '800': 'Floating panels at 95%: toolbars, command dialog, settings panel, Preferences. Also the tab strip.',
+          '900': 'Window, title bar and outliner background.'
+        },
+        accent: {
+          '500': 'Selection outline in the viewport, and the icon of the selected item.',
+          '600': 'Active selection mode, switches that are on, completed step marker, curve icons.',
+          '800': 'Marker of the step that is waiting for input.',
+          '900': 'Border of the waiting step at 25%, and the icon of a hidden curve.'
+        },
+        supporting: {}
+      };
+
+      const $ = (id) => document.getElementById(id);
+      const mock = $('tpMock'), frame = $('tpFrame'), stage = $('tpStage');
+      const STORE = 'plasticity-theme-preview', TABKEY = 'plasticity-tools-tab';
+
+      let theme = defaults();
+      let filePath = null;      // full path when opened or saved through the desktop app
+      let fileLabel = null;     // what to show in the "Theme File" box
+      let dirty = false;
+      const sel = { neutral: '900', accent: '600', supporting: '500' };
+
+      // ---------- colour helpers ----------
+      function normHex(v) {
+        if (typeof v !== 'string') return null;
+        v = v.trim().toLowerCase();
+        if (v[0] !== '#') v = '#' + v;
+        if (/^#[0-9a-f]{3}$/.test(v)) v = '#' + v[1] + v[1] + v[2] + v[2] + v[3] + v[3];
+        return /^#[0-9a-f]{6}([0-9a-f]{2})?$/.test(v) ? v : null;
+      }
+      const safe = (v, fallback) => normHex(v) || fallback;
+      const rgb = (h) => [parseInt(h.substr(1, 2), 16), parseInt(h.substr(3, 2), 16), parseInt(h.substr(5, 2), 16)];
+      const alphaOf = (h) => (h.length === 9 ? parseInt(h.substr(7, 2), 16) / 255 : 1);
+      const hex2 = (n) => { const s = Math.round(n).toString(16); return s.length < 2 ? '0' + s : s; };
+      // Plasticity's 3D view shows theme colours darker than written; this reproduces it.
+      function darken(h) {
+        return 'rgb(' + rgb(h).map((c) => {
+          c /= 255;
+          return Math.round(255 * (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)));
+        }).join(',') + ')';
+      }
+
+      // ---------- messages ----------
+      function note(message, type = 'success') {
+        const el = $('tpNote');
+        el.textContent = message;
+        el.className = `notification ${type}`;
+        clearTimeout(note._t);
+        note._t = setTimeout(() => { el.textContent = ''; el.className = 'notification'; }, 4000);
+      }
+      function showPath() {
+        const el = $('tpPath');
+        el.textContent = fileLabel || 'No file open';
+        if (dirty) { const em = document.createElement('em'); em.textContent = '  (unsaved changes)'; el.appendChild(em); }
+      }
+      const themeJson = () => JSON.stringify(theme, null, 4);
+
+      // ---------- paint the stand-in window ----------
+      function paint() {
+        const c = theme.colors, d = defaults().colors, st = mock.style;
+        STEPS.forEach((s) => {
+          st.setProperty('--n' + s, safe(c.neutral && c.neutral[s], d.neutral[s]).substr(0, 7));
+          st.setProperty('--a' + s, safe(c.accent && c.accent[s], d.accent[s]).substr(0, 7));
+        });
+        st.setProperty('--vp', safe(c.viewport, d.viewport).substr(0, 7));
+        const g = safe(c.grid, d.grid), a = alphaOf(g);
+        st.setProperty('--gridc', darken(g));
+        st.setProperty('--gmin', String(Math.min(1, a * 0.3)));
+        st.setProperty('--gmaj', String(Math.min(1, a * 0.8)));
+        st.setProperty('--outline', darken(safe(c.accent && c.accent['500'], d.accent['500'])));
+        try { localStorage.setItem(STORE, JSON.stringify({ theme, filePath, fileLabel, dirty })); } catch (e) {}
+      }
+
+      // ---------- the 3D scene ----------
+      (function drawScene() {
+        const cx = 520, cy = 455, u = 44, k = 0.866, N = 16;
+        const P = (x, y, z) => [(cx + (x - y) * k * u).toFixed(1), (cy + (x + y) * 0.5 * u - z * u).toFixed(1)];
+        const L = (a, b, extra) => `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" ${extra}/>`;
+        const poly = (pts) => pts.map((p) => p.join(',')).join(' ');
+        let s = '<defs><linearGradient id="tp-gt" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9aa3bd"/><stop offset="1" stop-color="#6e82ad"/></linearGradient>'
+          + '<linearGradient id="tp-gl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8b8795"/><stop offset="1" stop-color="#57504f"/></linearGradient>'
+          + '<linearGradient id="tp-gr" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a39aa6"/><stop offset="1" stop-color="#6a5f5c"/></linearGradient></defs>';
+        s += '<g data-u="Grid lines|grid|drawn darker than the file value" style="stroke:var(--gridc)" stroke-width="1">';
+        for (let i = -N; i <= N; i++) {
+          if (i === 0) continue;
+          const o = `stroke-opacity="var(--${i % 5 === 0 ? 'gmaj' : 'gmin'})"`;
+          s += L(P(i, -N, 0), P(i, N, 0), o) + L(P(-N, i, 0), P(N, i, 0), o);
+        }
+        s += '</g>';
+        s += '<g data-u="Axis lines|fixed">' + L(P(-N, 0, 0), P(N, 0, 0), 'stroke="#dc2626" stroke-opacity=".5" stroke-width="1.2"')
+          + L(P(0, -N, 0), P(0, N, 0), 'stroke="#2e9939" stroke-opacity=".5" stroke-width="1.2"') + '</g>';
+        const a = 2.2, h = 2.7, b = a * 0.72, e = 'fill="none" stroke="#000" stroke-width="1.2" stroke-linejoin="round"', ln = 'stroke="#000" stroke-width="1.2"';
+        s += '<g data-u="Object shading|fixed">'
+          + `<polygon points="${poly([P(-a, a, 0), P(a, a, 0), P(a, a, h), P(-a, a, h)])}" fill="url(#tp-gl)"/>`
+          + `<polygon points="${poly([P(a, -a, 0), P(a, a, 0), P(a, a, h), P(a, -a, h)])}" fill="url(#tp-gr)"/>`
+          + `<polygon points="${poly([P(-a, -a, h), P(a, -a, h), P(a, a, h), P(-a, a, h)])}" fill="url(#tp-gt)"/></g>`;
+        s += '<g data-u="Edges|fixed">'
+          + `<polygon points="${poly([P(-a, -a, h), P(a, -a, h), P(a, a, h), P(-a, a, h)])}" ${e}/>`
+          + `<polygon points="${poly([P(-b, -b, h), P(b, -b, h), P(b, b, h), P(-b, b, h)])}" ${e}/>`
+          + `<polyline points="${poly([P(-a, a, h), P(-a, a, 0), P(a, a, 0), P(a, -a, 0), P(a, -a, h)])}" ${e}/>`
+          + L(P(a, a, 0), P(a, a, h), ln) + L(P(-b, a, 0), P(-b, a, h), ln) + L(P(a, -b, 0), P(a, -b, h), ln) + '</g>';
+        s += `<polygon data-u="Selection outline|accent-500|drawn darker than the file value" points="${poly([P(-a, -a, h), P(a, -a, h), P(a, -a, 0), P(a, a, 0), P(-a, a, 0), P(-a, a, h)])}" fill="none" style="stroke:var(--outline)" stroke-width="2.4" stroke-linejoin="round"/>`;
+        $('tpScene').innerHTML = s;
+      })();
+
+      // ---------- fit the 1280 x 800 stand-in into the centre panel ----------
+      function fit() {
+        const w = stage.clientWidth - 24, h = stage.clientHeight - 24;
+        if (w <= 0 || h <= 0) return; // tab is hidden
+        const sc = Math.min(w / 1280, h / 800);
+        mock.style.transform = `scale(${sc})`;
+        frame.style.width = (1280 * sc) + 'px';
+        frame.style.height = (800 * sc) + 'px';
+      }
+      let fitTimer;
+      window.addEventListener('resize', () => { clearTimeout(fitTimer); fitTimer = setTimeout(fit, 100); });
+
+      // ---------- palette editors ----------
+      const cards = {};
+      const cap = (p) => p.charAt(0).toUpperCase() + p.slice(1);
+      function edited() { dirty = true; }
+      function buildCard(card) {
+        const p = card.dataset.pal;
+        const rampEl = card.querySelector('.tp-ramp'), nums = card.querySelector('.tp-nums'), fill = card.querySelector('.tp-fill');
+        const opts = p === 'neutral' ? GREYS : HUES;
+        fill.innerHTML = '<option value="">Fill from…</option>'
+          + opts.map((k) => `<option value="${k}">${k === 'balanced' ? 'Neutral grey' : cap(k)}</option>`).join('');
+        fill.addEventListener('change', () => {
+          if (!fill.value) return;
+          theme.colors[p] = pal(fill.value); fill.value = ''; edited(); refresh();
+        });
+        card.querySelector('.tp-rev').addEventListener('click', () => {
+          const v = STEPS.map((s) => theme.colors[p][s]).reverse();
+          STEPS.forEach((s, i) => { theme.colors[p][s] = v[i]; });
+          edited(); refresh();
+        });
+        STEPS.forEach((s) => {
+          const b = document.createElement('button');
+          b.type = 'button'; b.className = 'tp-sw' + (USE[p][s] ? '' : ' unseen'); b.dataset.s = s;
+          b.setAttribute('aria-label', `${cap(p)} ${s}`);
+          b.addEventListener('click', () => { sel[p] = s; refreshCard(p); });
+          rampEl.appendChild(b);
+          const n = document.createElement('span'); n.textContent = s; nums.appendChild(n);
+        });
+        const col = card.querySelector('.tp-color'), txt = card.querySelector('.tp-hex');
+        col.addEventListener('input', () => { theme.colors[p][sel[p]] = col.value; edited(); refresh(true); });
+        txt.addEventListener('change', () => {
+          const v = normHex(txt.value);
+          if (v) { theme.colors[p][sel[p]] = v.substr(0, 7); edited(); }
+          refresh();
+        });
+        cards[p] = { card, col, txt };
+      }
+      function refreshCard(p, keepText) {
+        const c = cards[p], d = defaults().colors[p];
+        if (!theme.colors[p] || typeof theme.colors[p] !== 'object') theme.colors[p] = d;
+        c.card.querySelectorAll('.tp-sw').forEach((b) => {
+          const s = b.dataset.s;
+          b.style.background = safe(theme.colors[p][s], d[s]).substr(0, 7);
+          b.setAttribute('aria-pressed', String(s === sel[p]));
+        });
+        const v = safe(theme.colors[p][sel[p]], d[sel[p]]).substr(0, 7);
+        c.col.value = v;
+        if (!keepText || document.activeElement !== c.txt) c.txt.value = v;
+        c.card.querySelector('.tp-name').textContent = `${cap(p)} ${sel[p]}`;
+        c.card.querySelector('.tp-use').textContent = USE[p][sel[p]]
+          || 'Not seen in the probe. Changing it has no effect on this preview, and may have none in Plasticity.';
+      }
+      document.querySelectorAll('#tpApp .tp-pal').forEach(buildCard);
+
+      // ---------- viewport and grid ----------
+      const vpC = $('tpVpC'), vpT = $('tpVpT'), grC = $('tpGrC'), grT = $('tpGrT'), grA = $('tpGrA');
+      const setGrid = (colour, alpha) => { theme.colors.grid = colour.substr(0, 7) + hex2(alpha * 255); };
+      vpC.addEventListener('input', () => { theme.colors.viewport = vpC.value; edited(); refresh(true); });
+      vpT.addEventListener('change', () => { const v = normHex(vpT.value); if (v) { theme.colors.viewport = v.substr(0, 7); edited(); } refresh(); });
+      grC.addEventListener('input', () => { setGrid(grC.value, grA.value / 100); edited(); refresh(true); });
+      grT.addEventListener('change', () => { const v = normHex(grT.value); if (v) { setGrid(v, grA.value / 100); edited(); } refresh(); });
+      grA.addEventListener('input', () => { setGrid(grC.value, grA.value / 100); edited(); refresh(true); });
+      function refreshSingles(keepText) {
+        const d = defaults().colors, v = safe(theme.colors.viewport, d.viewport).substr(0, 7), g = safe(theme.colors.grid, d.grid);
+        vpC.value = v; if (!keepText || document.activeElement !== vpT) vpT.value = v;
+        grC.value = g.substr(0, 7); if (!keepText || document.activeElement !== grT) grT.value = g.substr(0, 7);
+        const a = Math.round(alphaOf(g) * 100);
+        grA.value = a; $('tpGrAV').textContent = a + '%';
+      }
+      function refresh(keepText) {
+        ['neutral', 'accent', 'supporting'].forEach((p) => refreshCard(p, keepText));
+        refreshSingles(keepText); showPath(); paint();
+      }
+
+      // ---------- pointing at the stand-in ----------
+      const info = $('tpInfo');
+      function describe(el) {
+        const d = el.dataset.u.split('|'), name = d[0], ref = d[1], extra = d[2] || '', inferred = d[3] === 'i';
+        let src = ref === 'fixed' ? 'not set by the theme file' : ref.replace('-', ' ');
+        if (extra) src += (/^\d|^about/.test(extra) ? ' at ' : ', ') + extra;
+        info.textContent = '';
+        const b = document.createElement('b'); b.textContent = name; info.appendChild(b);
+        info.appendChild(document.createTextNode(' — ' + src + (inferred ? '. Worked out from a normal screenshot, since this part was not in the probe.' : '')));
+      }
+      mock.addEventListener('pointerover', (e) => { const el = e.target.closest && e.target.closest('[data-u]'); if (el) describe(el); });
+      mock.addEventListener('click', (e) => {
+        const el = e.target.closest && e.target.closest('[data-u]');
+        if (!el) return;
+        describe(el);
+        const ref = el.dataset.u.split('|')[1], m = /^(neutral|accent|supporting)-(\d+)$/.exec(ref);
+        let target = null;
+        if (m) { sel[m[1]] = m[2]; refreshCard(m[1]); target = cards[m[1]].card; }
+        else if (ref === 'viewport') target = vpT;
+        else if (ref === 'grid') target = grT;
+        if (target) {
+          if (target.scrollIntoView) target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+          (m ? cards[m[1]].txt : target).focus({ preventScroll: true });
+        }
+      });
+
+      // ---------- reading theme text ----------
+      // Accepts strict JSON, and the looser form shared on the Plasticity Discord
+      // (bare keys, single quotes, trailing commas, no outer braces).
+      function relaxedParse(text) {
+        try { return JSON.parse(text); } catch (e) {}
+        let t = text.replace(/^\uFEFF/, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').trim();
+        t = t.replace(/^(module\.exports\s*=|export\s+default)\s*/, '').replace(/;\s*$/, '');
+        if (t[0] !== '{') t = '{' + t + '}';
+        t = t.replace(/'([^'\\]*)'/g, '"$1"').replace(/([{,]\s*)([A-Za-z_$][\w$]*|\d+)\s*:/g, '$1"$2":').replace(/,(\s*[}\]])/g, '$1');
+        return JSON.parse(t);
+      }
+      function merge(base, over) {
+        Object.keys(over).forEach((k) => {
+          if (over[k] && typeof over[k] === 'object' && !Array.isArray(over[k]) && base[k] && typeof base[k] === 'object') merge(base[k], over[k]);
+          else base[k] = over[k];
+        });
+        return base;
+      }
+      function loadText(text, label, path) {
+        try {
+          let parsed = relaxedParse(text);
+          if (!parsed || typeof parsed !== 'object') throw new Error('not an object');
+          if (!parsed.colors && (parsed.neutral || parsed.viewport)) parsed = { colors: parsed };
+          if (!parsed.colors) throw new Error('no colors section');
+          theme = merge(defaults(), parsed);
+          filePath = path || null; fileLabel = path || label; dirty = false;
+          markStarter(null); refresh();
+          note(`Loaded ${label}.`);
+        } catch (err) {
+          note(`Could not read ${label}: it is not a valid theme file. Check for a missing bracket or comma.`, 'error');
+        }
+      }
+
+      // ---------- open / save ----------
+      // Windows and Linux use the app's native dialogs; macOS and the plain-browser
+      // build use web file pickers, the same split the radial builder uses.
+      function useNative() {
+        try { if (typeof initTauriAPI === 'function') initTauriAPI(); } catch (e) {}
+        return typeof tauriAvailable !== 'undefined' && tauriAvailable && !isMacOS;
+      }
+      function openWeb() {
+        const input = document.createElement('input');
+        input.type = 'file'; input.accept = '.json,.json5,.js,.txt,application/json,text/plain'; input.style.display = 'none';
+        input.onchange = () => {
+          const f = input.files && input.files[0];
+          if (f) {
+            const r = new FileReader();
+            r.onload = () => loadText(String(r.result), f.name, null);
+            r.onerror = () => note(`Could not open ${f.name}.`, 'error');
+            r.readAsText(f);
+          }
+          input.remove();
+        };
+        input.oncancel = () => input.remove();
+        document.body.appendChild(input);
+        input.click();
+      }
+      async function openTheme() {
+        if (useNative()) {
+          let path;
+          try { path = await invokeCommand('pick_theme_file'); }
+          catch (err) { openWeb(); return; } // older backend without the theme commands
+          if (!path) return;
+          try {
+            const text = await invokeCommand('read_text_file', { path });
+            loadText(text, path.split(/[\\/]/).pop(), path);
+          } catch (err) { note(`Failed to open theme: ${err}`, 'error'); }
+        } else {
+          openWeb();
+        }
+      }
+      async function saveWeb() {
+        try {
+          const name = await saveJsonFileWeb(theme, 'theme.json');
+          fileLabel = name; dirty = false; refresh();
+          note('Theme saved.');
+        } catch (err) { note(`Failed to save theme: ${err}`, 'error'); }
+      }
+      async function writeTo(path) {
+        await invokeCommand('write_text_file', { path, contents: themeJson() + '\n' });
+        filePath = path; fileLabel = path; dirty = false; refresh();
+        note('Theme saved. Restart Plasticity to see it.');
+      }
+      async function saveThemeAs() {
+        if (useNative()) {
+          let path;
+          try { path = await invokeCommand('pick_save_theme_path', { suggestedName: 'theme.json' }); }
+          catch (err) { await saveWeb(); return; } // older backend without the theme commands
+          if (!path) { note('Save cancelled.', 'warning'); return; }
+          try { await writeTo(path); } catch (err) { note(`Failed to save theme: ${err}`, 'error'); }
+        } else {
+          await saveWeb();
+        }
+      }
+      async function saveTheme() {
+        if (useNative() && filePath) {
+          try { await writeTo(filePath); } catch (err) { note(`Failed to save theme: ${err}`, 'error'); }
+        } else {
+          await saveThemeAs();
+        }
+      }
+      async function copyJson() {
+        const text = themeJson();
+        try { await navigator.clipboard.writeText(text); note('Theme JSON copied.'); return; } catch (e) {}
+        const ta = document.createElement('textarea');
+        ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        let ok = false;
+        try { ok = document.execCommand('copy'); } catch (e) {}
+        ta.remove();
+        note(ok ? 'Theme JSON copied.' : 'Copying is not available here. Use Save As instead.', ok ? 'success' : 'error');
+      }
+      $('tpOpen').addEventListener('click', openTheme);
+      $('tpSave').addEventListener('click', saveTheme);
+      $('tpSaveAs').addEventListener('click', saveThemeAs);
+      $('tpCopy').addEventListener('click', copyJson);
+
+      // ---------- starter themes ----------
+      const startersEl = $('tpStarters');
+      function markStarter(name) {
+        startersEl.querySelectorAll('.menu-item').forEach((el) => el.classList.toggle('selected', el.textContent === name));
+      }
+      PRESETS.forEach(([name, make]) => {
+        const item = document.createElement('div');
+        item.className = 'menu-item'; item.textContent = name;
+        item.addEventListener('click', () => {
+          theme = make(); filePath = null; fileLabel = `${name} (starter, not saved)`; dirty = false;
+          markStarter(name); refresh();
+          note(`Loaded ${name}.`);
+        });
+        startersEl.appendChild(item);
+      });
+
+      // ---------- tabs ----------
+      const tabButtons = document.querySelectorAll('.app-tab');
+      function showTab(name, initial) {
+        document.body.dataset.tab = name;
+        tabButtons.forEach((b) => {
+          const on = b.dataset.tab === name;
+          b.classList.toggle('active', on);
+          b.setAttribute('aria-selected', String(on));
+        });
+        try { localStorage.setItem(TABKEY, name); } catch (e) {}
+        if (name === 'theme') fit();
+        else if (!initial && typeof resizeCanvas === 'function') { try { resizeCanvas(); } catch (e) {} }
+      }
+      tabButtons.forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
+
+      // ---------- start ----------
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORE) || 'null');
+        if (saved && saved.theme && saved.theme.colors) {
+          theme = merge(defaults(), saved.theme);
+          filePath = saved.filePath || null; fileLabel = saved.fileLabel || null; dirty = !!saved.dirty;
+        }
+      } catch (e) {}
+      refresh();
+      let startTab = 'radial';
+      try { if (localStorage.getItem(TABKEY) === 'theme') startTab = 'theme'; } catch (e) {}
+      showTab(startTab, true);
+    })();
   </script>
 </body>
 </html>
