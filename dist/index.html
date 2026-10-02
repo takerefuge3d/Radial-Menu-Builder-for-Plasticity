@@ -597,7 +597,7 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
       <div class="tp-row"><label for="tpVpT">Background</label><input type="color" class="tp-color" id="tpVpC" aria-label="Pick viewport background" /><input type="text" class="form-input tp-hex" id="tpVpT" spellcheck="false" /></div>
       <div class="tp-row"><label for="tpGrT">Grid lines</label><input type="color" class="tp-color" id="tpGrC" aria-label="Pick grid colour" /><input type="text" class="form-input tp-hex" id="tpGrT" spellcheck="false" /></div>
       <div class="tp-range"><label for="tpGrA">Grid strength <span id="tpGrAV"></span></label><input type="range" id="tpGrA" min="0" max="100" step="1" /></div>
-      <div class="tp-hint">Plasticity draws the grid and the selection outline darker than the value in the file. The preview copies that. Edge colours, edge sizes, the matcap tint and the dialog and white values showed no effect in the probe, so they are kept in the file but not drawn here.</div>
+      <div class="tp-hint">Plasticity draws the grid darker than the value in the file, and the preview copies that. The selection outline is always yellow: no theme value changes it. Edge colours, edge sizes, the matcap tint and the dialog and white values showed no effect in the probe, so they are kept in the file but not drawn here.</div>
     </div>
   </div>
 
@@ -2266,7 +2266,7 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
           '900': 'Window, title bar and outliner background.'
         },
         accent: {
-          '500': 'Selection outline in the viewport, and the icon of the selected item.',
+          '500': 'The icon of the selected item.',
           '600': 'Active selection mode, switches that are on, completed step marker, curve icons.',
           '800': 'Marker of the step that is waiting for input.',
           '900': 'Border of the waiting step at 25%, and the icon of a hidden curve.'
@@ -2331,7 +2331,7 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
         st.setProperty('--gridc', darken(g));
         st.setProperty('--gmin', String(Math.min(1, a * 0.3)));
         st.setProperty('--gmaj', String(Math.min(1, a * 0.8)));
-        st.setProperty('--outline', darken(safe(c.accent && c.accent['500'], d.accent['500'])));
+        st.setProperty('--outline', '#ffff00'); // Plasticity's selection outline is always yellow; the theme doesn't change it
         try { localStorage.setItem(STORE, JSON.stringify({ theme, filePath, fileLabel, dirty })); } catch (e) {}
       }
 
@@ -2363,7 +2363,7 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
           + `<polygon points="${poly([P(-b, -b, h), P(b, -b, h), P(b, b, h), P(-b, b, h)])}" ${e}/>`
           + `<polyline points="${poly([P(-a, a, h), P(-a, a, 0), P(a, a, 0), P(a, -a, 0), P(a, -a, h)])}" ${e}/>`
           + L(P(a, a, 0), P(a, a, h), ln) + L(P(-b, a, 0), P(-b, a, h), ln) + L(P(a, -b, 0), P(a, -b, h), ln) + '</g>';
-        s += `<polygon data-u="Selection outline|accent-500|drawn darker than the file value" points="${poly([P(-a, -a, h), P(a, -a, h), P(a, -a, 0), P(a, a, 0), P(-a, a, 0), P(-a, a, h)])}" fill="none" style="stroke:var(--outline)" stroke-width="2.4" stroke-linejoin="round"/>`;
+        s += `<polygon data-u="Selection outline|fixed|always yellow in Plasticity" points="${poly([P(-a, -a, h), P(a, -a, h), P(a, -a, 0), P(a, a, 0), P(-a, a, 0), P(-a, a, h)])}" fill="none" style="stroke:var(--outline)" stroke-width="2.4" stroke-linejoin="round"/>`;
         $('tpScene').innerHTML = s;
       })();
 
