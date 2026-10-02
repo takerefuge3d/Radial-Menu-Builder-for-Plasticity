@@ -1141,6 +1141,26 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
       showNotification(`Assigned '${label}' to socket ${socketIndex + 1}.`);
     }
 
+    // Fit a label into maxW: one line at 12px if it fits, else two lines (split at the
+    // most balanced space), shrinking to 8px, and finally shortened with an ellipsis.
+    function fitLabel(text, maxW) {
+      const width = (s, size) => { ctx.font = `bold ${size}px Arial`; return ctx.measureText(s).width; };
+      const words = text.split(/\s+/).filter(Boolean);
+      for (let size = 12; size >= 8; size--) {
+        if (width(text, size) <= maxW) return { lines: [text], size };
+        let best = null;
+        for (let i = 1; i < words.length; i++) {
+          const a = words.slice(0, i).join(' '), b = words.slice(i).join(' ');
+          const w = Math.max(width(a, size), width(b, size));
+          if (!best || w < best.w) best = { lines: [a, b], w };
+        }
+        if (best && best.w <= maxW) return { lines: best.lines, size };
+      }
+      let s = text;
+      while (s.length > 1 && width(s + '…', 8) > maxW) s = s.slice(0, -1);
+      return { lines: [s.trimEnd() + '…'], size: 8 };
+    }
+
     // ─── PIE-WEDGE REFRESH PREVIEW ────────────────────────────────
     function refreshPreview() {
       if (!canvas || !ctx) return;
@@ -1149,6 +1169,7 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
       const outerR = appState.radius + 40;
       const innerR = 60;
       const anglePerWedge = 360 / appState.numSockets;
+      const labels = [];
 
       // ─── BACKGROUND DEPTH LAYERS ───────────────────────────────
       ctx.beginPath();
@@ -1225,18 +1246,28 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
         ctx.textBaseline = 'middle';
         ctx.fillText(index + 1, numPos.x, numPos.y);
 
-        if (occupant) {
-          ctx.fillStyle = colors.labelFg;
-          ctx.font = 'bold 12px Arial';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(occupant.label, labelPos.x, labelPos.y);
+        if (occupant) labels.push({ occupant, pos: labelPos });
+      });
 
-          if (occupant.command.startsWith('view:radial:')) {
-            ctx.fillStyle = colors.nestedMenuColor;
-            ctx.font = 'italic 9px Arial';
-            ctx.fillText('(Nested)', labelPos.x, labelPos.y + 14);
-          }
+      // Labels go on after every wedge is drawn, so the next wedge can't paint over
+      // the end of a long label. Each one is fitted to the width of its wedge.
+      const labelR = (outerR + innerR) / 2;
+      const maxLabelW = Math.max(30, 2 * labelR * Math.sin((anglePerWedge / 2) * Math.PI / 180) - 10);
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      labels.forEach(({ occupant, pos }) => {
+        const fit = fitLabel(occupant.label, maxLabelW);
+        const nested = occupant.command.startsWith('view:radial:');
+        const lineH = fit.size + 2;
+        const blockH = fit.lines.length * lineH + (nested ? 12 : 0);
+        let y = pos.y - blockH / 2 + lineH / 2;
+        ctx.fillStyle = colors.labelFg;
+        ctx.font = `bold ${fit.size}px Arial`;
+        fit.lines.forEach((line) => { ctx.fillText(line, pos.x, y); y += lineH; });
+        if (nested) {
+          ctx.fillStyle = colors.nestedMenuColor;
+          ctx.font = 'italic 9px Arial';
+          ctx.fillText('(Nested)', pos.x, y - lineH / 2 + 8);
         }
       });
 
