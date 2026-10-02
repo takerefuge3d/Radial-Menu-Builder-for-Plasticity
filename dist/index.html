@@ -599,7 +599,8 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
       <div class="tp-range"><label for="tpGrA">Grid strength <span id="tpGrAV"></span></label><input type="range" id="tpGrA" min="0" max="100" step="1" /></div>
       <div class="tp-row"><label for="tpSeT">Regular edges</label><input type="color" class="tp-color" id="tpSeC" aria-label="Pick regular edge colour" /><input type="text" class="form-input tp-hex" id="tpSeT" spellcheck="false" placeholder="default" /></div>
       <div class="tp-row"><label for="tpIeT">Instance edges</label><input type="color" class="tp-color" id="tpIeC" aria-label="Pick instance edge colour" /><input type="text" class="form-input tp-hex" id="tpIeT" spellcheck="false" placeholder="default" /></div>
-      <div class="tp-hint">Edge colours need Plasticity 26.2 or later. They are the same settings as Regular edge colour and Instance edge colour in Preferences &gt; Appearance. Clear a box to use Plasticity's default.</div>
+      <div class="tp-row"><label for="tpMeT">Measurements</label><input type="color" class="tp-color" id="tpMeC" aria-label="Pick measurement colour" /><input type="text" class="form-input tp-hex" id="tpMeT" spellcheck="false" placeholder="default" /></div>
+      <div class="tp-hint">Edge and measurement colours need Plasticity 26.2 or later. They are the same settings as Regular edge colour, Instance edge colour and Measurement colour in Preferences &gt; Appearance. Clear a box to use Plasticity's default.</div>
       <div class="tp-hint">Plasticity draws the grid darker than the value in the file, and the preview copies that. The selection outline is always yellow: no theme value changes it. The older solidEdge and sheetEdge values, edge sizes, the matcap tint and the dialog and white values showed no effect, so they are kept in the file but hidden here.</div>
     </div>
   </div>
@@ -2161,11 +2162,18 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
       }
       const pal = (name, reverse) => ramp(TW[name], reverse);
 
-      // Edge colour keys Plasticity 26.2 reads from theme.json (see "edge colours" below).
+      // Single colours Plasticity 26.2 reads from theme.json, written by Preferences > Appearance
+      // (see "edge colours" below): [key, input id prefix, preview colour when unset, CSS var].
       const EDGE_KEYS = [
         ['sheet-edge', 'tpSe', '#000000', '--edge'],
-        ['instance-edge', 'tpIe', '#34d399', '--iedge']
+        ['instance-edge', 'tpIe', '#34d399', '--iedge'],
+        ['measurement', 'tpMe', '#ffffff', '--meas']
       ];
+
+      // Preferences > Appearance in 26.2 saves accent, supporting and neutral as ONE colour
+      // string instead of a 50-900 range. Keep that form; every shade then reads as it.
+      const isSingle = (p) => typeof theme.colors[p] === 'string';
+      const shadeOf = (colors, p, s) => (typeof colors[p] === 'string' ? colors[p] : colors[p] && colors[p][s]);
 
       // The default theme, in the same shape and key order as Plasticity's own file.
       function defaults() {
@@ -2280,7 +2288,9 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
           '800': 'Marker of the step that is waiting for input.',
           '900': 'Border of the waiting step at 25%, and the icon of a hidden curve.'
         },
-        supporting: {}
+        supporting: {
+          '600': 'The reticle, the dot under the cursor in the viewport. With a full range the exact shade is not confirmed; with a single colour it is that colour.'
+        }
       };
 
       const $ = (id) => document.getElementById(id);
@@ -2332,9 +2342,10 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
       function paint() {
         const c = theme.colors, d = defaults().colors, st = mock.style;
         STEPS.forEach((s) => {
-          st.setProperty('--n' + s, safe(c.neutral && c.neutral[s], d.neutral[s]).substr(0, 7));
-          st.setProperty('--a' + s, safe(c.accent && c.accent[s], d.accent[s]).substr(0, 7));
+          st.setProperty('--n' + s, safe(shadeOf(c, 'neutral', s), d.neutral[s]).substr(0, 7));
+          st.setProperty('--a' + s, safe(shadeOf(c, 'accent', s), d.accent[s]).substr(0, 7));
         });
+        st.setProperty('--sup', safe(shadeOf(c, 'supporting', '600'), d.supporting['600']).substr(0, 7));
         st.setProperty('--vp', safe(c.viewport, d.viewport).substr(0, 7));
         const g = safe(c.grid, d.grid), a = alphaOf(g);
         st.setProperty('--gridc', darken(g));
@@ -2386,6 +2397,20 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
         }
         s += object(-0.6, 0.6, '--edge', 'Regular edges|sheet-edge|Regular edge colour in Preferences', false);
         s += object(2.6, -2.6, '--iedge', 'Instance edges|instance-edge|Instance edge colour in Preferences', true);
+        // A dimension along the front of the regular object, like Plasticity's measure tool.
+        const y0 = 0.6 + a, y1 = y0 + 1.1, x0 = -0.6 - a, x1 = -0.6 + a;
+        const m0 = P(x0, y1 - 0.25, 0), m1 = P(x1, y1 - 0.25, 0), mid = P((x0 + x1) / 2, y1 - 0.25, 0);
+        const ang = (Math.atan2(m1[1] - m0[1], m1[0] - m0[0]) * 180 / Math.PI).toFixed(1);
+        s += '<defs><marker id="tp-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">'
+          + '<path d="M0,0 L10,5 L0,10 z" style="fill:var(--meas)"/></marker></defs>';
+        s += '<g data-u="Measurements|measurement|Measurement colour in Preferences" style="stroke:var(--meas)" stroke-width="1.2" fill="none">'
+          + L(P(x0, y0, 0), P(x0, y1, 0), 'stroke-opacity=".7"') + L(P(x1, y0, 0), P(x1, y1, 0), 'stroke-opacity=".7"')
+          + `<line x1="${m0[0]}" y1="${m0[1]}" x2="${m1[0]}" y2="${m1[1]}" marker-start="url(#tp-arrow)" marker-end="url(#tp-arrow)"/>`
+          + `<text x="${mid[0]}" y="${mid[1]}" dy="-8" transform="rotate(${ang} ${mid[0]} ${mid[1]})" text-anchor="middle" stroke="none" style="fill:var(--meas)" font-size="15" font-family="Lato, Segoe UI, sans-serif">20.462 cm</text></g>`;
+        // The reticle: the dot under the cursor, drawn in the supporting colour.
+        const r = P(4.6, -0.2, 0);
+        s += `<g data-u="Reticle|supporting-600|the dot under the cursor"><circle cx="${r[0]}" cy="${r[1]}" r="9" style="fill:var(--sup)" fill-opacity=".25"/>`
+          + `<circle cx="${r[0]}" cy="${r[1]}" r="4.5" style="fill:var(--sup)"/></g>`;
         $('tpScene').innerHTML = s;
       })();
 
@@ -2416,6 +2441,7 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
           theme.colors[p] = pal(fill.value); fill.value = ''; edited(); refresh();
         });
         card.querySelector('.tp-rev').addEventListener('click', () => {
+          if (isSingle(p)) return; // one colour for every shade: nothing to reverse
           const v = STEPS.map((s) => theme.colors[p][s]).reverse();
           STEPS.forEach((s, i) => { theme.colors[p][s] = v[i]; });
           edited(); refresh();
@@ -2429,28 +2455,32 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
           const n = document.createElement('span'); n.textContent = s; nums.appendChild(n);
         });
         const col = card.querySelector('.tp-color'), txt = card.querySelector('.tp-hex');
-        col.addEventListener('input', () => { theme.colors[p][sel[p]] = col.value; edited(); refresh(true); });
+        const setShade = (v) => { if (isSingle(p)) theme.colors[p] = v; else theme.colors[p][sel[p]] = v; };
+        col.addEventListener('input', () => { setShade(col.value); edited(); refresh(true); });
         txt.addEventListener('change', () => {
           const v = normHex(txt.value);
-          if (v) { theme.colors[p][sel[p]] = v.substr(0, 7); edited(); }
+          if (v) { setShade(v.substr(0, 7)); edited(); }
           refresh();
         });
         cards[p] = { card, col, txt };
       }
       function refreshCard(p, keepText) {
         const c = cards[p], d = defaults().colors[p];
-        if (!theme.colors[p] || typeof theme.colors[p] !== 'object') theme.colors[p] = d;
+        if (!isSingle(p) && (!theme.colors[p] || typeof theme.colors[p] !== 'object')) theme.colors[p] = d;
         c.card.querySelectorAll('.tp-sw').forEach((b) => {
           const s = b.dataset.s;
-          b.style.background = safe(theme.colors[p][s], d[s]).substr(0, 7);
+          b.style.background = safe(shadeOf(theme.colors, p, s), d[s]).substr(0, 7);
           b.setAttribute('aria-pressed', String(s === sel[p]));
         });
-        const v = safe(theme.colors[p][sel[p]], d[sel[p]]).substr(0, 7);
+        const v = safe(shadeOf(theme.colors, p, sel[p]), d[sel[p]]).substr(0, 7);
         c.col.value = v;
         if (!keepText || document.activeElement !== c.txt) c.txt.value = v;
-        c.card.querySelector('.tp-name').textContent = `${cap(p)} ${sel[p]}`;
-        c.card.querySelector('.tp-use').textContent = USE[p][sel[p]]
-          || 'Not seen in the probe. Changing it has no effect on this preview, and may have none in Plasticity.';
+        c.card.querySelector('.tp-name').textContent = isSingle(p) ? `${cap(p)} (one colour)` : `${cap(p)} ${sel[p]}`;
+        const use = USE[p][sel[p]];
+        c.card.querySelector('.tp-use').textContent = isSingle(p)
+          ? 'Saved by Preferences > Appearance as one colour for every shade. Fill from a palette to switch to a full range.'
+            + (p === 'supporting' ? ' ' + USE.supporting['600'] : '')
+          : use || 'Not seen in the probe. Changing it has no effect on this preview, and may have none in Plasticity.';
       }
       document.querySelectorAll('#tpApp .tp-pal').forEach(buildCard);
 
@@ -2525,6 +2555,7 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
         else if (ref === 'grid') target = grT;
         else if (ref === 'sheet-edge') target = $('tpSeT');
         else if (ref === 'instance-edge') target = $('tpIeT');
+        else if (ref === 'measurement') target = $('tpMeT');
         if (target) {
           if (target.scrollIntoView) target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
           (m ? cards[m[1]].txt : target).focus({ preventScroll: true });
