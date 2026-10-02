@@ -602,7 +602,7 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
       <div class="tp-row"><label for="tpMeT">Measurements</label><input type="color" class="tp-color" id="tpMeC" aria-label="Pick measurement colour" /><input type="text" class="form-input tp-hex" id="tpMeT" spellcheck="false" placeholder="default" /></div>
       <div class="tp-row"><label for="tpReT">Reticle</label><input type="color" class="tp-color" id="tpReC" aria-label="Pick reticle colour" /><input type="text" class="form-input tp-hex" id="tpReT" spellcheck="false" placeholder="default" /></div>
       <div class="tp-hint">Edge and measurement colours need Plasticity 26.2 or later. They are the same settings as Regular edge colour, Instance edge colour and Measurement colour in Preferences &gt; Appearance. Clear a box to use Plasticity's default. The reticle follows Supporting only when Supporting is one colour, so setting it saves Supporting that way, as Plasticity's Preferences do.</div>
-      <div class="tp-hint">Plasticity draws the grid darker than the value in the file, and the preview copies that. The selection outline is always yellow: no theme value changes it. The older solidEdge and sheetEdge values, edge sizes, the matcap tint and the dialog and white values showed no effect, so they are kept in the file but hidden here.</div>
+      <div class="tp-hint">Plasticity draws the grid darker than the value in the file, and the preview copies that. The selection outline is always yellow and curves are always blue: no theme value changes them. The older solidEdge and sheetEdge values, edge sizes, the matcap tint and the dialog and white values showed no effect, so they are kept in the file but hidden here.</div>
     </div>
   </div>
 
@@ -2432,12 +2432,12 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
           + `<line x1="${m0[0]}" y1="${m0[1]}" x2="${m1[0]}" y2="${m1[1]}" marker-start="url(#tp-arrow)" marker-end="url(#tp-arrow)"/>`
           + `<text x="${mid[0]}" y="${mid[1]}" dy="-8" transform="rotate(${ang} ${mid[0]} ${mid[1]})" text-anchor="middle" stroke="none" style="fill:var(--meas)" font-size="15" font-family="Lato, Segoe UI, sans-serif">20.462 cm</text></g>`;
         // A curve with its control hull and control points. Hull lines use the instance edge
-        // colour and control points accent 600 (both checked in 26.2 beta); the curve's own blue
-        // is not set by anything in the theme file yet.
+        // colour and control points accent 600 (both checked in 26.2 beta). The curve itself is
+        // always blue in Plasticity, like the yellow selection outline.
         const cvs = [P(2.6, 3.2, 0), P(5.6, 3.0, 0), P(3.0, 0.4, 0), P(5.8, 0.6, 0)];
         const [c0, c1, c2, c3] = cvs;
         s += `<polyline data-u="Control hull|instance-edge|the lines between control points use the instance edge colour" points="${poly(cvs)}" fill="none" style="stroke:var(--iedge)" stroke-opacity=".8" stroke-width="1"/>`;
-        s += `<path data-u="Curves|fixed|blue; not set by the theme file as far as we know" d="M${c0} C${c1} ${c2} ${c3}" fill="none" stroke="#2563eb" stroke-width="2"/>`;
+        s += `<path data-u="Curves|fixed|always blue in Plasticity" d="M${c0} C${c1} ${c2} ${c3}" fill="none" stroke="#2563eb" stroke-width="2"/>`;
         s += '<g data-u="Control points|accent-600">' + cvs.map((c, i) => `<circle cx="${c[0]}" cy="${c[1]}" r="${i === 0 || i === 3 ? 5.5 : 4}" style="fill:var(--a600)" stroke="#00000055" stroke-width="1"/>`).join('') + '</g>';
         // The reticle: the dot under the cursor, drawn in the supporting colour.
         const r = P(4.6, -0.2, 0);
