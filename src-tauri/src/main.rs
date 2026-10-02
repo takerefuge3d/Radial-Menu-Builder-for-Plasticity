@@ -201,6 +201,14 @@ async fn pick_save_theme_path(app: tauri::AppHandle, suggested_name: Option<Stri
     Ok(picked.map(|p| p.to_string()))
 }
 
+// F11 full screen. macOS has its own full-screen button; Windows has none.
+#[tauri::command]
+async fn toggle_fullscreen(window: tauri::WebviewWindow) -> Result<bool, String> {
+    let full = !window.is_fullscreen().map_err(|e| e.to_string())?;
+    window.set_fullscreen(full).map_err(|e| e.to_string())?;
+    Ok(full)
+}
+
 // The user's named themes, kept as plain text in the app data folder.
 fn user_themes_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(app_data_dir(app)?.join("user_themes.json"))
@@ -272,6 +280,7 @@ fn main() {
             pick_plasticity_folder,
             load_user_themes,
             save_user_themes,
+            toggle_fullscreen,
             read_text_file,
             write_text_file
         ])

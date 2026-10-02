@@ -56,6 +56,12 @@ body {
 .command-item:hover, .menu-item:hover { background: #2a2a2a; }
 .command-item.selected, .menu-item.selected { background: var(--accent); color: #fff; }
 .command-item.radial-menu { font-weight: bold; background: #2a2a2a; }
+.command-group {
+  position: sticky; top: 0; z-index: 1; padding: 6px 12px; background: #1c1c1c; border-bottom: 1px solid var(--border);
+  color: var(--muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
+}
+.command-tag { float: right; margin-left: 6px; color: #ffb84d; font-size: 10px; }
+.command-item.selected .command-tag { color: #fff; }
 .notification {
   background: #121212; border: 1px solid var(--border); border-radius: 4px;
   color: var(--accent); padding: 8px; margin-bottom: 12px; min-height: 36px;
@@ -68,7 +74,7 @@ body {
   background: #0a0a0a; border: 1px solid var(--border); border-radius: 4px; margin-bottom: 12px;
   position: relative; min-height: 0;
 }
-.canvas-wrapper { flex: 1; display: flex; align-items: center; justify-content: center; width: 100%; }
+.canvas-wrapper { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; width: 100%; }
 .canvas {
   border: 1px solid var(--border); border-radius: 4px; background: #101010; cursor: crosshair;
   max-width: 100%; max-height: 100%;
@@ -652,7 +658,7 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
       jsonPreviewVisible: false,
       highlightSocket: null,
       scaleFactor: 2.5,
-      baseCanvasSize: 700,
+      baseCanvasSize: 560, // the wheel's outer ring is radius + 68 = 268, so 560 leaves a small margin
       savedRadialsDirectory: null,
       webSelectedFiles: []
     };
@@ -921,21 +927,24 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
     }
 
     function resizeCanvas() {
-      const canvasContainer = document.querySelector('.canvas-container');
-      const containerRect = canvasContainer.getBoundingClientRect();
-      const availableWidth = containerRect.width - 40;
-      const availableHeight = containerRect.height - 80;
+      // Measure the wrapper (the space left after the instructions text), not the container.
+      const wrapper = document.querySelector('.canvas-wrapper') || document.querySelector('.canvas-container');
+      const wrapperRect = wrapper.getBoundingClientRect();
+      const availableWidth = wrapperRect.width - 16;
+      const availableHeight = wrapperRect.height - 16;
       const scaleX = availableWidth / appState.baseCanvasSize;
       const scaleY = availableHeight / appState.baseCanvasSize;
-      appState.scaleFactor = Math.min(scaleX, scaleY, 1);
+      // Fill the panel, growing past the design size on big screens. Drawing still happens
+      // in baseCanvasSize units; the backing store matches the displayed size so it stays sharp.
+      appState.scaleFactor = Math.max(0.1, Math.min(scaleX, scaleY, 1.8));
       const displaySize = appState.baseCanvasSize * appState.scaleFactor;
       canvas.style.width = displaySize + 'px';
       canvas.style.height = displaySize + 'px';
       const dpr = window.devicePixelRatio || 1;
-      canvas.width = appState.baseCanvasSize * dpr;
-      canvas.height = appState.baseCanvasSize * dpr;
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const k = dpr * appState.scaleFactor;
+      canvas.width = Math.round(appState.baseCanvasSize * k);
+      canvas.height = Math.round(appState.baseCanvasSize * k);
+      ctx.setTransform(k, 0, 0, k, 0, 0);
       appState.centerX = appState.baseCanvasSize / 2;
       appState.centerY = appState.baseCanvasSize / 2;
       calculateSockets();
@@ -1033,9 +1042,9 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
       filteredLoadedCommands.forEach((command) => {
         const item = document.createElement('div');
         item.className = 'command-item radial-menu';
-        item.textContent = command;
+        item.textContent = friendlyCommandName(command);
         item.dataset.command = command;
-        item.title = 'Nested Radial Menu';
+        item.title = `Nested radial menu: ${command}`;
         item.draggable = true;
         item.addEventListener('dragstart', (e) => {
           e.dataTransfer.setData('text/plain', command);
@@ -1059,13 +1068,40 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
         commandsList.appendChild(separator);
       }
 
+      // Commands are shown by friendly name, grouped by their prefix. Search matches
+      // either the friendly name or the raw id.
+      const needle = filter.toLowerCase();
       const commands = Object.keys(appState.commandIcons)
-        .filter((cmd) => cmd.toLowerCase().includes(filter.toLowerCase())).sort();
+        .filter((cmd) => cmd.toLowerCase().includes(needle) || friendlyCommandName(cmd).toLowerCase().includes(needle));
+      const byGroup = new Map(COMMAND_GROUPS.map(([, label]) => [label, []]));
+      commands.forEach((cmd) => {
+        const label = commandGroup(cmd);
+        if (!byGroup.has(label)) byGroup.set(label, []);
+        byGroup.get(label).push(cmd);
+      });
 
-      commands.forEach((command) => {
+      byGroup.forEach((groupCommands, groupLabel) => {
+        if (!groupCommands.length) return;
+        const header = document.createElement('div');
+        header.className = 'command-group';
+        header.textContent = `${groupLabel} (${groupCommands.length})`;
+        commandsList.appendChild(header);
+        groupCommands.sort((a, b) => friendlyCommandName(a).localeCompare(friendlyCommandName(b)));
+        groupCommands.forEach((command) => addCommandRow(command));
+      });
+
+      function addCommandRow(command) {
         const item = document.createElement('div');
         item.className = 'command-item';
-        item.textContent = command;
+        item.textContent = friendlyCommandName(command);
+        const note = COMMAND_VERSION_NOTES[command];
+        if (note) {
+          const tag = document.createElement('span');
+          tag.className = 'command-tag';
+          tag.textContent = note;
+          item.appendChild(tag);
+        }
+        item.title = note ? `${command} (${note})` : command;
         item.dataset.command = command;
         item.draggable = true;
         item.addEventListener('dragstart', (e) => {
@@ -1081,23 +1117,70 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
         item.addEventListener('dblclick', () => addMenuItemFromCommand(command));
         item.addEventListener('contextmenu', (e) => { e.preventDefault(); addMenuItemFromCommand(command); });
         commandsList.appendChild(item);
-      });
+      }
 
       if (commands.length === 0 && filteredLoadedCommands.length === 0) {
         const noCommandsMsg = document.createElement('div');
         noCommandsMsg.style.padding = '20px';
         noCommandsMsg.style.textAlign = 'center';
         noCommandsMsg.style.color = '#888';
-        noCommandsMsg.textContent = 'No commands available. Check that commands.json exists and is properly formatted.';
+        noCommandsMsg.textContent = Object.keys(appState.commandIcons).length
+          ? `No commands match "${filter}".`
+          : 'No commands available. Check that commands.json exists and is properly formatted.';
         commandsList.appendChild(noCommandsMsg);
       }
     }
 
+    // Prefix -> heading in the command list, in display order.
+    const COMMAND_GROUPS = [
+      ['command', 'Tools'], ['selection', 'Selection'], ['viewport', 'Viewport'], ['snaps', 'Snapping'],
+      ['edit', 'Edit'], ['file', 'File'], ['view', 'Interface'], ['app', 'App']
+    ];
+    const commandGroup = (cmd) => (COMMAND_GROUPS.find(([p]) => cmd.startsWith(p + ':')) || [null, 'Other'])[1];
+
+    // Commands that exist in only one Plasticity version, read from 26.1.3 and 26.2.0-beta30.
+    const COMMAND_VERSION_NOTES = {
+      'command:align': 'not in 26.2 beta',
+      'command:realize-instances': 'not in 26.2 beta',
+      'command:edge-align': '26.2 beta',
+      'command:grid-constraint': '26.2 beta',
+      'command:import-with-placement': '26.2 beta',
+      'command:project-align': '26.2 beta',
+      'command:realize': '26.2 beta',
+      'command:reload-asset': '26.2 beta',
+      'command:select-all-constraints': '26.2 beta',
+      'command:simplify': '26.2 beta',
+      'command:toggle-asset': '26.2 beta',
+      'command:xnetwork': '26.2 beta',
+      'file:browse-backups': '26.2 beta',
+      'file:reveal': '26.2 beta',
+      'file:revert': '26.2 beta',
+      'viewport:navigate:home': '26.2 beta',
+      'viewport:toggle-constraints': '26.2 beta',
+      'viewport:toggle-images': '26.2 beta',
+      'viewport:toggle-meshes': '26.2 beta'
+    };
+
+    // Short words that read better in capitals.
+    const UPPER_WORDS = new Set(['iges', 'obj', 'stl', 'svg', 'sat', 'step', 'xnurbs', 'xnetwork']);
+
+    // "command:bridge-curve" -> "Bridge Curve", "selection:mode:set:edge" -> "Mode Set Edge".
+    // Nested radial menus (view:radial:...) use the last part of their name.
+    function friendlyCommandName(command) {
+      const parts = command.split(':');
+      const words = command.startsWith('view:radial:')
+        ? parts[parts.length - 1]
+        : parts.slice(1).join(' ') || parts[0];
+      return words
+        .replace(/\b3-mf\b/g, '3MF')
+        .replace(/-/g, ' ')
+        .split(' ')
+        .map((w) => (UPPER_WORDS.has(w) ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1)))
+        .join(' ');
+    }
+
     function makeLabelFromCommand(command) {
-      const src = command.startsWith('view:radial:') ? command.replace('view:radial:', '') : command;
-      const parts = src.split(':');
-      const raw = parts.length > 1 ? parts[1] : parts[0];
-      return raw.replace(/-/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+      return friendlyCommandName(command);
     }
 
     function addMenuItemFromCommand(command) {
@@ -1878,6 +1961,18 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
       }
       let _rz;
       window.addEventListener('resize', () => { clearTimeout(_rz); _rz = setTimeout(resizeCanvas, 100); });
+      // Also follow the preview panel itself: its size settles after start-up and changes
+      // with full screen and tab switches, none of which fire a window resize reliably.
+      const canvasContainer = document.querySelector('.canvas-container');
+      if (canvasContainer && 'ResizeObserver' in window) {
+        let lastW = 0, lastH = 0;
+        new ResizeObserver(([entry]) => {
+          const { width, height } = entry.contentRect;
+          if (Math.abs(width - lastW) < 2 && Math.abs(height - lastH) < 2) return;
+          lastW = width; lastH = height;
+          clearTimeout(_rz); _rz = setTimeout(resizeCanvas, 50);
+        }).observe(canvasContainer);
+      }
       const exportBtn = document.getElementById('exportBtn');
       if (exportBtn) exportBtn.addEventListener('click', exportJSON);
       const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
@@ -1929,6 +2024,15 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
 
     document.addEventListener('DOMContentLoaded', () => {
       setTimeout(initApp, 100);
+    });
+
+    // F11 toggles full screen in the desktop app (Windows has no full-screen button).
+    document.addEventListener('keydown', async (e) => {
+      if (e.key !== 'F11' || e.repeat) return;
+      e.preventDefault();
+      if (!initTauriAPI()) return;
+      try { await invokeCommand('toggle_fullscreen'); }
+      catch (error) { showNotification(`Full screen is not available: ${error}`, 'error'); }
     });
   </script>
 
