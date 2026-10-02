@@ -202,6 +202,8 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
 .m-rowi{height:28px;display:flex;align-items:center;gap:7px;border-radius:5px;padding-right:6px;color:var(--n300);font-weight:700}
 .m-rowi .chev{color:var(--n400)}
 .m-rowi .fold{color:var(--ic60)}
+.m-rowi .fold.sup{color:var(--sup)}
+.m-rowi .grp{color:var(--n400)}
 .m-rowi.hl{background:var(--o4)}
 .m-rowi.sel{background:var(--o12)}
 .m-rowi .a5{color:var(--a500)} .m-rowi .a6{color:var(--a600)} .m-rowi .a9{color:var(--a900)}
@@ -391,7 +393,7 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
           <div class="m-tree">
             <div class="m-rowi hl" style="padding-left:4px" data-u="Highlighted group row|neutral-50|4% over the panel">
               <svg class="i chev" data-u="Small arrows|neutral-400"><use href="#tpi-chev-d"/></svg>
-              <svg class="i fold" data-u="Folder icons|neutral-50|about 60%"><use href="#tpi-folder"/></svg>
+              <svg class="i fold sup" data-u="Scene folder icon|reticle"><use href="#tpi-folder"/></svg>
               <span data-u="Item names|neutral-300">Scene</span></div>
             <div class="m-rowi" style="padding-left:22px">
               <svg class="i chev" data-u="Small arrows|neutral-400"><use href="#tpi-chev-r"/></svg>
@@ -399,13 +401,13 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
               <span data-u="Item names|neutral-300">Inbox</span></div>
             <div class="m-rowi" style="padding-left:22px">
               <svg class="i chev" data-u="Small arrows|neutral-400"><use href="#tpi-chev-d"/></svg>
-              <span data-u="Item names|neutral-300">Sheets</span></div>
+              <span class="grp" data-u="Group names|neutral-400|the same colour as their arrows">Sheets</span></div>
             <div class="m-rowi sel" style="padding-left:44px" data-u="Selected row|neutral-50|12% over the panel">
               <svg class="i a5" data-u="Selected item icon|accent-500"><use href="#tpi-sheet"/></svg>
               <span data-u="Item names|neutral-300">XNurbs.001</span></div>
             <div class="m-rowi" style="padding-left:22px">
               <svg class="i chev" data-u="Small arrows|neutral-400"><use href="#tpi-chev-d"/></svg>
-              <span data-u="Item names|neutral-300">Curves</span></div>
+              <span class="grp" data-u="Group names|neutral-400|the same colour as their arrows">Curves</span></div>
             <div class="m-rowi" style="padding-left:44px">
               <svg class="i a6" data-u="Curve icon|accent-600"><use href="#tpi-curve"/></svg>
               <span data-u="Item names|neutral-300">Rectangle.001</span></div>
@@ -518,7 +520,7 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
       <button class="btn" id="tpSave" type="button">Save</button>
       <button class="btn" id="tpSaveAs" type="button">Save As…</button>
       <button class="btn" id="tpCopy" type="button">Copy JSON</button>
-      <div class="tp-hint">Save as theme.json in your .plasticity/config/v2 folder, then restart Plasticity. Leave the colour choices in Preferences &gt; Appearance unselected, or they replace the file's colours.</div>
+      <div class="tp-hint">To use a theme by hand, save it as theme.json in your .plasticity/config/v2 folder and restart Plasticity. Colours you pick in Plasticity's Preferences &gt; Appearance override the file.</div>
 
       <div id="tpPlBox" hidden>
         <div class="separator"></div>
@@ -527,7 +529,7 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
         <button class="btn" id="tpPlChange" type="button">Change Folder…</button>
         <button class="btn" id="tpPlApply" type="button">Apply to Plasticity</button>
         <button class="btn" id="tpPlReset" type="button">Reset Plasticity to Default</button>
-        <div class="tp-hint">Apply writes this theme to the theme.json Plasticity reads. Reset puts Plasticity's default colours back. Restart Plasticity after either one. Plasticity can also reset itself: Preferences &gt; Appearance, Reset to defaults at the bottom.</div>
+        <div class="tp-hint">Apply sends this theme straight to Plasticity, and Reset puts Plasticity's own colours back. Restart Plasticity afterwards to see the change. Plasticity also has its own Reset to defaults button at the bottom of Preferences &gt; Appearance.</div>
       </div>
 
       <div class="separator"></div>
@@ -538,7 +540,7 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
         <button class="btn" id="tpMyRename" type="button" disabled>Rename</button>
         <button class="btn" id="tpMyDelete" type="button" disabled>Delete</button>
       </div>
-      <div class="tp-hint">Save the colours you have now under your own name. They show at the top of the list under My Themes.</div>
+      <div class="tp-hint">Save the colours you have now under your own name. They appear at the top of the list, under My Themes.</div>
 
       <div class="separator"></div>
 
@@ -590,7 +592,7 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
         <div class="tp-use"></div>
       </div>
 
-      <div class="tp-legend"><i></i> A hollow dot marks a shade the probe never showed on screen.</div>
+      <div class="tp-legend"><i></i> A hollow dot means we haven't seen that shade used in Plasticity.</div>
 
       <div class="separator"></div>
       <div class="section-title">Viewport</div>
@@ -601,8 +603,8 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
       <div class="tp-row"><label for="tpIeT">Instance edges</label><input type="color" class="tp-color" id="tpIeC" aria-label="Pick instance edge colour" /><input type="text" class="form-input tp-hex" id="tpIeT" spellcheck="false" placeholder="default" /></div>
       <div class="tp-row"><label for="tpMeT">Measurements</label><input type="color" class="tp-color" id="tpMeC" aria-label="Pick measurement colour" /><input type="text" class="form-input tp-hex" id="tpMeT" spellcheck="false" placeholder="default" /></div>
       <div class="tp-row"><label for="tpReT">Reticle</label><input type="color" class="tp-color" id="tpReC" aria-label="Pick reticle colour" /><input type="text" class="form-input tp-hex" id="tpReT" spellcheck="false" placeholder="default" /></div>
-      <div class="tp-hint">Edge and measurement colours need Plasticity 26.2 or later. They are the same settings as Regular edge colour, Instance edge colour and Measurement colour in Preferences &gt; Appearance. Clear a box to use Plasticity's default. The reticle follows Supporting only when Supporting is one colour, so setting it saves Supporting that way, as Plasticity's Preferences do.</div>
-      <div class="tp-hint">Plasticity draws the grid darker than the value in the file, and the preview copies that. The selection outline is always yellow and curves are always blue: no theme value changes them. The older solidEdge and sheetEdge values, edge sizes, the matcap tint and the dialog and white values showed no effect, so they are kept in the file but hidden here.</div>
+      <div class="tp-hint">These need Plasticity 26.2 or later, and match the colour settings in Plasticity's Preferences &gt; Appearance. Clear a box to go back to Plasticity's default. Setting the reticle saves Supporting as a single colour, the same way Plasticity does, and also colours the Scene folder icon.</div>
+      <div class="tp-hint">A few colours are built into Plasticity and no theme can change them: the yellow selection outline, blue curves and the faint lines between control points. Plasticity also draws the grid a little darker than the colour you pick, and the preview does the same. Settings that showed no effect (the old edge values, edge sizes, matcap tint, dialog and white) stay in the file but are hidden here.</div>
     </div>
   </div>
 
@@ -2298,22 +2300,22 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
       // Where each shade shows up in Plasticity 2026.1, read from probe-theme screenshots.
       const USE = {
         neutral: {
-          '50': 'Icons and tab labels at 80%, folder icons at about 60%, the file name at 40%. Also every faint overlay: fields 4%, switches and key hints 8%, the selected row 12%.',
-          '300': 'Item names, field labels and values, headings, and the text on buttons.',
-          '400': 'Small icons and arrows, dialog titles, menu items, section headings, key hints.',
-          '500': 'The bold prompt line in command dialogs.',
-          '600': 'Active tab, chosen option, plus and minus buttons, main buttons. Also hidden items in the outliner.',
-          '800': 'Floating panels at 95%: toolbars, command dialog, settings panel, Preferences. Also the tab strip.',
-          '900': 'Window, title bar and outliner background.'
+          '50': 'Most icons and tab labels, the file name, and the faint highlights behind fields, switches and the selected row. Each uses this colour at a different strength.',
+          '300': 'Most of the text: item names, field labels and values, headings and button text.',
+          '400': 'Small icons and arrows, menu items, dialog titles and section headings, including group names like "Curves" in the outliner.',
+          '500': 'The bold prompt line at the top of command dialogs.',
+          '600': 'Buttons, the active tab and the chosen option. Hidden items in the outliner are greyed out with it too.',
+          '800': 'The floating panels (toolbars, command dialogs, settings and Preferences) and the tab strip.',
+          '900': 'The window background: the title bar, the outliner and behind the panels.'
         },
         accent: {
-          '500': 'The icon of the selected item.',
-          '600': 'Control points (CVs) on curves and solids, active selection mode, switches that are on, completed step marker, curve icons.',
-          '800': 'Marker of the step that is waiting for input.',
-          '900': 'Border of the waiting step at 25%, and the icon of a hidden curve.'
+          '500': 'The icon of whatever you have selected.',
+          '600': 'Control points on curves and solids, the active selection mode, switches that are on, finished steps and curve icons. These always share one colour.',
+          '800': 'The marker for the step that is waiting for you.',
+          '900': 'A faint border around the waiting step, and the icon of a hidden curve.'
         },
         supporting: {
-          '50': 'Probably the reticle (the dot under the cursor) when Supporting is a full range: it shows near-white with the default range. To colour the reticle, use the Reticle row, which saves Supporting as one colour.'
+          '50': 'With a full range, the reticle and the Scene folder icon stay near-white, probably from this shade. To colour them, use the Reticle row.'
         }
       };
 
@@ -2389,7 +2391,7 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
         let s = '<defs><linearGradient id="tp-gt" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9aa3bd"/><stop offset="1" stop-color="#6e82ad"/></linearGradient>'
           + '<linearGradient id="tp-gl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8b8795"/><stop offset="1" stop-color="#57504f"/></linearGradient>'
           + '<linearGradient id="tp-gr" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a39aa6"/><stop offset="1" stop-color="#6a5f5c"/></linearGradient></defs>';
-        s += '<g data-u="Grid lines|grid|drawn darker than the file value" style="stroke:var(--gridc)" stroke-width="1">';
+        s += '<g data-u="Grid lines|grid|drawn a little darker than you pick" style="stroke:var(--gridc)" stroke-width="1">';
         for (let i = -N; i <= N; i++) {
           if (i === 0) continue;
           const o = `stroke-opacity="var(--${i % 5 === 0 ? 'gmaj' : 'gmin'})"`;
@@ -2415,7 +2417,7 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
             + `<polyline points="${poly([Q(-a, a, h), Q(-a, a, 0), Q(a, a, 0), Q(a, -a, 0), Q(a, -a, h)])}" ${e}/>`
             + L(Q(a, a, 0), Q(a, a, h), ln) + L(Q(-b, a, 0), Q(-b, a, h), ln) + L(Q(a, -b, 0), Q(a, -b, h), ln) + '</g>';
           if (selected) {
-            o += `<polygon data-u="Selection outline|fixed|always yellow in Plasticity" points="${poly([Q(-a, -a, h), Q(a, -a, h), Q(a, -a, 0), Q(a, a, 0), Q(-a, a, 0), Q(-a, a, h)])}" fill="none" style="stroke:var(--outline)" stroke-width="2.4" stroke-linejoin="round"/>`;
+            o += `<polygon data-u="Selection outline|fixed|always yellow" points="${poly([Q(-a, -a, h), Q(a, -a, h), Q(a, -a, 0), Q(a, a, 0), Q(-a, a, 0), Q(-a, a, h)])}" fill="none" style="stroke:var(--outline)" stroke-width="2.4" stroke-linejoin="round"/>`;
           }
           return o;
         }
@@ -2436,12 +2438,12 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
         // white, and the curve is always blue in Plasticity.
         const cvs = [P(2.6, 3.2, 0), P(5.6, 3.0, 0), P(3.0, 0.4, 0), P(5.8, 0.6, 0)];
         const [c0, c1, c2, c3] = cvs;
-        s += `<polyline data-u="Lines between control points|fixed|faint white in Plasticity" points="${poly(cvs)}" fill="none" stroke="#ffffff" stroke-opacity=".35" stroke-width="1"/>`;
-        s += `<path data-u="Curves|fixed|always blue in Plasticity" d="M${c0} C${c1} ${c2} ${c3}" fill="none" stroke="#2563eb" stroke-width="2"/>`;
+        s += `<polyline data-u="Lines between control points|fixed|always faint white" points="${poly(cvs)}" fill="none" stroke="#ffffff" stroke-opacity=".35" stroke-width="1"/>`;
+        s += `<path data-u="Curves|fixed|always blue" d="M${c0} C${c1} ${c2} ${c3}" fill="none" stroke="#2563eb" stroke-width="2"/>`;
         s += '<g data-u="Control points|accent-600">' + cvs.map((c, i) => `<circle cx="${c[0]}" cy="${c[1]}" r="${i === 0 || i === 3 ? 5.5 : 4}" style="fill:var(--a600)" stroke="#00000055" stroke-width="1"/>`).join('') + '</g>';
         // The reticle: the dot under the cursor, drawn in the supporting colour.
         const r = P(4.6, -0.2, 0);
-        s += `<g data-u="Reticle|reticle|Supporting as one colour; near-white when Supporting is a full range"><circle cx="${r[0]}" cy="${r[1]}" r="9" style="fill:var(--sup)" fill-opacity=".25"/>`
+        s += `<g data-u="Reticle|reticle|near-white unless Supporting is a single colour"><circle cx="${r[0]}" cy="${r[1]}" r="9" style="fill:var(--sup)" fill-opacity=".25"/>`
           + `<circle cx="${r[0]}" cy="${r[1]}" r="4.5" style="fill:var(--sup)"/></g>`;
         $('tpScene').innerHTML = s;
       })();
@@ -2510,9 +2512,9 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
         c.card.querySelector('.tp-name').textContent = isSingle(p) ? `${cap(p)} (one colour)` : `${cap(p)} ${sel[p]}`;
         const use = USE[p][sel[p]];
         c.card.querySelector('.tp-use').textContent = isSingle(p)
-          ? 'Saved by Preferences > Appearance as one colour for every shade. Fill from a palette to switch to a full range.'
-            + (p === 'supporting' ? ' The reticle (the dot under the cursor) uses this colour.' : '')
-          : use || 'Not seen in the probe. Changing it has no effect on this preview, and may have none in Plasticity.';
+          ? "Plasticity's Preferences saved this as one colour, so every shade uses it. Pick a palette under Fill from to switch to a full range."
+            + (p === 'supporting' ? ' It colours the reticle (the dot under the cursor) and the Scene folder icon.' : '')
+          : use || "We haven't seen this shade used anywhere in Plasticity, so changing it probably does nothing.";
       }
       document.querySelectorAll('#tpApp .tp-pal').forEach(buildCard);
 
@@ -2583,13 +2585,18 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
 
       // ---------- pointing at the stand-in ----------
       const info = $('tpInfo');
+      // Hover text, e.g. "Grid lines — Set by Grid lines (drawn a little darker than you pick)."
+      const ROW_NAMES = { viewport: 'Background', grid: 'Grid lines', 'sheet-edge': 'Regular edges', 'instance-edge': 'Instance edges', measurement: 'Measurements', reticle: 'Reticle' };
+      const shadeName = (t) => t.replace(/\b(neutral|accent|supporting)-(\d+)/g, (_, p, n) => `${cap(p)} ${n}`);
       function describe(el) {
-        const d = el.dataset.u.split('|'), name = d[0], ref = d[1], extra = d[2] || '', inferred = d[3] === 'i';
-        let src = ref === 'fixed' ? 'not set by the theme file' : ref.replace('-', ' ');
-        if (extra) src += (/^\d|^about/.test(extra) ? ' at ' : ', ') + extra;
+        const d = el.dataset.u.split('|'), name = d[0], ref = d[1], extra = shadeName(d[2] || ''), inferred = d[3] === 'i';
+        let text = ref === 'fixed' ? 'Built into Plasticity, so no theme setting changes it'
+          : `Set by ${ROW_NAMES[ref] || shadeName(ref)}`;
+        if (extra) text += /^(about )?\d/.test(extra) ? ` at ${extra}` : ` (${extra})`;
+        text += '.' + (inferred ? ' This one is our best guess from a screenshot.' : '');
         info.textContent = '';
         const b = document.createElement('b'); b.textContent = name; info.appendChild(b);
-        info.appendChild(document.createTextNode(' — ' + src + (inferred ? '. Worked out from a normal screenshot, since this part was not in the probe.' : '')));
+        info.appendChild(document.createTextNode(' — ' + text));
       }
       mock.addEventListener('pointerover', (e) => { const el = e.target.closest && e.target.closest('[data-u]'); if (el) describe(el); });
       mock.addEventListener('click', (e) => {
