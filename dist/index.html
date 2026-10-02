@@ -2308,7 +2308,7 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
         },
         accent: {
           '500': 'The icon of the selected item.',
-          '600': 'Active selection mode, switches that are on, completed step marker, curve icons.',
+          '600': 'Control points (CVs) on curves and solids, active selection mode, switches that are on, completed step marker, curve icons.',
           '800': 'Marker of the step that is waiting for input.',
           '900': 'Border of the waiting step at 25%, and the icon of a hidden curve.'
         },
@@ -2431,6 +2431,14 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
           + L(P(x0, y0, 0), P(x0, y1, 0), 'stroke-opacity=".7"') + L(P(x1, y0, 0), P(x1, y1, 0), 'stroke-opacity=".7"')
           + `<line x1="${m0[0]}" y1="${m0[1]}" x2="${m1[0]}" y2="${m1[1]}" marker-start="url(#tp-arrow)" marker-end="url(#tp-arrow)"/>`
           + `<text x="${mid[0]}" y="${mid[1]}" dy="-8" transform="rotate(${ang} ${mid[0]} ${mid[1]})" text-anchor="middle" stroke="none" style="fill:var(--meas)" font-size="15" font-family="Lato, Segoe UI, sans-serif">20.462 cm</text></g>`;
+        // A curve with its control hull and control points. Hull lines use the instance edge
+        // colour and control points accent 600 (both checked in 26.2 beta); the curve's own blue
+        // is not set by anything in the theme file yet.
+        const cvs = [P(2.6, 3.2, 0), P(5.6, 3.0, 0), P(3.0, 0.4, 0), P(5.8, 0.6, 0)];
+        const [c0, c1, c2, c3] = cvs;
+        s += `<polyline data-u="Control hull|instance-edge|the lines between control points use the instance edge colour" points="${poly(cvs)}" fill="none" style="stroke:var(--iedge)" stroke-opacity=".8" stroke-width="1"/>`;
+        s += `<path data-u="Curves|fixed|blue; not set by the theme file as far as we know" d="M${c0} C${c1} ${c2} ${c3}" fill="none" stroke="#2563eb" stroke-width="2"/>`;
+        s += '<g data-u="Control points|accent-600">' + cvs.map((c, i) => `<circle cx="${c[0]}" cy="${c[1]}" r="${i === 0 || i === 3 ? 5.5 : 4}" style="fill:var(--a600)" stroke="#00000055" stroke-width="1"/>`).join('') + '</g>';
         // The reticle: the dot under the cursor, drawn in the supporting colour.
         const r = P(4.6, -0.2, 0);
         s += `<g data-u="Reticle|reticle|Supporting as one colour; near-white when Supporting is a full range"><circle cx="${r[0]}" cy="${r[1]}" r="9" style="fill:var(--sup)" fill-opacity=".25"/>`
