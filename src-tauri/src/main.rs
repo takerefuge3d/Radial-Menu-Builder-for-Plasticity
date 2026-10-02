@@ -53,11 +53,16 @@ fn write_json_file(path: &Path, value: &serde_json::Value) -> Result<(), String>
 }
 
 // ---------- Commands ----------
+// One command list per Plasticity version, embedded at build time. The ids here
+// match PLASTICITY_VERSIONS in index.html.
 #[tauri::command]
-fn load_commands(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
-    // Just use embedded fallback for now
-    let data = include_str!("../../dist/commands.json");
-    serde_json::from_str(data).map_err(|e| format!("embedded commands.json parse failed: {e}"))
+fn load_commands(version: Option<String>) -> Result<serde_json::Value, String> {
+    let (name, data) = match version.as_deref().unwrap_or("26.1") {
+        "26.1" => ("26.1.json", include_str!("../../dist/commands/26.1.json")),
+        "26.2-beta" => ("26.2-beta.json", include_str!("../../dist/commands/26.2-beta.json")),
+        other => return Err(format!("unknown Plasticity version {other}")),
+    };
+    serde_json::from_str(data).map_err(|e| format!("embedded {name} parse failed: {e}"))
 }
 
 #[tauri::command]

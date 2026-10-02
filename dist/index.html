@@ -60,6 +60,7 @@ body {
   position: sticky; top: 0; z-index: 1; padding: 6px 12px; background: #1c1c1c; border-bottom: 1px solid var(--border);
   color: var(--muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
 }
+.version-select { margin-bottom: 12px; }
 .command-tag { float: right; margin-left: 6px; color: #ffb84d; font-size: 10px; }
 .command-item.selected .command-tag { color: #fff; }
 .notification {
@@ -263,6 +264,8 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
   <div class="app-container">
     <!-- Left Sidebar - Commands -->
     <div class="sidebar">
+      <div class="section-title">Plasticity Version:</div>
+      <select class="form-input version-select" id="versionSelect" aria-label="Plasticity version"></select>
       <div class="section-title">Search Commands:</div>
       <div class="search-container">
         <input type="text" class="search-input" id="searchInput" placeholder="Search commands..." />
@@ -660,7 +663,10 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
       scaleFactor: 2.5,
       baseCanvasSize: 560, // the wheel's outer ring is radius + 68 = 268, so 560 leaves a small margin
       savedRadialsDirectory: null,
-      webSelectedFiles: []
+      webSelectedFiles: [],
+      commandSets: {},       // version id -> { command id: icon } as shipped with the app
+      customCommands: {},    // entries from Load Commands Dictionary, kept across version switches
+      plasticityVersion: null
     };
 
     const canvas = document.getElementById('previewCanvas');
@@ -675,6 +681,7 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
       itemOutline: '#A9A9A9',
       labelFg: '#FFFFFF',
       nestedMenuColor: '#FFA500',
+      missingCommand: '#ffd166',
       trashHighlight: '#FFFFFF',
       trashNormal: '#BBBBBB',
       socketOutlineHighlight: '#ff3f7f'
@@ -884,7 +891,9 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
         calculateSockets(); reassignItemsToSockets();
         appState.menuData.items = appState.radialItems;
         refreshPreview(); updateItemCounter();
-        showNotification(`Radial menu '${menuData.name}' loaded successfully!`);
+        const missing = missingCommands(appState.radialItems);
+        if (missing.length) warnMissing(missing, `Loaded '${menuData.name}'. `);
+        else showNotification(`Radial menu '${menuData.name}' loaded successfully!`);
       } catch (error) {
         showNotification(`Failed to load JSON file: ${error}`, 'error');
       }
@@ -958,34 +967,105 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
       return { x, y };
     }
 
+    // ─── PLASTICITY VERSIONS ──────────────────────────────────────
+    // Oldest first. Each has its own command list in dist/commands/, read from that
+    // Plasticity release; the ids must match load_commands in main.rs.
+    const PLASTICITY_VERSIONS = [
+      { id: '26.1', label: '26.1', file: '26.1.json' },
+      { id: '26.2-beta', label: '26.2 beta', file: '26.2-beta.json' }
+    ];
+    const VERSION_KEY = 'plasticity-version';
+    const versionInfo = (id) => PLASTICITY_VERSIONS.find((v) => v.id === id) || PLASTICITY_VERSIONS[0];
+
+    // Loads every version's list up front (they are small) so switching is instant and
+    // "new in" tags can compare versions. Returns a list of failures.
+    async function loadCommandSets(apiAvailable) {
+      const failed = [];
+      for (const v of PLASTICITY_VERSIONS) {
+        try {
+          if (apiAvailable) {
+            appState.commandSets[v.id] = (await invokeCommand('load_commands', { version: v.id })) || {};
+          } else {
+            const response = await fetch(`./commands/${v.file}`);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            appState.commandSets[v.id] = await response.json();
+          }
+        } catch (error) {
+          failed.push(`${v.label}: ${error}`);
+        }
+      }
+      return failed;
+    }
+
+    function initVersionPicker() {
+      const picker = document.getElementById('versionSelect');
+      let saved = null;
+      try { saved = localStorage.getItem(VERSION_KEY); } catch (e) {}
+      appState.plasticityVersion = versionInfo(saved).id;
+      if (!picker) return;
+      picker.textContent = '';
+      PLASTICITY_VERSIONS.forEach((v) => {
+        const opt = document.createElement('option');
+        opt.value = v.id; opt.textContent = `Plasticity ${v.label}`;
+        picker.appendChild(opt);
+      });
+      picker.value = appState.plasticityVersion;
+      picker.addEventListener('change', () => {
+        applyVersion(picker.value);
+        try { localStorage.setItem(VERSION_KEY, picker.value); } catch (e) {}
+        const search = document.getElementById('searchInput');
+        loadCommandsList(search ? search.value : '');
+        refreshPreview();
+        const missing = missingCommands(appState.radialItems);
+        if (missing.length) warnMissing(missing);
+        else showNotification(`Showing commands for Plasticity ${versionInfo(picker.value).label}.`);
+      });
+    }
+
+    // Switch the command list, keeping any custom dictionary entries on top, and tag
+    // commands that are new compared with the previous version.
+    function applyVersion(id) {
+      const v = versionInfo(id);
+      appState.plasticityVersion = v.id;
+      appState.commandIcons = { ...(appState.commandSets[v.id] || {}), ...appState.customCommands };
+      Object.keys(COMMAND_VERSION_NOTES).forEach((k) => delete COMMAND_VERSION_NOTES[k]);
+      const idx = PLASTICITY_VERSIONS.indexOf(v);
+      const prev = idx > 0 ? appState.commandSets[PLASTICITY_VERSIONS[idx - 1].id] : null;
+      if (prev) {
+        Object.keys(appState.commandSets[v.id] || {}).forEach((cmd) => {
+          if (!(cmd in prev)) COMMAND_VERSION_NOTES[cmd] = `new in ${v.label.replace(/ beta$/, '')}`;
+        });
+      }
+    }
+
+    // Menu items whose command the chosen Plasticity version doesn't have. Nested radial
+    // menus (view:radial:...) point at the user's own files, so they are never flagged.
+    function missingCommands(items) {
+      return (items || []).filter((it) => it.command && !it.command.startsWith('view:radial:') && !(it.command in appState.commandIcons));
+    }
+    const isMissingCommand = (item) => missingCommands([item]).length > 0;
+
+    function warnMissing(missing, prefix = '') {
+      const names = missing.map((it) => it.label || it.command);
+      const list = names.length > 3 ? `${names.slice(0, 3).join(', ')} and ${names.length - 3} more` : names.join(', ');
+      showNotification(`${prefix}${missing.length} item${missing.length === 1 ? '' : 's'} not in Plasticity ${versionInfo(appState.plasticityVersion).label}: ${list}`, 'warning');
+    }
+
     async function initApp() {
       try {
         const apiAvailable = initTauriAPI();
         if (apiAvailable) {
           try { await loadSavedRadialsDirectory(); } catch {}
-          try {
-            const commands = await invokeCommand('load_commands', {});
-            appState.commandIcons = commands || {};
-            if (Object.keys(appState.commandIcons).length === 0) {
-              showNotification('No commands loaded (empty dataset).', 'warning');
-            } else {
-              showNotification('Application initialized successfully!');
-            }
-          } catch (error) {
-            showNotification(`Failed to load commands: ${error}`, 'error');
-            appState.commandIcons = {};
-          }
+        }
+        const failed = await loadCommandSets(apiAvailable);
+        initVersionPicker();
+        applyVersion(appState.plasticityVersion);
+        if (Object.keys(appState.commandIcons).length === 0) {
+          showNotification(`Failed to load commands: ${failed.join('; ') || 'empty dataset'}`, 'error');
+        } else if (failed.length) {
+          showNotification(`Some command lists failed to load: ${failed.join('; ')}`, 'warning');
         } else {
-          try {
-            const response = await fetch('./commands.json');
-            if (response.ok) {
-              appState.commandIcons = await response.json();
-              showNotification('Commands loaded (frontend mode)', 'warning');
-            } else { throw new Error('Failed to fetch commands.json'); }
-          } catch (error) {
-            showNotification('Backend unavailable and no commands.json accessible', 'error');
-            appState.commandIcons = {};
-          }
+          showNotification(apiAvailable ? 'Application initialized successfully!' : 'Commands loaded (frontend mode)', apiAvailable ? 'success' : 'warning');
         }
         resizeCanvas();
         loadCommandsList();
@@ -1138,8 +1218,8 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
     ];
     const commandGroup = (cmd) => (COMMAND_GROUPS.find(([p]) => cmd.startsWith(p + ':')) || [null, 'Other'])[1];
 
-    // Optional tag shown next to a command, e.g. { 'command:edge-align': '26.2 beta' }.
-    // Empty while commands.json is built from Plasticity 26.2.0-beta30 alone.
+    // Tag shown next to a command in the list, e.g. { 'command:edge-align': 'new in 26.2' }.
+    // Filled by applyVersion() from the difference with the previous Plasticity version.
     const COMMAND_VERSION_NOTES = {};
 
     // Short words that read better in capitals.
@@ -1270,6 +1350,10 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
         let strokeColor = occupant ? colors.socketOutlineOccupied : colors.socketOutlineUnassigned;
         let strokeW = 1;
 
+        if (occupant && isMissingCommand(occupant)) {
+          strokeColor = colors.missingCommand; // not in the chosen Plasticity version
+          strokeW = 3;
+        }
         if (isSelected) {
           fillColor = '#ff6b9f';   // lighter pink fill for selected
           strokeColor = '#ffffff'; // white border for extra pop
@@ -1322,16 +1406,18 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
       labels.forEach(({ occupant, pos }) => {
         const fit = fitLabel(occupant.label, maxLabelW);
         const nested = occupant.command.startsWith('view:radial:');
+        const note = nested ? '(Nested)'
+          : isMissingCommand(occupant) ? `not in ${versionInfo(appState.plasticityVersion).label}` : null;
         const lineH = fit.size + 2;
-        const blockH = fit.lines.length * lineH + (nested ? 12 : 0);
+        const blockH = fit.lines.length * lineH + (note ? 12 : 0);
         let y = pos.y - blockH / 2 + lineH / 2;
         ctx.fillStyle = colors.labelFg;
         ctx.font = `bold ${fit.size}px Arial`;
         fit.lines.forEach((line) => { ctx.fillText(line, pos.x, y); y += lineH; });
-        if (nested) {
-          ctx.fillStyle = colors.nestedMenuColor;
+        if (note) {
+          ctx.fillStyle = nested ? colors.nestedMenuColor : colors.missingCommand;
           ctx.font = 'italic 9px Arial';
-          ctx.fillText('(Nested)', pos.x, y - lineH / 2 + 8);
+          ctx.fillText(note, pos.x, y - lineH / 2 + 8);
         }
       });
 
@@ -1670,7 +1756,9 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
         calculateSockets(); reassignItemsToSockets();
         appState.menuData.items = appState.radialItems;
         refreshPreview(); updateItemCounter();
-        showNotification(`Radial menu '${menuData.name}' loaded successfully!`);
+        const missing = missingCommands(appState.radialItems);
+        if (missing.length) warnMissing(missing, `Loaded '${menuData.name}'. `);
+        else showNotification(`Radial menu '${menuData.name}' loaded successfully!`);
       } catch (error) {
         showNotification(`Failed to load JSON file: ${error}`, 'error');
       }
@@ -1731,6 +1819,13 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
           command: item.command, icon: item.icon, label: item.label
         }))
       };
+      // Reported after resetMenu(), which posts its own message. Items the chosen Plasticity
+      // version doesn't have are still saved, but called out.
+      const missing = missingCommands(orderedItems);
+      const reportSaved = () => {
+        if (missing.length) warnMissing(missing, `Saved '${menuName}'. `);
+        else showNotification(`Radial menu '${menuName}' saved successfully!`);
+      };
       // The native save dialog is used on every platform in the app. The web save is
       // only for the plain-browser build: in the macOS webview it falls back to a
       // download, which always lands in ~/Downloads.
@@ -1739,8 +1834,8 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
         try {
           const suggested = `${menuName.replace(/\s+/g, '-')}.json`;
           await saveJsonFileWeb(exportData, suggested);
-          showNotification(`Radial menu '${menuName}' saved successfully!`);
           resetMenu();
+          reportSaved();
         } catch (error) {
           showNotification(`Failed to save JSON file: ${error}`, 'error');
         }
@@ -1753,8 +1848,8 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
             return;
           }
           await invokeCommand('save_radial_menu', { menu: exportData, path: filePath });
-          showNotification(`Radial menu '${menuName}' saved successfully!`);
           resetMenu();
+          reportSaved();
         } catch (error) {
           showNotification(`Failed to save JSON file: ${error}`, 'error');
         }
@@ -1771,6 +1866,7 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
             for (const [key, value] of Object.entries(customCommands)) {
               if (Object.prototype.hasOwnProperty.call(appState.commandIcons, key)) overwriteCount++;
               appState.commandIcons[key] = value;
+              appState.customCommands[key] = value;
             }
             loadCommandsList();
             if (overwriteCount > 0) {
@@ -1792,6 +1888,7 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
               for (const [key, value] of Object.entries(customCommands)) {
                 if (Object.prototype.hasOwnProperty.call(appState.commandIcons, key)) overwriteCount++;
                 appState.commandIcons[key] = value;
+                appState.customCommands[key] = value;
               }
               loadCommandsList();
               if (overwriteCount > 0) {
