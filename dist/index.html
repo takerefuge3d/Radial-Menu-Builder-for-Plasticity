@@ -2432,11 +2432,11 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
           + `<line x1="${m0[0]}" y1="${m0[1]}" x2="${m1[0]}" y2="${m1[1]}" marker-start="url(#tp-arrow)" marker-end="url(#tp-arrow)"/>`
           + `<text x="${mid[0]}" y="${mid[1]}" dy="-8" transform="rotate(${ang} ${mid[0]} ${mid[1]})" text-anchor="middle" stroke="none" style="fill:var(--meas)" font-size="15" font-family="Lato, Segoe UI, sans-serif">20.462 cm</text></g>`;
         // A curve with the lines between its control points, and the control points. Control
-        // points use accent 600 (checked in 26.2 beta). What colours the lines between them is
-        // not known, so they are drawn faint white. The curve is always blue in Plasticity.
+        // points use accent 600 (checked in 26.2 beta). The lines between them are a fixed faint
+        // white, and the curve is always blue in Plasticity.
         const cvs = [P(2.6, 3.2, 0), P(5.6, 3.0, 0), P(3.0, 0.4, 0), P(5.8, 0.6, 0)];
         const [c0, c1, c2, c3] = cvs;
-        s += `<polyline data-u="Lines between control points|fixed|colour not confirmed" points="${poly(cvs)}" fill="none" stroke="#ffffff" stroke-opacity=".35" stroke-width="1"/>`;
+        s += `<polyline data-u="Lines between control points|fixed|faint white in Plasticity" points="${poly(cvs)}" fill="none" stroke="#ffffff" stroke-opacity=".35" stroke-width="1"/>`;
         s += `<path data-u="Curves|fixed|always blue in Plasticity" d="M${c0} C${c1} ${c2} ${c3}" fill="none" stroke="#2563eb" stroke-width="2"/>`;
         s += '<g data-u="Control points|accent-600">' + cvs.map((c, i) => `<circle cx="${c[0]}" cy="${c[1]}" r="${i === 0 || i === 3 ? 5.5 : 4}" style="fill:var(--a600)" stroke="#00000055" stroke-width="1"/>`).join('') + '</g>';
         // The reticle: the dot under the cursor, drawn in the supporting colour.
