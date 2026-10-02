@@ -597,7 +597,10 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
       <div class="tp-row"><label for="tpVpT">Background</label><input type="color" class="tp-color" id="tpVpC" aria-label="Pick viewport background" /><input type="text" class="form-input tp-hex" id="tpVpT" spellcheck="false" /></div>
       <div class="tp-row"><label for="tpGrT">Grid lines</label><input type="color" class="tp-color" id="tpGrC" aria-label="Pick grid colour" /><input type="text" class="form-input tp-hex" id="tpGrT" spellcheck="false" /></div>
       <div class="tp-range"><label for="tpGrA">Grid strength <span id="tpGrAV"></span></label><input type="range" id="tpGrA" min="0" max="100" step="1" /></div>
-      <div class="tp-hint">Plasticity draws the grid darker than the value in the file, and the preview copies that. The selection outline is always yellow: no theme value changes it. Edge colours, edge sizes, the matcap tint and the dialog and white values showed no effect in the probe, so they are kept in the file but not drawn here.</div>
+      <div class="tp-row"><label for="tpSeT">Regular edges</label><input type="color" class="tp-color" id="tpSeC" aria-label="Pick regular edge colour" /><input type="text" class="form-input tp-hex" id="tpSeT" spellcheck="false" placeholder="default" /></div>
+      <div class="tp-row"><label for="tpIeT">Instance edges</label><input type="color" class="tp-color" id="tpIeC" aria-label="Pick instance edge colour" /><input type="text" class="form-input tp-hex" id="tpIeT" spellcheck="false" placeholder="default" /></div>
+      <div class="tp-hint">Edge colours need Plasticity 26.2 or later. They are the same settings as Regular edge colour and Instance edge colour in Preferences &gt; Appearance. Clear a box to use Plasticity's default.</div>
+      <div class="tp-hint">Plasticity draws the grid darker than the value in the file, and the preview copies that. The selection outline is always yellow: no theme value changes it. The older solidEdge and sheetEdge values, edge sizes, the matcap tint and the dialog and white values showed no effect, so they are kept in the file but hidden here.</div>
     </div>
   </div>
 
@@ -2158,6 +2161,12 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
       }
       const pal = (name, reverse) => ramp(TW[name], reverse);
 
+      // Edge colour keys Plasticity 26.2 reads from theme.json (see "edge colours" below).
+      const EDGE_KEYS = [
+        ['sheet-edge', 'tpSe', '#000000', '--edge'],
+        ['instance-edge', 'tpIe', '#34d399', '--iedge']
+      ];
+
       // The default theme, in the same shape and key order as Plasticity's own file.
       function defaults() {
         const c = {
@@ -2332,6 +2341,7 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
         st.setProperty('--gmin', String(Math.min(1, a * 0.3)));
         st.setProperty('--gmaj', String(Math.min(1, a * 0.8)));
         st.setProperty('--outline', '#ffff00'); // Plasticity's selection outline is always yellow; the theme doesn't change it
+        EDGE_KEYS.forEach(([key, , fallback, cssVar]) => st.setProperty(cssVar, (normHex(c[key]) || fallback).substr(0, 7)));
         try { localStorage.setItem(STORE, JSON.stringify({ theme, filePath, fileLabel, dirty })); } catch (e) {}
       }
 
@@ -2353,17 +2363,29 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
         s += '</g>';
         s += '<g data-u="Axis lines|fixed">' + L(P(-N, 0, 0), P(N, 0, 0), 'stroke="#dc2626" stroke-opacity=".5" stroke-width="1.2"')
           + L(P(0, -N, 0), P(0, N, 0), 'stroke="#2e9939" stroke-opacity=".5" stroke-width="1.2"') + '</g>';
-        const a = 2.2, h = 2.7, b = a * 0.72, e = 'fill="none" stroke="#000" stroke-width="1.2" stroke-linejoin="round"', ln = 'stroke="#000" stroke-width="1.2"';
-        s += '<g data-u="Object shading|fixed">'
-          + `<polygon points="${poly([P(-a, a, 0), P(a, a, 0), P(a, a, h), P(-a, a, h)])}" fill="url(#tp-gl)"/>`
-          + `<polygon points="${poly([P(a, -a, 0), P(a, a, 0), P(a, a, h), P(a, -a, h)])}" fill="url(#tp-gr)"/>`
-          + `<polygon points="${poly([P(-a, -a, h), P(a, -a, h), P(a, a, h), P(-a, a, h)])}" fill="url(#tp-gt)"/></g>`;
-        s += '<g data-u="Edges|fixed">'
-          + `<polygon points="${poly([P(-a, -a, h), P(a, -a, h), P(a, a, h), P(-a, a, h)])}" ${e}/>`
-          + `<polygon points="${poly([P(-b, -b, h), P(b, -b, h), P(b, b, h), P(-b, b, h)])}" ${e}/>`
-          + `<polyline points="${poly([P(-a, a, h), P(-a, a, 0), P(a, a, 0), P(a, -a, 0), P(a, -a, h)])}" ${e}/>`
-          + L(P(a, a, 0), P(a, a, h), ln) + L(P(-b, a, 0), P(-b, a, h), ln) + L(P(a, -b, 0), P(a, -b, h), ln) + '</g>';
-        s += `<polygon data-u="Selection outline|fixed|always yellow in Plasticity" points="${poly([P(-a, -a, h), P(a, -a, h), P(a, -a, 0), P(a, a, 0), P(-a, a, 0), P(-a, a, h)])}" fill="none" style="stroke:var(--outline)" stroke-width="2.4" stroke-linejoin="round"/>`;
+        // Two objects side by side, in the gap between the floating dialog and the settings
+        // panel: a regular solid (left) and an instance (right, selected).
+        const a = 1.4, h = 2.0, b = a * 0.72;
+        function object(ox, oy, edgeVar, edgeLabel, selected) {
+          const Q = (x, y, z) => P(x + ox, y + oy, z);
+          const e = `fill="none" style="stroke:var(${edgeVar})" stroke-width="1.2" stroke-linejoin="round"`;
+          const ln = `style="stroke:var(${edgeVar})" stroke-width="1.2"`;
+          let o = '<g data-u="Object shading|fixed">'
+            + `<polygon points="${poly([Q(-a, a, 0), Q(a, a, 0), Q(a, a, h), Q(-a, a, h)])}" fill="url(#tp-gl)"/>`
+            + `<polygon points="${poly([Q(a, -a, 0), Q(a, a, 0), Q(a, a, h), Q(a, -a, h)])}" fill="url(#tp-gr)"/>`
+            + `<polygon points="${poly([Q(-a, -a, h), Q(a, -a, h), Q(a, a, h), Q(-a, a, h)])}" fill="url(#tp-gt)"/></g>`;
+          o += `<g data-u="${edgeLabel}">`
+            + `<polygon points="${poly([Q(-a, -a, h), Q(a, -a, h), Q(a, a, h), Q(-a, a, h)])}" ${e}/>`
+            + `<polygon points="${poly([Q(-b, -b, h), Q(b, -b, h), Q(b, b, h), Q(-b, b, h)])}" ${e}/>`
+            + `<polyline points="${poly([Q(-a, a, h), Q(-a, a, 0), Q(a, a, 0), Q(a, -a, 0), Q(a, -a, h)])}" ${e}/>`
+            + L(Q(a, a, 0), Q(a, a, h), ln) + L(Q(-b, a, 0), Q(-b, a, h), ln) + L(Q(a, -b, 0), Q(a, -b, h), ln) + '</g>';
+          if (selected) {
+            o += `<polygon data-u="Selection outline|fixed|always yellow in Plasticity" points="${poly([Q(-a, -a, h), Q(a, -a, h), Q(a, -a, 0), Q(a, a, 0), Q(-a, a, 0), Q(-a, a, h)])}" fill="none" style="stroke:var(--outline)" stroke-width="2.4" stroke-linejoin="round"/>`;
+          }
+          return o;
+        }
+        s += object(-0.6, 0.6, '--edge', 'Regular edges|sheet-edge|Regular edge colour in Preferences', false);
+        s += object(2.6, -2.6, '--iedge', 'Instance edges|instance-edge|Instance edge colour in Preferences', true);
         $('tpScene').innerHTML = s;
       })();
 
@@ -2432,6 +2454,35 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
       }
       document.querySelectorAll('#tpApp .tp-pal').forEach(buildCard);
 
+      // ---------- edge colours (Plasticity 26.2+) ----------
+      // [theme key, input id prefix, colour drawn when unset, preview CSS variable]. These are
+      // written by Preferences > Appearance in the 26.2 beta; when the key is missing Plasticity
+      // uses its own default, so the preview shows an approximation of it.
+      EDGE_KEYS.forEach(([key, id]) => {
+        const C = $(id + 'C'), T = $(id + 'T');
+        C.addEventListener('input', () => { theme.colors[key] = C.value; edited(); refresh(true); });
+        T.addEventListener('change', () => {
+          const raw = T.value.trim();
+          if (!raw) { delete theme.colors[key]; edited(); }
+          else { const v = normHex(raw); if (v) { theme.colors[key] = v.substr(0, 7); edited(); } }
+          refresh();
+        });
+      });
+      function refreshEdges(keepText) {
+        EDGE_KEYS.forEach(([key, id, fallback]) => {
+          const C = $(id + 'C'), T = $(id + 'T'), v = normHex(theme.colors[key]);
+          C.value = (v || fallback).substr(0, 7);
+          if (!keepText || document.activeElement !== T) T.value = v ? v.substr(0, 7) : '';
+        });
+      }
+      // Starters and saved themes rarely set these, and Apply must not wipe the ones the user
+      // picked in Plasticity, so a theme without them inherits them from `from`.
+      function inheritEdges(target, from) {
+        if (!from || !target.colors) return target;
+        EDGE_KEYS.forEach(([key]) => { if (!(key in target.colors) && normHex(from[key])) target.colors[key] = from[key]; });
+        return target;
+      }
+
       // ---------- viewport and grid ----------
       const vpC = $('tpVpC'), vpT = $('tpVpT'), grC = $('tpGrC'), grT = $('tpGrT'), grA = $('tpGrA');
       const setGrid = (colour, alpha) => { theme.colors.grid = colour.substr(0, 7) + hex2(alpha * 255); };
@@ -2449,7 +2500,7 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
       }
       function refresh(keepText) {
         ['neutral', 'accent', 'supporting'].forEach((p) => refreshCard(p, keepText));
-        refreshSingles(keepText); showPath(); paint();
+        refreshSingles(keepText); refreshEdges(keepText); showPath(); paint();
       }
 
       // ---------- pointing at the stand-in ----------
@@ -2472,6 +2523,8 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
         if (m) { sel[m[1]] = m[2]; refreshCard(m[1]); target = cards[m[1]].card; }
         else if (ref === 'viewport') target = vpT;
         else if (ref === 'grid') target = grT;
+        else if (ref === 'sheet-edge') target = $('tpSeT');
+        else if (ref === 'instance-edge') target = $('tpIeT');
         if (target) {
           if (target.scrollIntoView) target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
           (m ? cards[m[1]].txt : target).focus({ preventScroll: true });
@@ -2561,6 +2614,13 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
         if (isPlasticityFile(path) && !(await confirmPlasticityWrite(path))) {
           note('Save cancelled.', 'warning');
           return;
+        }
+        // Keep edge colours the user picked in Plasticity's Preferences if this theme sets none.
+        if (isPlasticityFile(path)) {
+          try {
+            const existing = relaxedParse(await invokeCommand('read_text_file', { path }));
+            if (existing && existing.colors) inheritEdges(theme, existing.colors);
+          } catch (e) {} // no file yet, or unreadable: nothing to keep
         }
         await invokeCommand('write_text_file', { path, contents: themeJson() + '\n' });
         filePath = path; fileLabel = path; dirty = false; refresh();
@@ -2781,7 +2841,7 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
         updateMyButtons();
         const mine = selectedUserTheme();
         if (mine) {
-          theme = merge(defaults(), clone(mine.theme)); filePath = null; fileLabel = `${mine.name} (my theme)`; dirty = false;
+          theme = inheritEdges(merge(defaults(), clone(mine.theme)), theme.colors); filePath = null; fileLabel = `${mine.name} (my theme)`; dirty = false;
           refresh();
           note(`Loaded ${mine.name}.`);
           return;
@@ -2789,7 +2849,7 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
         const preset = PRESETS.find(([name]) => name === startersEl.value);
         if (!preset) return;
         const [name, make] = preset;
-        theme = make(); filePath = null; fileLabel = `${name} (starter, not saved)`; dirty = false;
+        theme = inheritEdges(make(), theme.colors); filePath = null; fileLabel = `${name} (starter, not saved)`; dirty = false;
         refresh();
         note(`Loaded ${name}.`);
       });
