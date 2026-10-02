@@ -150,7 +150,18 @@ async fn pick_save_json_path(app: tauri::AppHandle, suggested_name: Option<Strin
 // ---------- Theme Preview tab ----------
 // Theme files are read and written as plain text so the key order the editor
 // produces is kept (serde_json::Value would re-sort the keys).
+// Plasticity reads theme.json (and settings.json, keymap.json) from
+// ~/.plasticity/config/v2, not from ~/.plasticity itself.
+fn plasticity_theme_dir(app: &tauri::AppHandle) -> Option<PathBuf> {
+    Some(app.path().home_dir().ok()?.join(".plasticity").join("config").join("v2"))
+}
+
+// Where the file pickers open: the theme folder if it exists, else ~/.plasticity.
 fn plasticity_dir(app: &tauri::AppHandle) -> Option<PathBuf> {
+    let theme_dir = plasticity_theme_dir(app)?;
+    if theme_dir.is_dir() {
+        return Some(theme_dir);
+    }
     let dir = app.path().home_dir().ok()?.join(".plasticity");
     if dir.is_dir() {
         Some(dir)
@@ -214,16 +225,15 @@ fn save_user_themes(app: tauri::AppHandle, contents: String) -> Result<(), Strin
 // The folder Plasticity reads theme.json from, whether or not it exists yet.
 #[tauri::command]
 fn default_plasticity_folder(app: tauri::AppHandle) -> Result<Option<String>, String> {
-    Ok(app
-        .path()
-        .home_dir()
-        .ok()
-        .map(|home| fmt_path(&home.join(".plasticity"))))
+    Ok(plasticity_theme_dir(&app).map(|dir| fmt_path(&dir)))
 }
 
 #[tauri::command]
 async fn pick_plasticity_folder(app: tauri::AppHandle) -> Result<Option<String>, String> {
-    let mut builder = app.dialog().file().set_title("Choose your .plasticity folder");
+    let mut builder = app
+        .dialog()
+        .file()
+        .set_title("Choose the folder Plasticity keeps theme.json in (.plasticity/config/v2)");
     if let Some(dir) = plasticity_dir(&app).or_else(|| app.path().home_dir().ok()) {
         builder = builder.set_directory(dir);
     }

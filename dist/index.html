@@ -509,12 +509,12 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
       <button class="btn" id="tpSave" type="button">Save</button>
       <button class="btn" id="tpSaveAs" type="button">Save As…</button>
       <button class="btn" id="tpCopy" type="button">Copy JSON</button>
-      <div class="tp-hint">Save as theme.json in your .plasticity folder, then restart Plasticity. Leave the colour choices in Preferences &gt; Appearance unselected, or they replace the file's colours.</div>
+      <div class="tp-hint">Save as theme.json in your .plasticity/config/v2 folder, then restart Plasticity. Leave the colour choices in Preferences &gt; Appearance unselected, or they replace the file's colours.</div>
 
       <div id="tpPlBox" hidden>
         <div class="separator"></div>
         <div class="section-title">Plasticity Theme</div>
-        <div class="tp-path" id="tpPlPath">Finding your .plasticity folder…</div>
+        <div class="tp-path" id="tpPlPath">Finding Plasticity's theme folder…</div>
         <button class="btn" id="tpPlChange" type="button">Change Folder…</button>
         <button class="btn" id="tpPlApply" type="button">Apply to Plasticity</button>
         <button class="btn" id="tpPlReset" type="button">Reset Plasticity to Default</button>
@@ -2300,7 +2300,7 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
 
       // ---------- open / save ----------
       // The app uses its native dialogs on every platform, so saves can go anywhere
-      // (including ~/.plasticity). The plain-browser build uses web file pickers.
+      // (including ~/.plasticity/config/v2). The plain-browser build uses web file pickers.
       function useNative() {
         try { if (typeof initTauriAPI === 'function') initTauriAPI(); } catch (e) {}
         return typeof tauriAvailable !== 'undefined' && tauriAvailable;
@@ -2470,13 +2470,13 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
       }
 
       async function applyToPlasticity() {
-        if (!plFile()) { note('Choose your .plasticity folder first.', 'error'); return; }
+        if (!plFile()) { note('Choose the folder Plasticity keeps theme.json in first (.plasticity/config/v2).', 'error'); return; }
         try { await writeTo(plFile()); } catch (err) { note(`Failed to apply theme: ${err}`, 'error'); }
       }
 
       async function resetPlasticity() {
         const path = plFile();
-        if (!path) { note('Choose your .plasticity folder first.', 'error'); return; }
+        if (!path) { note('Choose the folder Plasticity keeps theme.json in first (.plasticity/config/v2).', 'error'); return; }
         const r = await modal({
           title: 'Reset Plasticity to default?',
           lines: [
@@ -2507,6 +2507,8 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
       async function initPlasticity() {
         if (!useNative()) return; // the plain-browser build cannot write to a fixed path
         try { plFolder = localStorage.getItem(PLKEY) || null; } catch (e) {}
+        // 1.2.2 pointed at ~/.plasticity itself; Plasticity reads config/v2, so drop that old choice.
+        if (plFolder && /[\\/]\.plasticity[\\/]?$/.test(plFolder)) { plFolder = null; try { localStorage.removeItem(PLKEY); } catch (e) {} }
         if (!plFolder) {
           try { plFolder = await invokeCommand('default_plasticity_folder'); } catch (e) { return; } // older backend
         }
