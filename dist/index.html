@@ -1610,7 +1610,11 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
           command: item.command, icon: item.icon, label: item.label
         }))
       };
-      if (isMacOS) {
+      // The native save dialog is used on every platform in the app. The web save is
+      // only for the plain-browser build: in the macOS webview it falls back to a
+      // download, which always lands in ~/Downloads.
+      initTauriAPI();
+      if (!tauriAvailable) {
         try {
           const suggested = `${menuName.replace(/\s+/g, '-')}.json`;
           await saveJsonFileWeb(exportData, suggested);
@@ -1622,7 +1626,7 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
       } else {
         try {
           const suggested = `${menuName.replace(/\s+/g, '-')}.json`;
-          const filePath = await invokeCommand('pick_save_json_path', { suggested_name: suggested });
+          const filePath = await invokeCommand('pick_save_json_path', { suggestedName: suggested });
           if (!filePath) {
             showNotification('Save cancelled.', 'warning');
             return;
@@ -2213,11 +2217,11 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
       }
 
       // ---------- open / save ----------
-      // Windows and Linux use the app's native dialogs; macOS and the plain-browser
-      // build use web file pickers, the same split the radial builder uses.
+      // The app uses its native dialogs on every platform, so saves can go anywhere
+      // (including ~/.plasticity). The plain-browser build uses web file pickers.
       function useNative() {
         try { if (typeof initTauriAPI === 'function') initTauriAPI(); } catch (e) {}
-        return typeof tauriAvailable !== 'undefined' && tauriAvailable && !isMacOS;
+        return typeof tauriAvailable !== 'undefined' && tauriAvailable;
       }
       function openWeb() {
         const input = document.createElement('input');

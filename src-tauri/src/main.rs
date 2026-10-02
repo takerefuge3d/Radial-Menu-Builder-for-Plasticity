@@ -116,14 +116,16 @@ fn get_saved_radials_directory(app: tauri::AppHandle) -> Result<Option<String>, 
 }
 
 // ---------- Simple dialog commands ----------
+// Async so they run off the main thread: a blocking dialog called from the
+// main thread deadlocks on macOS.
 #[tauri::command]
-fn pick_directory(app: tauri::AppHandle) -> Result<Option<String>, String> {
+async fn pick_directory(app: tauri::AppHandle) -> Result<Option<String>, String> {
     let picked = app.dialog().file().blocking_pick_folder();
     Ok(picked.map(|p| p.to_string()))
 }
 
 #[tauri::command]
-fn pick_json_file(app: tauri::AppHandle) -> Result<Option<String>, String> {
+async fn pick_json_file(app: tauri::AppHandle) -> Result<Option<String>, String> {
     let picked = app
         .dialog()
         .file()
@@ -134,7 +136,7 @@ fn pick_json_file(app: tauri::AppHandle) -> Result<Option<String>, String> {
 }
 
 #[tauri::command]
-fn pick_save_json_path(app: tauri::AppHandle, suggested_name: Option<String>) -> Result<Option<String>, String> {
+async fn pick_save_json_path(app: tauri::AppHandle, suggested_name: Option<String>) -> Result<Option<String>, String> {
     let mut builder = app.dialog().file().add_filter("JSON", &["json"]);
     if let Some(name) = suggested_name {
         builder = builder.set_file_name(&name);
@@ -158,7 +160,7 @@ fn plasticity_dir(app: &tauri::AppHandle) -> Option<PathBuf> {
 }
 
 #[tauri::command]
-fn pick_theme_file(app: tauri::AppHandle) -> Result<Option<String>, String> {
+async fn pick_theme_file(app: tauri::AppHandle) -> Result<Option<String>, String> {
     let mut builder = app
         .dialog()
         .file()
@@ -172,7 +174,7 @@ fn pick_theme_file(app: tauri::AppHandle) -> Result<Option<String>, String> {
 }
 
 #[tauri::command]
-fn pick_save_theme_path(app: tauri::AppHandle, suggested_name: Option<String>) -> Result<Option<String>, String> {
+async fn pick_save_theme_path(app: tauri::AppHandle, suggested_name: Option<String>) -> Result<Option<String>, String> {
     let mut builder = app
         .dialog()
         .file()

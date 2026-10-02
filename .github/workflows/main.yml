@@ -53,8 +53,9 @@ jobs:
           releaseBody: |
             Download and install this version.
             
-            **macOS Users**: After downloading, right-click the app and select "Open" to bypass security warnings.
-            See the macOS installation guide in the release assets.
+            **macOS Users**: The app isn't notarized by Apple, so the first launch is blocked once.
+            Open it, click "Done" on the warning, then go to System Settings > Privacy & Security,
+            scroll down and click "Open Anyway". After that it opens normally.
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
@@ -74,24 +75,20 @@ jobs:
           4. **Important**: Don't double-click to open the app yet
           
           ## First Launch
-          1. Go to Applications folder
-          2. **Right-click** on "Plasticity Radial Menu Builder"
-          3. Select "Open" from the context menu
-          4. Click "Open" when macOS warns about unsigned app
+          1. Open "Plasticity Radial Menu Builder" from Applications
+          2. macOS says it can't verify the developer. Click "Done"
+          3. Open System Settings > Privacy & Security
+          4. Scroll down to the message about the app and click "Open Anyway"
+          5. Confirm with your password. From then on it opens normally
+          
+          (On macOS 14 and earlier you can instead right-click the app, choose "Open", then "Open".)
           
           ## File Access Permissions
-          When you first try to save/load files, macOS will ask for permissions:
-          1. Grant access when prompted
-          2. If no prompt appears, go to System Settings > Privacy & Security > Files and Folders
-          3. Enable access for "Plasticity Radial Menu Builder"
+          macOS may ask for permission the first time you save into a protected folder
+          such as Documents or Desktop. Click "Allow".
           
-          ## Troubleshooting
-          - **"App is damaged"**: Try the terminal command below
-          - **Spinning wheel when saving**: Check file permissions in System Settings
-          - **Won't open at all**: Make sure you used right-click → Open
-          
-          ## Terminal Fix (if needed)
-          If the app shows "damaged" even after right-clicking:
+          ## Terminal Fix (last resort)
+          Only if macOS says the app "is damaged" and there is no "Open Anyway" button:
           ```bash
           sudo xattr -r -d com.apple.quarantine "/Applications/Plasticity Radial Menu Builder.app"
           ```
