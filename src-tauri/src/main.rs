@@ -190,6 +190,47 @@ async fn pick_save_theme_path(app: tauri::AppHandle, suggested_name: Option<Stri
     Ok(picked.map(|p| p.to_string()))
 }
 
+// The user's named themes, kept as plain text in the app data folder.
+fn user_themes_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    Ok(app_data_dir(app)?.join("user_themes.json"))
+}
+
+#[tauri::command]
+fn load_user_themes(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    let path = user_themes_path(&app)?;
+    match fs::read_to_string(&path) {
+        Ok(s) => Ok(Some(s)),
+        Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(io_err(format!("read {} failed: {e}", fmt_path(&path)))),
+    }
+}
+
+#[tauri::command]
+fn save_user_themes(app: tauri::AppHandle, contents: String) -> Result<(), String> {
+    let path = user_themes_path(&app)?;
+    fs::write(&path, contents).map_err(|e| io_err(format!("write {} failed: {e}", fmt_path(&path))))
+}
+
+// The folder Plasticity reads theme.json from, whether or not it exists yet.
+#[tauri::command]
+fn default_plasticity_folder(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    Ok(app
+        .path()
+        .home_dir()
+        .ok()
+        .map(|home| fmt_path(&home.join(".plasticity"))))
+}
+
+#[tauri::command]
+async fn pick_plasticity_folder(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    let mut builder = app.dialog().file().set_title("Choose your .plasticity folder");
+    if let Some(dir) = plasticity_dir(&app).or_else(|| app.path().home_dir().ok()) {
+        builder = builder.set_directory(dir);
+    }
+    let picked = builder.blocking_pick_folder();
+    Ok(picked.map(|p| p.to_string()))
+}
+
 #[tauri::command]
 fn read_text_file(path: String) -> Result<String, String> {
     fs::read_to_string(&path).map_err(|e| io_err(format!("read {} failed: {e}", path)))
@@ -217,6 +258,10 @@ fn main() {
             pick_save_json_path,
             pick_theme_file,
             pick_save_theme_path,
+            default_plasticity_folder,
+            pick_plasticity_folder,
+            load_user_themes,
+            save_user_themes,
             read_text_file,
             write_text_file
         ])

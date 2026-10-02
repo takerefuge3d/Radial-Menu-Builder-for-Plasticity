@@ -129,7 +129,17 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
 .tp-path { font-size: 12px; margin-bottom: 8px; padding: 6px; background: #121212; border: 1px solid var(--border); border-radius: 4px; word-break: break-all; }
 .tp-path em { color: var(--accent); font-style: normal; }
 .tp-hint { color: var(--muted); font-size: 12px; line-height: 1.45; margin-top: 8px; }
-.tp-starters { height: auto; }
+.btn:disabled, .btn:disabled:hover { opacity: .4; cursor: default; border-color: var(--border); color: var(--text); }
+.tp-btn-row { display: flex; gap: 6px; }
+.tp-modal-box .form-input { margin-bottom: 12px; }
+.tp-modal { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, .6); }
+.tp-modal-box { width: 420px; max-width: calc(100vw - 32px); background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 18px; box-shadow: 0 12px 40px rgba(0, 0, 0, .5); }
+.tp-modal-box h3 { font-size: 15px; margin-bottom: 10px; color: var(--accent); }
+.tp-modal-box p { font-size: 13px; line-height: 1.5; margin-bottom: 10px; }
+.tp-modal-box .tp-path { margin-bottom: 10px; }
+.tp-modal-mute { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); margin-bottom: 12px; cursor: pointer; }
+.tp-modal-btns { display: flex; gap: 8px; }
+.tp-modal-btns .btn { margin: 0; }
 .tp-pal { margin-bottom: 16px; }
 .tp-pal-head { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
 .tp-pal-head .section-title { margin: 0; flex: 1; }
@@ -501,9 +511,25 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
       <button class="btn" id="tpCopy" type="button">Copy JSON</button>
       <div class="tp-hint">Save as theme.json in your .plasticity folder, then restart Plasticity. Leave the colour choices in Preferences &gt; Appearance unselected, or they replace the file's colours.</div>
 
+      <div id="tpPlBox" hidden>
+        <div class="separator"></div>
+        <div class="section-title">Plasticity Theme</div>
+        <div class="tp-path" id="tpPlPath">Finding your .plasticity folder…</div>
+        <button class="btn" id="tpPlChange" type="button">Change Folder…</button>
+        <button class="btn" id="tpPlApply" type="button">Apply to Plasticity</button>
+        <button class="btn" id="tpPlReset" type="button">Reset Plasticity to Default</button>
+        <div class="tp-hint">Apply writes this theme to the theme.json Plasticity reads. Reset puts Plasticity's default colours back. Restart Plasticity after either one. Plasticity can also reset itself: Preferences &gt; Appearance, Reset to defaults at the bottom.</div>
+      </div>
+
       <div class="separator"></div>
       <div class="section-title">Starter Themes</div>
-      <div class="loaded-menus tp-starters" id="tpStarters"></div>
+      <select class="form-input" id="tpStarters" aria-label="Starter themes"></select>
+      <button class="btn" id="tpMySave" type="button">Save as My Theme…</button>
+      <div class="tp-btn-row">
+        <button class="btn" id="tpMyRename" type="button" disabled>Rename</button>
+        <button class="btn" id="tpMyDelete" type="button" disabled>Delete</button>
+      </div>
+      <div class="tp-hint">Save the colours you have now under your own name. They show at the top of the list under My Themes.</div>
 
       <div class="separator"></div>
 
@@ -1942,21 +1968,77 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
         c.neutral = ramp(o.neutral); c.balanced = ramp(o.neutral); c.accent = ramp(o.accent); c.supporting = ramp(o.supporting);
         return t;
       }
+      // [name, make, group]. Light themes list neutral from dark to light, since
+      // neutral 50 is the text colour and neutral 900 the window background.
       const PRESETS = [
-        ['Plasticity default', defaults],
-        ['Light starter', lightStarter],
+        ['Plasticity default', defaults, 'Plasticity'],
+        ['Light starter', lightStarter, 'Plasticity'],
         ['Slate blue', () => starter({
           viewport: '#5a637b', dialog: '#3c4a69', matcap: '#edf0f9', grid: '#e2e8f624', edge: '#1b2444', edgeOccluded: '#1b244438',
           neutral: 'f8fafe f0f3fc e7edf9 dde5f5 8e9ec2 637396 59688c 506083 435273 364361',
           accent: 'f9f7ff f5f1fe e9e1fe d9ccfa beabea 8d79bb 7a65a6 6c5796 5d4b82 493969',
           supporting: 'fcf4f8 f9e7ef f3d4e3 e9bbd1 d49ab7 b97d9b 9d6280 85506b 6f4259 5a3548'
-        })],
+        }), 'Moods'],
         ['Take Refuge 3D', () => starter({
           viewport: '#201e25', dialog: '#15131c', matcap: '#e4e0ee', grid: '#a874d426', edge: '#453a66', edgeOccluded: '#453a6640',
           neutral: 'faf8fd f2eff8 e4e0ee d6d2e3 625c79 4e4370 36324c 292639 1c1a27 111017',
           accent: 'fbf2f5 f8e6ed f3cedc eba8c4 de78a6 cf5590 b53978 9f3069 882d5b 73294d',
           supporting: 'faf7fd f3ebfa e9dcf6 d7bfee be98e2 a874d4 8d54ba 7a45a3 683e8a 53316e'
-        })]
+        }), 'Moods'],
+        ['Double Espresso', () => starter({
+          viewport: '#1c1512', dialog: '#120d0a', matcap: '#efe4d8', grid: '#d6b8a01f', edge: '#0a0604', edgeOccluded: '#0a060430',
+          neutral: 'fbf7f3 f2e9e0 e3d4c6 c9b6a5 a08a78 7a6555 56453a 3b2f27 271e19 17110e',
+          accent: 'fdf6ec f9e8cf f1cf9f e6b06b d9934a c47a32 a66128 854b22 643920 47291a',
+          supporting: 'fdf3f1 fae1dc f4c2b8 e99a8a d86b58 c24a37 a3392b 822f25 642821 4a1f1a'
+        }), 'Coffee'],
+        ['Cappuccino', () => starter({
+          viewport: '#3a2e27', dialog: '#2a211c', matcap: '#f4ebe1', grid: '#f1ebe524', edge: '#1c1410', edgeOccluded: '#1c141038',
+          neutral: 'fbf8f5 f3ece5 e6dacf d2c1b2 a8927f 85705f 6a5749 54453a 3f332b 2e251f',
+          accent: 'faf3ee f3e3d6 e8c9b0 d8a985 c3875e a96c43 8b5634 6e4429 53341f 3a2416',
+          supporting: 'fdf6ed faead3 f3d1a3 e9b06c dc9142 c87828 a85f1f 874a1c 66391a 4a2a15'
+        }), 'Coffee'],
+        ['Café Latte', () => starter({
+          viewport: '#e9dfd4', dialog: '#fbf7f2', matcap: '#fbf5ee', grid: '#3f2a1c1f', edge: '#3f2a1c', edgeOccluded: '#3f2a1c2a',
+          neutral: '2b1f17 3d2e24 54433a 6b584c 8f7b6c b2a091 d4c6b8 e8ddd2 f3ece4 faf6f1',
+          accent: 'f8f0e8 eedccb dcbfa4 c79f7f ae7f5d 91623f 754d31 5c3c27 432c1d 2d1d13',
+          supporting: 'fefaeb fdf0c7 fbe08b f8c94f f3b026 dd9112 b96f0c 94520f 7a4213 663714'
+        }), 'Coffee'],
+        ['Pastel Lavender', () => starter({
+          viewport: '#e8e3f3', dialog: '#fbf9fe', matcap: '#fdfbff', grid: '#4b3f7a1f', edge: '#4b3f7a', edgeOccluded: '#4b3f7a2a',
+          neutral: '2e2a3a 413c52 5a546e 746d89 9a93ad bdb7cd dad5e6 ebe7f3 f4f1f9 faf8fd',
+          accent: 'fdf4ff f9e5fd f2cbfa e7a6f4 d77fe9 bf5fd6 a046b6 823993 672f74 4f2558',
+          supporting: 'f0fdf7 dafbec b6f4d8 85e8bd 52d39c 2db881 20966a 1e7757 1d5f48 1a4e3c'
+        }), 'Pastel'],
+        ['Pastel Night', () => starter({
+          viewport: '#2a2838', dialog: '#1d1b28', matcap: '#f3eefc', grid: '#c5c0d922', edge: '#14121c', edgeOccluded: '#14121c3a',
+          neutral: 'f7f5fb ece9f4 dcd8ea c5c0d9 9c96b5 77718f 58536f 413d55 2e2b3e 211f2e',
+          accent: 'fff1f6 ffe2ed ffc9dc ffa6c4 f985ad ec6a98 d0507f a83f66 813451 602a3e',
+          supporting: 'f0f8ff deefff bfe0fe 95cbfb 6db2f5 4f97ea 3c7bd2 3263ab 2c5287 274469'
+        }), 'Pastel'],
+        ['Blender style', () => starter({
+          viewport: '#3d3d3d', dialog: '#181818', matcap: '#f2f2f2', grid: '#ffffff1a', edge: '#000000', edgeOccluded: '#00000024',
+          neutral: 'f2f2f2 e0e0e0 c8c8c8 b0b0b0 8a8a8a 6a6a6a 545454 3d3d3d 303030 1d1d1d',
+          accent: 'fff7ed ffedd5 ffd6a8 ffb870 ffa028 f58a0b f15800 c24407 9a3610 7c2d12',
+          supporting: 'eff5fc dbe7f7 bed3f0 93b5e4 6b95d4 5580c4 4772b3 3c5f95 344f79 2d4262'
+        }), 'Inspired by other apps'],
+        ['ZBrush style', () => starter({
+          viewport: '#4a4a4a', dialog: '#1e1e1e', matcap: '#f0c4b0', grid: '#ffffff17', edge: '#141414', edgeOccluded: '#14141430',
+          neutral: 'f5f5f5 e6e6e6 cfcfcf b8b8b8 909090 6e6e6e 5a5a5a 434343 333333 262626',
+          accent: 'fff8eb ffecc7 ffd68a ffbd4d ffa31f f08c00 d17300 a65a05 85480b 6b3b0d',
+          supporting: 'eef6fb d6e9f5 b0d3ea 7fb5da 5096c6 3479ad 28628f 234f73 20425e 1c374d'
+        }), 'Inspired by other apps'],
+        ['Modo style', () => starter({
+          viewport: '#4a5058', dialog: '#1f2124', matcap: '#eef1f4', grid: '#e4e6e81c', edge: '#15171a', edgeOccluded: '#15171a30',
+          neutral: 'f4f5f6 e4e6e8 cdd0d4 b4b8bd 8b9096 6b7076 565a60 41454a 323538 26282b',
+          accent: 'fffaeb fff0c2 ffe08a ffcc4d ffb81f f5a000 d68100 ad6304 8c4e0a 73400c',
+          supporting: 'eff5fc dce8f8 bfd5f2 95b9e7 6c9bda 5b8fd1 4473b5 3a5e92 334f77 2c4262'
+        }), 'Inspired by other apps'],
+        ['Maya style', () => starter({
+          viewport: '#5f6b78', dialog: '#2b2b2b', matcap: '#f0f0f0', grid: '#ffffff1f', edge: '#111111', edgeOccluded: '#11111130',
+          neutral: 'f3f3f3 e2e2e2 cbcbcb b4b4b4 8f8f8f 6f6f6f 5d5d5d 4a4a4a 444444 373737',
+          accent: 'f0fff6 d9ffe9 b3ffd3 80ffb5 4dff96 2bf07c 1bc764 179d51 167b43 146539',
+          supporting: 'eff5f9 dbe8f0 bcd4e3 92b8d0 6b9ab9 5285a6 446f8c 3a5c73 334d5f 2d414f'
+        }), 'Inspired by other apps']
       ];
 
       // Where each shade shows up in Plasticity 2026.1, read from probe-theme screenshots.
@@ -2262,6 +2344,11 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
         } catch (err) { note(`Failed to save theme: ${err}`, 'error'); }
       }
       async function writeTo(path) {
+        // Every route that writes Plasticity's own theme.json goes past the warning first.
+        if (isPlasticityFile(path) && !(await confirmPlasticityWrite(path))) {
+          note('Save cancelled.', 'warning');
+          return;
+        }
         await invokeCommand('write_text_file', { path, contents: themeJson() + '\n' });
         filePath = path; fileLabel = path; dirty = false; refresh();
         note('Theme saved. Restart Plasticity to see it.');
@@ -2300,21 +2387,298 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
       $('tpSaveAs').addEventListener('click', saveThemeAs);
       $('tpCopy').addEventListener('click', copyJson);
 
-      // ---------- starter themes ----------
-      const startersEl = $('tpStarters');
-      function markStarter(name) {
-        startersEl.querySelectorAll('.menu-item').forEach((el) => el.classList.toggle('selected', el.textContent === name));
+      // ---------- Plasticity's theme file ----------
+      const PLKEY = 'plasticity-theme-folder', MUTEKEY = 'plasticity-theme-warning-off';
+      let plFolder = null;
+      const joinPath = (dir, name) => dir.replace(/[\\/]+$/, '') + (dir.includes('\\') ? '\\' : '/') + name;
+      const plFile = () => (plFolder ? joinPath(plFolder, 'theme.json') : null);
+      const samePath = (a, b) => a.replace(/\\/g, '/').toLowerCase() === b.replace(/\\/g, '/').toLowerCase();
+      function isPlasticityFile(path) {
+        return !!(path && plFile() && samePath(path, plFile()));
       }
-      PRESETS.forEach(([name, make]) => {
-        const item = document.createElement('div');
-        item.className = 'menu-item'; item.textContent = name;
-        item.addEventListener('click', () => {
-          theme = make(); filePath = null; fileLabel = `${name} (starter, not saved)`; dirty = false;
-          markStarter(name); refresh();
-          note(`Loaded ${name}.`);
+      function showPlPath() {
+        $('tpPlPath').textContent = plFile() || 'No folder set. Click Change Folder.';
+      }
+
+      // A small modal. Resolves to { ok, mute, value } when a button is clicked or Esc is pressed.
+      // window.prompt is not available in the macOS webview, so names are asked for here too.
+      function modal({ title, lines, path, okLabel, allowMute, input }) {
+        return new Promise((resolve) => {
+          const wrap = document.createElement('div');
+          wrap.className = 'tp-modal';
+          const box = document.createElement('div');
+          box.className = 'tp-modal-box';
+          box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true');
+          const h = document.createElement('h3'); h.textContent = title; box.appendChild(h);
+          lines.forEach((text, i) => {
+            const p = document.createElement('p'); p.textContent = text; box.appendChild(p);
+            if (i === 0 && path) { const pe = document.createElement('div'); pe.className = 'tp-path'; pe.textContent = path; box.appendChild(pe); }
+          });
+          let field = null;
+          if (input) {
+            field = document.createElement('input');
+            field.type = 'text'; field.className = 'form-input'; field.spellcheck = false;
+            field.value = input.value || ''; field.placeholder = input.placeholder || '';
+            field.maxLength = 60; field.setAttribute('aria-label', title);
+            box.appendChild(field);
+          }
+          let mute = null;
+          if (allowMute) {
+            const label = document.createElement('label'); label.className = 'tp-modal-mute';
+            mute = document.createElement('input'); mute.type = 'checkbox';
+            label.appendChild(mute); label.appendChild(document.createTextNode("Don't show this again"));
+            box.appendChild(label);
+          }
+          const btns = document.createElement('div'); btns.className = 'tp-modal-btns';
+          const cancel = document.createElement('button'); cancel.className = 'btn'; cancel.type = 'button'; cancel.textContent = 'Cancel';
+          const ok = document.createElement('button'); ok.className = 'btn'; ok.type = 'button'; ok.textContent = okLabel;
+          btns.appendChild(cancel); btns.appendChild(ok); box.appendChild(btns);
+          wrap.appendChild(box); document.body.appendChild(wrap);
+          const done = (yes) => {
+            document.removeEventListener('keydown', onKey, true);
+            wrap.remove();
+            resolve({ ok: yes, mute: !!(mute && mute.checked), value: field ? field.value : '' });
+          };
+          const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); done(false); } };
+          document.addEventListener('keydown', onKey, true);
+          cancel.addEventListener('click', () => done(false));
+          ok.addEventListener('click', () => done(true));
+          wrap.addEventListener('click', (e) => { if (e.target === wrap) done(false); });
+          if (field) {
+            field.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); done(true); } });
+            field.focus(); field.select();
+          } else {
+            cancel.focus();
+          }
         });
-        startersEl.appendChild(item);
+      }
+
+      async function confirmPlasticityWrite(path) {
+        try { if (localStorage.getItem(MUTEKEY) === '1') return true; } catch (e) {}
+        const r = await modal({
+          title: 'Changing how Plasticity looks',
+          lines: [
+            'This writes straight to the theme file Plasticity uses:',
+            'We take no responsibility for your taste in themes, or for anything that happens if you muck it up.',
+            "If it all goes wrong, come back here and click Reset Plasticity to Default, then restart Plasticity.",
+            'Plasticity has its own Reset to defaults button too, at the bottom of the Appearance tab in Preferences.'
+          ],
+          path, okLabel: 'Apply anyway', allowMute: true
+        });
+        if (r.ok && r.mute) { try { localStorage.setItem(MUTEKEY, '1'); } catch (e) {} }
+        return r.ok;
+      }
+
+      async function applyToPlasticity() {
+        if (!plFile()) { note('Choose your .plasticity folder first.', 'error'); return; }
+        try { await writeTo(plFile()); } catch (err) { note(`Failed to apply theme: ${err}`, 'error'); }
+      }
+
+      async function resetPlasticity() {
+        const path = plFile();
+        if (!path) { note('Choose your .plasticity folder first.', 'error'); return; }
+        const r = await modal({
+          title: 'Reset Plasticity to default?',
+          lines: [
+            "This replaces Plasticity's theme file with the default colours:",
+            'Your edits here in the editor are kept. Restart Plasticity to see the change.'
+          ],
+          path, okLabel: 'Reset'
+        });
+        if (!r.ok) return;
+        try {
+          await invokeCommand('write_text_file', { path, contents: JSON.stringify(defaults(), null, 4) + '\n' });
+          if (filePath && samePath(filePath, path)) { dirty = true; refresh(); }
+          note('Plasticity reset to the default theme. Restart Plasticity to see it.');
+        } catch (err) { note(`Failed to reset theme: ${err}`, 'error'); }
+      }
+
+      async function changePlFolder() {
+        let dir;
+        try { dir = await invokeCommand('pick_plasticity_folder'); }
+        catch (err) { note(`Could not open the folder picker: ${err}`, 'error'); return; }
+        if (!dir) return;
+        plFolder = dir;
+        try { localStorage.setItem(PLKEY, dir); } catch (e) {}
+        showPlPath();
+        note('Plasticity folder set.');
+      }
+
+      async function initPlasticity() {
+        if (!useNative()) return; // the plain-browser build cannot write to a fixed path
+        try { plFolder = localStorage.getItem(PLKEY) || null; } catch (e) {}
+        if (!plFolder) {
+          try { plFolder = await invokeCommand('default_plasticity_folder'); } catch (e) { return; } // older backend
+        }
+        $('tpPlBox').hidden = false;
+        showPlPath();
+      }
+      $('tpPlChange').addEventListener('click', changePlFolder);
+      $('tpPlApply').addEventListener('click', applyToPlasticity);
+      $('tpPlReset').addEventListener('click', resetPlasticity);
+
+      // ---------- starter themes and My Themes ----------
+      // Built-in starters use their name as the option value; the user's own themes
+      // use "user:<name>" so the two lists can never clash.
+      const startersEl = $('tpStarters');
+      const USERKEY = 'plasticity-user-themes', USERPFX = 'user:';
+      let userThemes = [];   // [{ name, theme }]
+      const clone = (o) => JSON.parse(JSON.stringify(o));
+      const selectedUserTheme = () => {
+        const v = startersEl.value;
+        return v.startsWith(USERPFX) ? userThemes.find((u) => u.name === v.slice(USERPFX.length)) || null : null;
+      };
+      function updateMyButtons() {
+        const mine = !!selectedUserTheme();
+        $('tpMyRename').disabled = !mine;
+        $('tpMyDelete').disabled = !mine;
+      }
+      function markStarter(name) {
+        startersEl.value = name || '';
+        updateMyButtons();
+      }
+      function buildStarters(selectValue) {
+        startersEl.textContent = '';
+        const placeholder = document.createElement('option');
+        placeholder.value = ''; placeholder.textContent = 'Choose a starter theme…';
+        startersEl.appendChild(placeholder);
+        const addGroup = (label, items) => {
+          const g = document.createElement('optgroup');
+          g.label = label;
+          items.forEach(([value, text]) => {
+            const opt = document.createElement('option');
+            opt.value = value; opt.textContent = text;
+            g.appendChild(opt);
+          });
+          startersEl.appendChild(g);
+        };
+        if (userThemes.length) addGroup('My Themes', userThemes.map((u) => [USERPFX + u.name, u.name]));
+        const groups = [];
+        PRESETS.forEach(([name, , group]) => {
+          let g = groups.find((x) => x[0] === group);
+          if (!g) { g = [group, []]; groups.push(g); }
+          g[1].push([name, name]);
+        });
+        groups.forEach(([label, items]) => addGroup(label, items));
+        markStarter(selectValue || '');
+      }
+      startersEl.addEventListener('change', () => {
+        updateMyButtons();
+        const mine = selectedUserTheme();
+        if (mine) {
+          theme = merge(defaults(), clone(mine.theme)); filePath = null; fileLabel = `${mine.name} (my theme)`; dirty = false;
+          refresh();
+          note(`Loaded ${mine.name}.`);
+          return;
+        }
+        const preset = PRESETS.find(([name]) => name === startersEl.value);
+        if (!preset) return;
+        const [name, make] = preset;
+        theme = make(); filePath = null; fileLabel = `${name} (starter, not saved)`; dirty = false;
+        refresh();
+        note(`Loaded ${name}.`);
       });
+
+      // The desktop app keeps My Themes in a file in its data folder; the browser build uses localStorage.
+      async function loadUserThemes() {
+        let text = null;
+        try {
+          if (useNative()) text = await invokeCommand('load_user_themes');
+          else text = localStorage.getItem(USERKEY);
+        } catch (e) {}
+        try {
+          const list = JSON.parse(text || '[]');
+          userThemes = Array.isArray(list)
+            ? list.filter((u) => u && typeof u.name === 'string' && u.name.trim() && u.theme && u.theme.colors)
+            : [];
+        } catch (e) {
+          userThemes = [];
+          note('Could not read My Themes. The file may be damaged.', 'error');
+        }
+        buildStarters(startersEl.value);
+      }
+      async function storeUserThemes() {
+        userThemes.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+        const text = JSON.stringify(userThemes, null, 2);
+        if (useNative()) await invokeCommand('save_user_themes', { contents: text });
+        else localStorage.setItem(USERKEY, text);
+      }
+      const findUserTheme = (name) => userThemes.find((u) => u.name.toLowerCase() === name.toLowerCase());
+
+      async function saveMyTheme() {
+        const current = selectedUserTheme();
+        const r = await modal({
+          title: 'Save as My Theme',
+          lines: ['Give these colours a name so you can come back to them.'],
+          input: { value: current ? current.name : '', placeholder: 'My theme' },
+          okLabel: 'Save'
+        });
+        if (!r.ok) return;
+        const name = r.value.trim();
+        if (!name) { note('Give the theme a name to save it.', 'error'); return; }
+        const before = clone(userThemes);
+        const existing = findUserTheme(name);
+        if (existing) {
+          const c = await modal({
+            title: 'Replace this theme?',
+            lines: [`You already have a theme called "${existing.name}". Replace it with the colours you have now?`],
+            okLabel: 'Replace'
+          });
+          if (!c.ok) return;
+          existing.name = name; existing.theme = clone(theme);
+        } else {
+          userThemes.push({ name, theme: clone(theme) });
+        }
+        try { await storeUserThemes(); }
+        catch (err) { userThemes = before; note(`Could not save ${name}: ${err}`, 'error'); return; }
+        if (!filePath) { fileLabel = `${name} (my theme)`; dirty = false; showPath(); }
+        buildStarters(USERPFX + name);
+        note(`Saved ${name} to My Themes.`);
+      }
+
+      async function renameMyTheme() {
+        const mine = selectedUserTheme();
+        if (!mine) return;
+        const r = await modal({
+          title: 'Rename theme',
+          lines: [`New name for "${mine.name}":`],
+          input: { value: mine.name, placeholder: 'My theme' },
+          okLabel: 'Rename'
+        });
+        if (!r.ok) return;
+        const name = r.value.trim();
+        if (!name || name === mine.name) return;
+        const clash = findUserTheme(name);
+        if (clash && clash !== mine) { note(`You already have a theme called ${clash.name}.`, 'error'); return; }
+        const before = clone(userThemes), oldName = mine.name;
+        mine.name = name;
+        try { await storeUserThemes(); }
+        catch (err) { userThemes = before; note(`Could not rename ${oldName}: ${err}`, 'error'); return; }
+        if (fileLabel === `${oldName} (my theme)`) { fileLabel = `${name} (my theme)`; showPath(); }
+        buildStarters(USERPFX + name);
+        note(`Renamed to ${name}.`);
+      }
+
+      async function deleteMyTheme() {
+        const mine = selectedUserTheme();
+        if (!mine) return;
+        const r = await modal({
+          title: 'Delete this theme?',
+          lines: [`"${mine.name}" will be removed from My Themes. The colours in the editor stay as they are.`],
+          okLabel: 'Delete'
+        });
+        if (!r.ok) return;
+        const before = clone(userThemes);
+        userThemes = userThemes.filter((u) => u !== mine);
+        try { await storeUserThemes(); }
+        catch (err) { userThemes = before; note(`Could not delete ${mine.name}: ${err}`, 'error'); return; }
+        buildStarters('');
+        note(`Deleted ${mine.name}.`);
+      }
+      $('tpMySave').addEventListener('click', saveMyTheme);
+      $('tpMyRename').addEventListener('click', renameMyTheme);
+      $('tpMyDelete').addEventListener('click', deleteMyTheme);
+      buildStarters('');
 
       // ---------- tabs ----------
       const tabButtons = document.querySelectorAll('.app-tab');
@@ -2340,6 +2704,8 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
         }
       } catch (e) {}
       refresh();
+      initPlasticity();
+      loadUserThemes();
       let startTab = 'radial';
       try { if (localStorage.getItem(TABKEY) === 'theme') startTab = 'theme'; } catch (e) {}
       showTab(startTab, true);
