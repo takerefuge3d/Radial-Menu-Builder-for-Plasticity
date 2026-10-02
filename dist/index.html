@@ -2514,7 +2514,7 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
         c.card.querySelector('.tp-use').textContent = isSingle(p)
           ? "Plasticity's Preferences saved this as one colour, so every shade uses it. Pick a palette under Fill from to switch to a full range."
             + (p === 'supporting' ? ' It colours the reticle (the dot under the cursor) and the Scene folder icon.' : '')
-          : use || "We haven't seen this shade used anywhere in Plasticity, so changing it probably does nothing.";
+          : use || "We haven't spotted this shade in Plasticity yet. Changing it may do nothing, or it may change something small we haven't found.";
       }
       document.querySelectorAll('#tpApp .tp-pal').forEach(buildCard);
 
