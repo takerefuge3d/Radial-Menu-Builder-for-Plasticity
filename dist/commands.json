@@ -1,7 +1,6 @@
 {
   "app:new-window": "new-window",
   "app:quit": "quit",
-  "command:align": "align",
   "command:alternative-duplicate": "alternative-duplicate",
   "command:boolean": "boolean",
   "command:bridge": "bridge",
@@ -127,7 +126,6 @@
   "command:radial-array": "radial-array",
   "command:raise-degree": "raise-degree",
   "command:realize": "realize",
-  "command:realize-instances": "realize-instances",
   "command:rebuild": "rebuild",
   "command:rebuild-curve": "rebuild-curve",
   "command:rebuild-face": "rebuild-face",
