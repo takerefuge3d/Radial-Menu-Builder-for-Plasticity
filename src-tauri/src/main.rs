@@ -8,6 +8,7 @@ use std::{
 use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
 
+mod fonts;
 mod matcaps;
 mod shortcuts;
 
@@ -281,6 +282,7 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .manage(matcaps::StagingState::default())
+        .manage(fonts::FontStagingState::default())
         .invoke_handler(tauri::generate_handler![
             load_commands,
             load_commands_from_file,
@@ -320,6 +322,15 @@ fn main() {
             matcaps::pick_matcap_files,
             matcaps::pick_matcaps_folder,
             matcaps::installed_environment_lighting,
+            fonts::stage_font_bytes,
+            fonts::stage_font_path,
+            fonts::unstage_fonts,
+            fonts::install_font,
+            fonts::list_installed_fonts,
+            fonts::trash_font,
+            fonts::default_fonts_folder,
+            fonts::pick_font_files,
+            fonts::pick_fonts_folder,
             shortcuts::load_default_shortcuts,
             shortcuts::read_text_if_exists,
             shortcuts::list_plasticity_radials,

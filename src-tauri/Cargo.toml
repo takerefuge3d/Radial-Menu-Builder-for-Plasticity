@@ -24,6 +24,9 @@ exr = "1.74"
 base64 = "0.22"
 trash = "5"
 
+# Fonts tab: reading TTF and OTF fonts
+ttf-parser = "0.25"
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 

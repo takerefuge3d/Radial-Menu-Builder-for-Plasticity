@@ -134,6 +134,8 @@ body[data-tab="matcaps"] > .app-container:not(#mcApp), body[data-tab="matcaps"] 
 body:not([data-tab="matcaps"]) > #mcApp { display: none; }
 body[data-tab="environments"] > .app-container:not(#evApp), body[data-tab="environments"] > .json-preview { display: none !important; }
 body:not([data-tab="environments"]) > #evApp { display: none; }
+body[data-tab="fonts"] > .app-container:not(#ftApp), body[data-tab="fonts"] > .json-preview { display: none !important; }
+body:not([data-tab="fonts"]) > #ftApp { display: none; }
 body[data-tab="shortcuts"] > .app-container:not(#ksApp), body[data-tab="shortcuts"] > .json-preview { display: none !important; }
 body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
 
@@ -199,6 +201,13 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
 #evApp .mc-row { grid-template-columns: 204px minmax(0, 1fr) auto auto; }
 #evApp .mc-thumb { width: 96px; height: 48px; }
 .ev-views { display: flex; align-items: center; gap: 6px; }
+/* Fonts tab: reuses the Matcaps styles, with a wide sample on the left */
+#ftApp { color-scheme: dark; }
+#ftStaged { flex: none; max-height: 42%; margin-bottom: 12px; }
+#ftStaged:empty { display: none; }
+#ftInstalled { flex: 1; min-height: 120px; }
+.ft-row { grid-template-columns: 240px minmax(0, 1fr) auto auto; }
+.ft-sample { width: 240px; height: 44px; color: var(--text); }
 .ev-sphere { width: 48px; height: 48px; flex: none; cursor: grab; touch-action: none; }
 .ev-views.spinning .ev-sphere { cursor: grabbing; }
 
@@ -384,6 +393,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       <button class="app-tab" type="button" role="tab" data-tab="theme" aria-selected="false">Themes</button>
       <button class="app-tab" type="button" role="tab" data-tab="matcaps" aria-selected="false">Matcaps</button>
       <button class="app-tab" type="button" role="tab" data-tab="environments" aria-selected="false">Environments</button>
+      <button class="app-tab" type="button" role="tab" data-tab="fonts" aria-selected="false">Fonts</button>
       <button class="app-tab" type="button" role="tab" data-tab="shortcuts" aria-selected="false">Keyboard Shortcuts</button>
     </div>
     <button class="app-terms" type="button" id="termsLink">Terms of use</button>
@@ -865,6 +875,43 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       <div class="tp-hint">Disable moves an environment into an environments-disabled folder next to this one, where Plasticity doesn't look. Enable moves it back. A disabled environment can be deleted, which moves its files to the Recycle Bin (Trash on a Mac).</div>
       <div class="tp-hint">Reorder… renames them 01_Name, 02_Name and so on so they sort that way. Restart Plasticity to see changes.</div>
       <div class="tp-hint">Installed environments are only changed when you click: Fix, Disable, Enable, Delete or Apply Order.</div>
+    </div>
+  </div>
+
+  <div class="app-container" id="ftApp">
+    <div class="center-panel">
+      <div class="notification" id="ftNote"></div>
+      <div class="mc-drop" id="ftDrop" tabindex="0" role="button" aria-label="Add fonts">
+        <div class="mc-drop-title">Drop TTF or OTF fonts here</div>
+        <div class="mc-drop-sub">they're converted for Plasticity's Text command, or click to choose files</div>
+      </div>
+      <div class="mc-head" id="ftStageHead" hidden>
+        <div class="section-title">To Install <span id="ftStageCount"></span></div>
+        <button class="btn mc-small" id="ftClear" type="button">Clear</button>
+        <button class="btn mc-small" id="ftSave" type="button">Install in Plasticity</button>
+      </div>
+      <div class="mc-list" id="ftStaged"></div>
+      <div class="mc-head">
+        <div class="section-title">Installed <span id="ftCount"></span></div>
+        <span class="mc-bar">
+          <button class="btn mc-small" id="ftRefresh" type="button">Refresh</button>
+        </span>
+      </div>
+      <div class="mc-list" id="ftInstalled"></div>
+    </div>
+
+    <div class="properties-panel">
+      <div class="section-title">Fonts Folder</div>
+      <div class="tp-path" id="ftFolder">Finding Plasticity's fonts folder…</div>
+      <button class="btn" id="ftChange" type="button">Change Folder…</button>
+      <button class="btn" id="ftDefault" type="button">Use Plasticity's Folder</button>
+
+      <div class="tp-hint">Plasticity's Text command can use your own fonts. When it starts, it loads every .typeface-json file in .plasticity/fonts, the same format as its built-in fonts. This tab converts TTF and OTF fonts into that format and puts them there.</div>
+      <div class="tp-hint">Restart Plasticity after installing or removing fonts: it only reads them when it starts. Save your work before closing it.</div>
+      <div class="tp-hint">Each style is its own font: add Regular and Bold files separately if you want both. A font can only show the characters it contains. Ligatures and the extra styles inside variable fonts aren't carried over.</div>
+      <div class="tp-hint">Very decorative or overlapping letters can make awkward geometry for extrudes and fillets, even when the font converts cleanly. Simple, solid typefaces work best.</div>
+      <div class="tp-hint">Check that your font's licence lets you use it this way. Fonts whose own settings say they mustn't be embedded are flagged before you install them.</div>
+      <div class="tp-hint">This tab uses Plasticity's fonts folder, which works in Plasticity 26.1.3 but isn't an official feature, so a future version could change it.</div>
     </div>
   </div>
 
@@ -3419,7 +3466,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       initPlasticity();
       loadUserThemes();
       let startTab = 'radial';
-      try { const t = localStorage.getItem(TABKEY); if (t === 'theme' || t === 'matcaps' || t === 'environments' || t === 'shortcuts') startTab = t; } catch (e) {}
+      try { const t = localStorage.getItem(TABKEY); if (['theme', 'matcaps', 'environments', 'fonts', 'shortcuts'].includes(t)) startTab = t; } catch (e) {}
       showTab(startTab, true);
     })();
   </script>
@@ -3434,7 +3481,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       const VERSION = '1';
       const BIN = isMacOS ? 'Trash' : 'Recycle Bin';
       const LINES = [
-        "This app changes files in your Plasticity folders. That's its job: it saves radial menus, writes themes and keyboard shortcuts, and adds, renames, moves and deletes matcaps and environments.",
+        "This app changes files in your Plasticity folders. That's its job: it saves radial menus, writes themes and keyboard shortcuts, adds fonts, and adds, renames, moves and deletes matcaps and environments.",
         "By using it you agree to that, and you use it at your own risk. It's provided as is, and its creator isn't responsible for any loss or damage that comes from using it.",
         `Most of this is easy to undo. Plasticity can reset its theme to defaults, disabled matcaps and environments can be enabled again, and deleted ones go to the ${BIN} first. A backup of your .plasticity folder never hurts.`,
         "It's up to you to read the Plasticity documentation and understand how the pieces fit together. This app is a tool to make them fit more easily."
@@ -5587,6 +5634,363 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
         if (started && tauriAvailable) refreshRadials(); else start();
       });
       if (document.body.dataset.tab === 'shortcuts') start();
+    })();
+  </script>
+
+  <!-- ===== Fonts tab script ===== -->
+  <script>
+    // Fonts tab: converts TTF and OTF fonts into the .typeface-json files Plasticity's Text
+    // command loads from ~/.plasticity/fonts. The conversion is in Rust (src-tauri/src/fonts.rs);
+    // this keeps the lists, draws the samples and installs or removes the files.
+    (function () {
+      'use strict';
+
+      const $ = (id) => document.getElementById(id);
+      const FOLDERKEY = 'plasticity-fonts-folder';
+      const FONT_RE = /\.(ttf|otf)$/i;
+      const EXT = '.typeface-json';
+      const BIN = isMacOS ? 'Trash' : 'Recycle Bin';
+
+      let folder = null;
+      let installed = []; // from list_installed_fonts
+      let staged = [];    // { id, source, family, style, fullName, fileName, glyphs, missing, restricted, cubic, sample, replace, error }
+      let busy = false, started = false;
+
+      function el(tag, className, text) {
+        const e = document.createElement(tag);
+        if (className) e.className = className;
+        if (text != null) e.textContent = text;
+        return e;
+      }
+      const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+      const lower = (s) => s.toLowerCase();
+      // Same rule as clean_name in matcaps.rs.
+      function clean(raw) {
+        let out = '';
+        for (const ch of String(raw).trim()) {
+          const c = /[\p{Alphabetic}\p{N}-]/u.test(ch) ? ch : '_';
+          if (c === '_' && out.endsWith('_')) continue;
+          out += c;
+        }
+        return out.replace(/^[_-]+|[_-]+$/g, '');
+      }
+      const stem = (fileName) => fileName.slice(0, -EXT.length);
+
+      function note(message, type = 'success', sticky) {
+        const box = $('ftNote');
+        box.textContent = message;
+        box.className = `notification ${type}`;
+        clearTimeout(note._t);
+        if (!sticky) note._t = setTimeout(() => { box.textContent = ''; box.className = 'notification'; }, 6000);
+      }
+
+      function confirmBox(title, lines, okLabel) {
+        return new Promise((resolve) => {
+          const wrap = el('div', 'tp-modal');
+          const box = el('div', 'tp-modal-box');
+          box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true');
+          box.appendChild(el('h3', null, title));
+          lines.forEach((t) => box.appendChild(el('p', null, t)));
+          const btns = el('div', 'tp-modal-btns');
+          const cancel = el('button', 'btn', 'Cancel'); cancel.type = 'button';
+          const ok = el('button', 'btn', okLabel); ok.type = 'button';
+          btns.append(cancel, ok); box.appendChild(btns); wrap.appendChild(box);
+          document.body.appendChild(wrap);
+          const done = (yes) => { document.removeEventListener('keydown', onKey, true); wrap.remove(); resolve(yes); };
+          const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); done(false); } };
+          document.addEventListener('keydown', onKey, true);
+          cancel.addEventListener('click', () => done(false));
+          ok.addEventListener('click', () => done(true));
+          wrap.addEventListener('click', (e) => { if (e.target === wrap) done(false); });
+          cancel.focus();
+        });
+      }
+
+      // ---------- the sample ----------
+      // Draws the sample glyphs from their outline strings (m/l/q/b/z, y up), the way
+      // Plasticity's Text command will build them.
+      const SAMPLE = 'AaBbGg 123'; // matches SAMPLE in fonts.rs
+      function sampleCanvas(sample) {
+        const c = el('canvas', 'ft-sample');
+        c.setAttribute('role', 'img'); c.setAttribute('aria-label', `Sample: ${SAMPLE}`);
+        const draw = () => {
+          const dpr = window.devicePixelRatio || 1;
+          const w = c.clientWidth || 240, h = c.clientHeight || 44;
+          c.width = Math.round(w * dpr); c.height = Math.round(h * dpr);
+          const ctx = c.getContext('2d');
+          if (!sample || !sample.glyphs) return;
+          const asc = sample.ascender || sample.resolution, desc = sample.descender || 0;
+          const total = [...SAMPLE].reduce((x, ch) => x + ((sample.glyphs[ch] || {}).ha || sample.resolution * 0.5), 0);
+          const s = Math.min((h * dpr * 0.86) / (asc - desc), (w * dpr) / total);
+          ctx.setTransform(s, 0, 0, -s, 0, h * dpr * 0.07 + asc * s);
+          ctx.fillStyle = getComputedStyle(c).color;
+          let x = 0;
+          for (const ch of SAMPLE) {
+            const g = sample.glyphs[ch];
+            if (!g) { x += sample.resolution * 0.5; continue; }
+            const p = new Path2D(), t = String(g.o || '').trim().split(/\s+/);
+            const n = (i) => Number(t[i]);
+            for (let i = 0; i < t.length;) {
+              const cmd = t[i];
+              if (cmd === 'm') { p.moveTo(x + n(i + 1), n(i + 2)); i += 3; }
+              else if (cmd === 'l') { p.lineTo(x + n(i + 1), n(i + 2)); i += 3; }
+              else if (cmd === 'q') { p.quadraticCurveTo(x + n(i + 3), n(i + 4), x + n(i + 1), n(i + 2)); i += 5; }
+              else if (cmd === 'b') { p.bezierCurveTo(x + n(i + 3), n(i + 4), x + n(i + 5), n(i + 6), x + n(i + 1), n(i + 2)); i += 7; }
+              else if (cmd === 'z') { p.closePath(); i += 1; }
+              else i += 1;
+            }
+            ctx.fill(p);
+            x += g.ha || 0;
+          }
+        };
+        requestAnimationFrame(draw);
+        return c;
+      }
+
+      // ---------- folder ----------
+      function showFolder() { $('ftFolder').textContent = folder || 'No folder set. Click Change Folder.'; }
+      async function useDefaultFolder() {
+        try { localStorage.removeItem(FOLDERKEY); } catch (e) {}
+        folder = await invokeCommand('default_fonts_folder');
+        showFolder();
+        await refreshInstalled();
+      }
+      async function changeFolder() {
+        let picked;
+        try { picked = await invokeCommand('pick_fonts_folder'); } catch (err) { note(`Could not open the folder picker: ${err}`, 'error'); return; }
+        if (!picked) return;
+        folder = picked;
+        try { localStorage.setItem(FOLDERKEY, folder); } catch (e) {}
+        showFolder();
+        await refreshInstalled();
+      }
+
+      // ---------- adding ----------
+      async function addFiles(items, skipped = []) {
+        if (busy) { note('Still working. Try again in a moment.', 'warning'); return; }
+        busy = true;
+        const failed = [];
+        let added = 0;
+        try {
+          for (let i = 0; i < items.length; i++) {
+            const it = items[i];
+            note(`Converting ${it.name} (${i + 1} of ${items.length})…`, 'success', true);
+            try {
+              const f = it.file
+                ? await invokeCommand('stage_font_bytes', new Uint8Array(await it.file.arrayBuffer()), { headers: { 'x-file-name': encodeURIComponent(it.name) } })
+                : await invokeCommand('stage_font_path', { path: it.path });
+              f.replace = false; f.error = '';
+              staged.push(f);
+              added++;
+            } catch (err) {
+              failed.push(String(err));
+            }
+          }
+        } finally {
+          busy = false;
+        }
+        render();
+        const extra = skipped.length ? ` Skipped ${skipped.join(', ')}: only TTF and OTF fonts can be used.` : '';
+        if (failed.length) note(failed.join('  ') + extra, 'error', true);
+        else if (skipped.length) note(`Added ${plural(added, 'font')}.${extra}`, 'warning', true);
+        else if (added) note(`Added ${plural(added, 'font')}. Check the names, then click Install in Plasticity.`);
+      }
+      function takeDropped(fileList) {
+        const ok = [], skipped = [];
+        Array.from(fileList || []).forEach((f) => (FONT_RE.test(f.name) ? ok.push({ name: f.name, file: f }) : skipped.push(f.name)));
+        if (ok.length || skipped.length) addFiles(ok, skipped);
+      }
+      async function pickFiles() {
+        if (busy) return;
+        let paths;
+        try { paths = await invokeCommand('pick_font_files'); } catch (err) { note(`Could not open the file picker: ${err}`, 'error'); return; }
+        if (paths && paths.length) addFiles(paths.map((p) => ({ name: p.split(/[\\/]/).pop(), path: p })));
+      }
+      function unstage(list) {
+        const ids = list.map((f) => f.id);
+        if (ids.length) invokeCommand('unstage_fonts', { ids }).catch(() => {});
+      }
+
+      // ---------- what a row will do ----------
+      const installedFile = (fileName) => installed.find((x) => lower(x.fileName) === lower(fileName)) || null;
+      function analyze(f, dupNames) {
+        const a = { error: '', warnings: [], canReplace: false };
+        if (f.restricted) a.warnings.push("This font's own settings say it mustn't be embedded in other files. Check its licence allows this before installing.");
+        if (f.missing) a.warnings.push(f.missing.length > 20 ? `Has no ${f.missing.length} of the basic letters and digits, so it may be a symbol font.` : `Has no ${[...f.missing].join(' ')}.`);
+        const s = stem(f.fileName);
+        if (!s) a.error = 'Needs a name.';
+        else if (dupNames.has(lower(f.fileName))) a.error = 'Another row has the same name.';
+        else if (installedFile(f.fileName)) {
+          a.canReplace = true;
+          if (!f.replace) a.error = `${f.fileName} is already installed.`;
+        }
+        if (!a.error && f.error) a.error = f.error;
+        return a;
+      }
+      function dupSet() {
+        const seen = new Set(), dup = new Set();
+        staged.forEach((f) => { const k = lower(f.fileName); if (seen.has(k)) dup.add(k); seen.add(k); });
+        return dup;
+      }
+
+      // ---------- installing and removing ----------
+      async function installAll() {
+        if (busy) return;
+        const dup = dupSet();
+        const ready = staged.filter((f) => !analyze(f, dup).error);
+        if (!ready.length) { note('Nothing is ready to install. Check the message under each font.', 'warning'); return; }
+        const replacing = ready.filter((f) => installedFile(f.fileName));
+        if (replacing.length) {
+          const ok = await confirmBox('Replace installed fonts?', [`This replaces ${replacing.map((f) => f.fileName).join(', ')}.`], 'Replace');
+          if (!ok) return;
+        }
+        busy = true;
+        let done = 0;
+        const failed = [];
+        for (const f of ready) {
+          note(`Installing ${f.fileName}…`, 'success', true);
+          try {
+            await invokeCommand('install_font', { folder, id: f.id, fileName: f.fileName, replace: f.replace });
+            staged = staged.filter((x) => x !== f);
+            done++;
+          } catch (err) {
+            f.error = String(err);
+            failed.push(f.fileName);
+          }
+        }
+        busy = false;
+        await refreshInstalled();
+        if (failed.length) note(`Installed ${done}. Could not install ${failed.join(', ')}.`, 'error', true);
+        else note(`Installed ${plural(done, 'font')}. Restart Plasticity to use ${done === 1 ? 'it' : 'them'} in the Text command.`, 'success', true);
+      }
+      async function remove(f) {
+        if (busy) return;
+        const ok = await confirmBox(`Remove ${f.fileName}?`, [
+          `It will be moved to the ${BIN}, so you can restore it from there until you empty it.`,
+          "Models that already use it keep their text; Plasticity just won't offer the font after a restart."
+        ], 'Remove');
+        if (!ok) return;
+        busy = true;
+        try {
+          await invokeCommand('trash_font', { folder, fileName: f.fileName });
+          note(`${f.fileName} moved to the ${BIN}. Restart Plasticity to see the change.`);
+        } catch (err) {
+          note(`Could not remove ${f.fileName}: ${err}`, 'error', true);
+        }
+        busy = false;
+        await refreshInstalled();
+      }
+      async function refreshInstalled() {
+        if (!folder) { installed = []; render(); return; }
+        try { installed = await invokeCommand('list_installed_fonts', { folder }); }
+        catch (err) { installed = []; note(`Could not read ${folder}: ${err}`, 'error', true); }
+        render();
+      }
+
+      // ---------- drawing ----------
+      function stagedRow(f, dup) {
+        const a = analyze(f, dup);
+        const row = el('div', 'mc-row ft-row');
+        row.appendChild(sampleCanvas(f.sample));
+        const main = el('div');
+        const name = el('input', 'form-input mc-name');
+        name.type = 'text'; name.spellcheck = false; name.value = stem(f.fileName);
+        name.setAttribute('aria-label', 'Font file name');
+        name.addEventListener('change', () => { f.fileName = clean(name.value) + EXT; f.replace = false; f.error = ''; render(); });
+        main.appendChild(name);
+        main.appendChild(el('div', 'mc-files', `${f.source} → ${f.fileName} · ${f.fullName} · ${plural(f.glyphs, 'character')}${f.cubic ? ' · curves converted' : ''}`));
+        a.warnings.forEach((w) => main.appendChild(el('div', 'mc-status warning', w)));
+        const status = el('div', `mc-status${a.error ? ' error' : ''}`, a.error || 'Ready to install.');
+        if (a.canReplace) {
+          const label = el('label', 'mc-check');
+          const box = el('input'); box.type = 'checkbox'; box.checked = f.replace;
+          box.addEventListener('change', () => { f.replace = box.checked; f.error = ''; render(); });
+          label.append(box, 'Replace it');
+          status.appendChild(label);
+        }
+        main.appendChild(status);
+        row.appendChild(main);
+        row.appendChild(el('span'));
+        const x = el('button', 'close-btn', '×');
+        x.type = 'button'; x.title = 'Remove from the list'; x.setAttribute('aria-label', `Remove ${f.fileName}`);
+        x.addEventListener('click', () => { unstage([f]); staged = staged.filter((y) => y !== f); render(); });
+        row.appendChild(x);
+        return row;
+      }
+      function installedRow(f) {
+        const row = el('div', 'mc-row ft-row');
+        row.appendChild(sampleCanvas(f.sample));
+        const main = el('div');
+        main.appendChild(el('div', 'mc-title', f.error ? f.fileName : f.fullName));
+        const kb = Math.max(1, Math.round(f.size / 1024));
+        main.appendChild(el('div', 'mc-files', f.error ? '' : `${f.fileName} · ${plural(f.glyphs, 'character')} · ${kb} KB`));
+        main.appendChild(f.error ? el('div', 'mc-status error', `Can't be read: ${f.error}. Plasticity may skip it.`) : el('div', 'mc-status', ''));
+        row.appendChild(main);
+        row.appendChild(el('span'));
+        const acts = el('div', 'mc-acts');
+        const b = el('button', 'btn mc-small', 'Remove…');
+        b.type = 'button'; b.title = `Move it to the ${BIN}`;
+        b.addEventListener('click', () => remove(f));
+        acts.appendChild(b);
+        row.appendChild(acts);
+        return row;
+      }
+      function render() {
+        const dup = dupSet();
+        $('ftStaged').replaceChildren(...staged.map((f) => stagedRow(f, dup)));
+        $('ftStageHead').hidden = !staged.length;
+        const ready = staged.filter((f) => !analyze(f, dup).error).length;
+        $('ftStageCount').textContent = staged.length ? `· ${ready} of ${staged.length} ready` : '';
+        $('ftSave').disabled = !ready || busy || !folder;
+        $('ftCount').textContent = installed.length ? `· ${plural(installed.length, 'font')}` : '';
+        const list = $('ftInstalled');
+        if (!folder) list.replaceChildren(el('div', 'mc-empty', 'Choose the fonts folder on the right.'));
+        else if (!installed.length) list.replaceChildren(el('div', 'mc-empty', "No fonts of your own yet. Plasticity's built-in fonts aren't listed here."));
+        else list.replaceChildren(...installed.map(installedRow));
+      }
+
+      // ---------- start ----------
+      const app = $('ftApp'), drop = $('ftDrop');
+      const hasFiles = (e) => !!e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
+      // the Matcaps script stops files dropped elsewhere from opening; this only takes drops on this tab
+      document.addEventListener('drop', (e) => {
+        if (!hasFiles(e)) return;
+        e.preventDefault();
+        if (document.body.dataset.tab === 'fonts' && tauriAvailable) takeDropped(e.dataTransfer.files);
+      });
+      document.addEventListener('dragover', (e) => {
+        if (hasFiles(e) && document.body.dataset.tab === 'fonts') { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }
+      });
+      let depth = 0;
+      app.addEventListener('dragenter', (e) => { if (hasFiles(e)) { depth++; drop.classList.add('over'); } });
+      app.addEventListener('dragleave', (e) => { if (hasFiles(e) && --depth <= 0) { depth = 0; drop.classList.remove('over'); } });
+      app.addEventListener('drop', () => { depth = 0; drop.classList.remove('over'); });
+      drop.addEventListener('click', pickFiles);
+      drop.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pickFiles(); } });
+      $('ftSave').addEventListener('click', installAll);
+      $('ftClear').addEventListener('click', () => { if (busy) return; unstage(staged); staged = []; render(); });
+      $('ftRefresh').addEventListener('click', refreshInstalled);
+      $('ftChange').addEventListener('click', changeFolder);
+      $('ftDefault').addEventListener('click', useDefaultFolder);
+
+      async function start() {
+        if (started) { refreshInstalled(); return; }
+        started = true;
+        if (!initTauriAPI()) {
+          drop.classList.add('off');
+          ['ftChange', 'ftDefault', 'ftRefresh'].forEach((id) => { $(id).disabled = true; });
+          $('ftFolder').textContent = 'Not available';
+          note('The Fonts tab needs the desktop app: it writes to your Plasticity folder.', 'warning', true);
+          return;
+        }
+        try { folder = localStorage.getItem(FOLDERKEY) || null; } catch (e) {}
+        if (!folder) { try { folder = await invokeCommand('default_fonts_folder'); } catch (e) { folder = null; } }
+        showFolder();
+        await refreshInstalled();
+      }
+      document.addEventListener('app-tab', (e) => { if (e.detail === 'fonts') start(); });
+      if (document.body.dataset.tab === 'fonts') start();
+      render();
     })();
   </script>
 </body>

@@ -476,7 +476,7 @@ pub fn unstage_matcaps(ids: Vec<u64>, state: tauri::State<'_, StagingState>) -> 
     Ok(())
 }
 
-fn percent_decode(s: &str) -> String {
+pub fn percent_decode(s: &str) -> String {
     let bytes = s.as_bytes();
     let mut out = Vec::with_capacity(bytes.len());
     let mut i = 0;
