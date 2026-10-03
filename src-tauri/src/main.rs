@@ -300,6 +300,7 @@ fn main() {
             matcaps::fix_installed_matcap,
             matcaps::set_matcap_tinted,
             matcaps::set_matcap_enabled,
+            matcaps::trash_disabled_matcap,
             matcaps::order_matcaps,
             matcaps::default_matcaps_folder,
             matcaps::pick_matcap_files,

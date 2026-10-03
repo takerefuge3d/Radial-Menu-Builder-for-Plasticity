@@ -732,6 +732,18 @@ pub async fn set_matcap_enabled(folder: String, name: String, enabled: bool) -> 
     Ok(())
 }
 
+// Deleting only works on disabled matcaps, so it always takes two clicks (Disable, then
+// Delete), and the files go to the Recycle Bin / Trash rather than vanishing outright.
+#[tauri::command]
+pub async fn trash_disabled_matcap(folder: String, name: String) -> Result<Vec<String>, String> {
+    let off = disabled_dir(Path::new(&folder))?;
+    let g = find(&off, &name)?;
+    let files = group_files(&g);
+    trash::delete_all(files.iter().map(|f| off.join(f))).map_err(|e| format!("couldn't move {name} to the bin: {e}"))?;
+    let _ = fs::remove_dir(&off); // only goes if it is now empty
+    Ok(files)
+}
+
 // ---------- Order ----------
 // "03_Peach" -> "Peach". Leaves names that are only digits, or have no underscore, alone.
 fn strip_number(name: &str) -> &str {
@@ -904,6 +916,9 @@ mod tests {
         assert_eq!(fs::read_to_string(off.join("Pear.json")).unwrap(), TINT_JSON);
         run(set_matcap_enabled(folder.clone(), "Pear".into(), true)).unwrap();
         assert!(!off.exists());
+        // only disabled matcaps can be deleted
+        assert!(run(trash_disabled_matcap(folder.clone(), "Pear".into())).is_err());
+        assert!(dir.join("Pear.exr").exists());
         run(set_matcap_tinted(folder.clone(), "Fig".into(), false, true)).unwrap();
         assert!(dir.join("Fig.json").exists());
         run(set_matcap_tinted(folder.clone(), "Fig".into(), false, false)).unwrap();

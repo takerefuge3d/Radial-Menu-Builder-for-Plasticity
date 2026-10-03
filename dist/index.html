@@ -712,9 +712,9 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
       <div class="tp-hint">Plasticity wants each matcap as a pair with the same name: an EXR for the texture and a PNG for the picker. Files you add are copied as they are under the clean name (spaces become _). Only the missing half of the pair is made, at the sizes above.</div>
       <div class="tp-hint">A JPG or WebP has no transparency, so the files made from it are cut to a circle.</div>
       <div class="tp-hint">Tinted (beta) saves NAME.json containing { isTinted: true }, which lets Plasticity tint the matcap with the material colour. Tinting works best on neutral matcaps with low saturation (greys, silvers, clay); colourful matcaps don't tint well.</div>
-      <div class="tp-hint">Disable moves a matcap into a matcaps-disabled folder next to this one, where Plasticity doesn't look. Enable moves it back.</div>
+      <div class="tp-hint">Disable moves a matcap into a matcaps-disabled folder next to this one, where Plasticity doesn't look. Enable moves it back. A disabled matcap can be deleted, which moves its files to the Recycle Bin (Trash on a Mac).</div>
       <div class="tp-hint">Reorder… lets you drag matcaps into order, then renames them 01_Name, 02_Name and so on so they sort that way. Remove Numbers takes the numbers off again. Restart Plasticity to see changes.</div>
-      <div class="tp-hint">Installed matcaps are only changed when you click: Fix, Tinted, Disable, Enable or Apply Order.</div>
+      <div class="tp-hint">Installed matcaps are only changed when you click: Fix, Tinted, Disable, Enable, Delete or Apply Order.</div>
     </div>
   </div>
 
@@ -3499,6 +3499,17 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
       const setEnabled = (g, enabled) => act(`${enabled ? 'enable' : 'disable'} ${g.name}`, 'set_matcap_enabled',
         { folder, name: g.name, enabled },
         enabled ? `${g.name} is back in Plasticity's matcaps.` : `${g.name} moved to the matcaps-disabled folder, so Plasticity won't load it.`);
+      const BIN = isMacOS ? 'Trash' : 'Recycle Bin';
+      async function trash(g) {
+        if (busy) return;
+        const files = [g.exr, g.png, g.json, g.jpg, ...g.extra].filter(Boolean);
+        const ok = await confirmBox(`Delete ${g.name}?`, [
+          `${files.join(', ')} will be moved to the ${BIN}.`,
+          `You can restore them from the ${BIN} until you empty it.`
+        ], 'Delete');
+        if (!ok) return;
+        act(`delete ${g.name}`, 'trash_disabled_matcap', { folder, name: g.name }, `${g.name} moved to the ${BIN}.`);
+      }
 
       // ---------- order ----------
       // While ordering, `ordering` holds the enabled matcap names in their new order.
@@ -3717,6 +3728,7 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
           acts.appendChild(g.disabled
             ? smallButton('Enable', 'Move it back so Plasticity loads it', () => setEnabled(g, true))
             : smallButton('Disable', "Move it to the matcaps-disabled folder so Plasticity doesn't load it", () => setEnabled(g, false)));
+          if (g.disabled) acts.appendChild(smallButton('Delete…', `Move its files to the ${BIN}`, () => trash(g)));
         }
         row.appendChild(acts);
         return row;
