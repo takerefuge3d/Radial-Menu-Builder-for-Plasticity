@@ -186,6 +186,7 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
 .mc-tintcell { display: flex; align-items: center; gap: 12px; }
 .mc-tints { display: inline-flex; gap: 4px; }
 .mc-tint { width: 26px; height: 26px; }
+#mcColl { margin-bottom: 4px; }
 
 /* ===== Theme Preview tab ===== */
 #tpApp { color-scheme: dark; }
@@ -712,6 +713,18 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
       <div class="tp-path" id="mcFolder">Finding Plasticity's matcaps folder…</div>
       <button class="btn" id="mcChange" type="button">Change Folder…</button>
       <button class="btn" id="mcDefault" type="button">Use Plasticity's Folder</button>
+
+      <div class="separator"></div>
+      <div class="section-title">Collections</div>
+      <select class="form-input" id="mcColl" aria-label="Matcap collections"></select>
+      <button class="btn" id="mcCollUse" type="button">Use Collection</button>
+      <button class="btn" id="mcCollNew" type="button">Save Enabled as New…</button>
+      <div class="tp-btn-row">
+        <button class="btn" id="mcCollUpdate" type="button">Update</button>
+        <button class="btn" id="mcCollRename" type="button">Rename…</button>
+        <button class="btn" id="mcCollDelete" type="button">Delete</button>
+      </div>
+      <div class="tp-hint">A collection is a set of matcaps to have switched on, such as one for surfacing and a calmer one for solid modelling. Enable the matcaps you want, then click Save Enabled as New. Use Collection enables its matcaps and disables the rest, which move to matcaps-disabled; nothing is deleted. Update saves what's enabled now into the chosen collection.</div>
 
       <div class="separator"></div>
       <div class="section-title">Files We Make</div>
@@ -3319,25 +3332,42 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
         if (!sticky) note._t = setTimeout(() => { box.textContent = ''; box.className = 'notification'; }, 5000);
       }
 
-      function confirmBox(title, lines, okLabel) {
+      // Resolves to false on Cancel; otherwise true, or the typed text when inputValue is given.
+      function confirmBox(title, lines, okLabel, inputValue) {
         return new Promise((resolve) => {
           const wrap = el('div', 'tp-modal');
           const box = el('div', 'tp-modal-box');
           box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true');
           box.appendChild(el('h3', null, title));
           lines.forEach((t) => box.appendChild(el('p', null, t)));
+          let field = null;
+          if (inputValue != null) {
+            field = el('input', 'form-input');
+            field.type = 'text'; field.spellcheck = false; field.maxLength = 60; field.value = inputValue;
+            field.setAttribute('aria-label', title);
+            box.appendChild(field);
+          }
           const btns = el('div', 'tp-modal-btns');
           const cancel = el('button', 'btn', 'Cancel'); cancel.type = 'button';
           const ok = el('button', 'btn', okLabel); ok.type = 'button';
           btns.append(cancel, ok); box.appendChild(btns); wrap.appendChild(box);
           document.body.appendChild(wrap);
-          const done = (yes) => { document.removeEventListener('keydown', onKey, true); wrap.remove(); resolve(yes); };
+          const done = (yes) => {
+            document.removeEventListener('keydown', onKey, true);
+            wrap.remove();
+            resolve(yes ? (field ? field.value : true) : false);
+          };
           const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); done(false); } };
           document.addEventListener('keydown', onKey, true);
           cancel.addEventListener('click', () => done(false));
           ok.addEventListener('click', () => done(true));
           wrap.addEventListener('click', (e) => { if (e.target === wrap) done(false); });
-          cancel.focus();
+          if (field) {
+            field.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); done(true); } });
+            field.focus(); field.select();
+          } else {
+            cancel.focus();
+          }
         });
       }
 
@@ -3632,6 +3662,165 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
         }
         busy = false;
         await refreshInstalled();
+      }
+
+      // ---------- collections ----------
+      // A collection is a saved set of matcaps to have enabled. Members are kept without their
+      // order number, the same as member_key in matcaps.rs, so reordering doesn't break them.
+      let collections = []; // [{ name, matcaps: [names without numbers] }]
+      const memberKey = (n) => lower(stripNumber(n));
+      const enabledNow = () => orderable().map((g) => stripNumber(g.name));
+      const chosenCollection = () => collections.find((c) => c.name === $('mcColl').value) || null;
+
+      function collectionInUse() {
+        const on = new Set(enabledNow().map(lower));
+        return collections.find((c) => {
+          const keys = new Set(c.matcaps.map(lower));
+          return keys.size === on.size && [...keys].every((k) => on.has(k));
+        }) || null;
+      }
+
+      async function loadCollections() {
+        try {
+          const text = await invokeCommand('load_matcap_collections');
+          const data = text ? JSON.parse(text) : null;
+          collections = data && Array.isArray(data.collections)
+            ? data.collections.filter((c) => c && typeof c.name === 'string' && Array.isArray(c.matcaps))
+            : [];
+        } catch (err) {
+          collections = [];
+          note(`Could not read your collections: ${err}`, 'error', true);
+        }
+      }
+
+      async function storeCollections(before) {
+        try {
+          await invokeCommand('save_matcap_collections', { contents: JSON.stringify({ collections }, null, 2) });
+          return true;
+        } catch (err) {
+          collections = before;
+          note(`Could not save your collections: ${err}`, 'error', true);
+          return false;
+        }
+      }
+
+      function renderCollections() {
+        const sel = $('mcColl'), keep = sel.value, inUse = collectionInUse();
+        sel.replaceChildren();
+        if (!collections.length) {
+          const o = el('option', null, 'No collections yet'); o.value = ''; sel.appendChild(o);
+        }
+        collections.forEach((c) => {
+          const o = el('option', null, `${c.name} (${c.matcaps.length})${c === inUse ? ' · in use' : ''}`);
+          o.value = c.name;
+          sel.appendChild(o);
+        });
+        if (collections.some((c) => c.name === keep)) sel.value = keep;
+        else if (inUse) sel.value = inUse.name;
+        const has = !!chosenCollection();
+        ['mcCollUse', 'mcCollUpdate', 'mcCollRename', 'mcCollDelete'].forEach((id) => { $(id).disabled = !has || !tauriAvailable; });
+        $('mcCollNew').disabled = !tauriAvailable;
+        sel.disabled = !collections.length;
+      }
+
+      function nameTaken(name, except) {
+        return collections.some((c) => c !== except && lower(c.name) === lower(name));
+      }
+
+      async function askCollectionName(title, line, value, okLabel, except) {
+        const typed = await confirmBox(title, [line], okLabel, value);
+        if (typed === false) return null;
+        const name = typed.trim();
+        if (!name) return null;
+        if (nameTaken(name, except)) { note(`There's already a collection called ${name}.`, 'warning'); return null; }
+        return name;
+      }
+
+      async function newCollection() {
+        if (busy) return;
+        const members = enabledNow();
+        if (!members.length) { note('Enable the matcaps you want in the collection first.', 'warning'); return; }
+        const name = await askCollectionName('Save enabled matcaps as a collection',
+          `The ${plural(members.length, 'matcap')} enabled now will make up the collection. What should it be called?`, '', 'Save');
+        if (!name) return;
+        const before = collections.slice();
+        collections = [...collections, { name, matcaps: members }];
+        if (await storeCollections(before)) {
+          renderCollections();
+          $('mcColl').value = name;
+          render();
+          note(`Saved ${name} with ${plural(members.length, 'matcap')}.`);
+        }
+      }
+
+      async function updateCollection() {
+        const c = chosenCollection();
+        if (busy || !c) return;
+        const members = enabledNow();
+        if (!members.length) { note('Enable the matcaps you want in the collection first.', 'warning'); return; }
+        const ok = await confirmBox(`Update ${c.name}?`, [
+          `${c.name} will be changed to the ${plural(members.length, 'matcap')} enabled now (it has ${c.matcaps.length} at the moment).`
+        ], 'Update');
+        if (!ok) return;
+        const before = collections.slice();
+        collections = collections.map((x) => (x === c ? { name: c.name, matcaps: members } : x));
+        if (await storeCollections(before)) { render(); note(`${c.name} now has ${plural(members.length, 'matcap')}.`); }
+      }
+
+      async function renameCollection() {
+        const c = chosenCollection();
+        if (busy || !c) return;
+        const name = await askCollectionName(`Rename ${c.name}`, 'New name:', c.name, 'Rename', c);
+        if (!name || name === c.name) return;
+        const before = collections.slice();
+        collections = collections.map((x) => (x === c ? { name, matcaps: c.matcaps } : x));
+        if (await storeCollections(before)) { renderCollections(); $('mcColl').value = name; render(); }
+      }
+
+      async function deleteCollection() {
+        const c = chosenCollection();
+        if (busy || !c) return;
+        const ok = await confirmBox(`Delete the collection ${c.name}?`, [
+          'Only the collection goes. Your matcaps stay exactly as they are.'
+        ], 'Delete');
+        if (!ok) return;
+        const before = collections.slice();
+        collections = collections.filter((x) => x !== c);
+        if (await storeCollections(before)) { render(); note(`Deleted the collection ${c.name}.`); }
+      }
+
+      async function useCollection() {
+        const c = chosenCollection();
+        if (busy || !c) return;
+        const want = new Set(c.matcaps.map(lower));
+        const withImage = installed.filter((g) => g.png || g.exr || g.jpg);
+        const toEnable = withImage.filter((g) => g.disabled && want.has(memberKey(g.name)));
+        const toDisable = withImage.filter((g) => !g.disabled && !want.has(memberKey(g.name)));
+        const present = new Set(withImage.map((g) => memberKey(g.name)));
+        const missing = c.matcaps.filter((m) => !present.has(lower(m)));
+        if (!toEnable.length && !toDisable.length) {
+          note(`${c.name} is already in use.${missing.length ? ` (${missing.join(', ')} isn't installed any more.)` : ''}`, missing.length ? 'warning' : 'success');
+          return;
+        }
+        const lines = [
+          `This enables ${plural(toEnable.length, 'matcap')} and disables ${plural(toDisable.length, 'other')}. Disabled matcaps move to the matcaps-disabled folder; nothing is deleted.`
+        ];
+        if (missing.length) lines.push(`Not installed any more, so skipped: ${missing.join(', ')}.`);
+        lines.push('Restart Plasticity afterwards to see the change.');
+        const ok = await confirmBox(`Use ${c.name}?`, lines, 'Use Collection');
+        if (!ok) return;
+        busy = true;
+        note(`Switching to ${c.name}…`, 'success', true);
+        try {
+          const r = await invokeCommand('apply_matcap_collection', { folder, members: c.matcaps });
+          const parts = [`Now using ${c.name}: enabled ${r.enabled.length}, disabled ${r.disabled.length}.`];
+          if (r.failed.length) parts.push(`Couldn't move ${r.failed.join(', ')}.`);
+          note(parts.join(' '), r.failed.length ? 'error' : 'success', !!r.failed.length);
+        } catch (err) {
+          note(`Could not switch to ${c.name}: ${err}`, 'error', true);
+        }
+        busy = false;
+        await refreshInstalled(true);
       }
 
       function moveOrder(from, to) {
@@ -3933,9 +4122,11 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
         const on = installed.filter((g) => !g.disabled), off = installed.filter((g) => g.disabled);
         const broken = installed.filter((g) => g.issues.length);
         const real = on.filter((g) => g.png || g.exr || g.jpg).length;
+        const inUse = collectionInUse();
         $('mcCount').textContent = installed.length
-          ? `· ${plural(real, 'matcap')}${off.length ? `, ${off.length} disabled` : ''}${broken.length ? `, ${broken.length} with problems` : ''}`
+          ? `· ${plural(real, 'matcap')}${off.length ? `, ${off.length} disabled` : ''}${broken.length ? `, ${broken.length} with problems` : ''}${inUse ? ` · using ${inUse.name}` : ''}`
           : '';
+        renderCollections();
         $('mcFixAll').disabled = !installed.some((g) => g.fixable);
         $('mcOrder').disabled = !orderable().length;
         $('mcListBar').hidden = !!ordering;
@@ -3991,6 +4182,12 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
       $('mcOrderCancel').addEventListener('click', endOrder);
       $('mcOrderApply').addEventListener('click', () => applyOrder(true));
       $('mcOrderStrip').addEventListener('click', () => applyOrder(false));
+      $('mcColl').addEventListener('change', renderCollections);
+      $('mcCollUse').addEventListener('click', useCollection);
+      $('mcCollNew').addEventListener('click', newCollection);
+      $('mcCollUpdate').addEventListener('click', updateCollection);
+      $('mcCollRename').addEventListener('click', renameCollection);
+      $('mcCollDelete').addEventListener('click', deleteCollection);
       $('mcChange').addEventListener('click', changeFolder);
       $('mcDefault').addEventListener('click', useDefaultFolder);
       $('mcPngSize').addEventListener('change', sizesChanged);
@@ -4012,6 +4209,7 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
           try { folder = await invokeCommand('default_matcaps_folder'); } catch (e) { folder = null; }
         }
         showFolder();
+        await loadCollections();
         await refreshInstalled();
       }
       document.addEventListener('app-tab', (e) => { if (e.detail === 'matcaps') start(); });

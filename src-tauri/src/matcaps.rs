@@ -712,6 +712,14 @@ pub async fn set_matcap_tinted(folder: String, name: String, disabled: bool, tin
 }
 
 // ---------- Enable / disable ----------
+fn move_group(g: &Installed, from: &Path, to: &Path) -> Result<(), String> {
+    fs::create_dir_all(to).map_err(|e| format!("create {} failed: {e}", to.display()))?;
+    for f in group_files(g) {
+        fs::rename(from.join(&f), to.join(&f)).map_err(|e| format!("move {f} failed: {e}"))?;
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn set_matcap_enabled(folder: String, name: String, enabled: bool) -> Result<(), String> {
     let on = PathBuf::from(&folder);
@@ -722,14 +730,99 @@ pub async fn set_matcap_enabled(folder: String, name: String, enabled: bool) -> 
         let other = if enabled { "an enabled" } else { "a disabled" };
         return Err(format!("there is already {other} matcap called {name}"));
     }
-    fs::create_dir_all(to).map_err(|e| format!("create {} failed: {e}", to.display()))?;
-    for f in group_files(&g) {
-        fs::rename(from.join(&f), to.join(&f)).map_err(|e| format!("move {f} failed: {e}"))?;
-    }
+    move_group(&g, from, to)?;
     if enabled {
         let _ = fs::remove_dir(&off); // only goes if it is now empty
     }
     Ok(())
+}
+
+// ---------- Collections ----------
+// A collection is a saved set of matcaps to have enabled. Members are kept without their
+// order number (01_), so reordering doesn't break a collection. Using one moves every other
+// matcap to the disabled folder and brings the members back; nothing is deleted.
+fn member_key(name: &str) -> String {
+    strip_number(name).to_lowercase()
+}
+
+#[derive(Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct CollectionResult {
+    enabled: Vec<String>,
+    disabled: Vec<String>,
+    missing: Vec<String>, // members that aren't in either folder any more
+    failed: Vec<String>,
+}
+
+#[tauri::command]
+pub async fn apply_matcap_collection(folder: String, members: Vec<String>) -> Result<CollectionResult, String> {
+    let on = PathBuf::from(&folder);
+    let off = disabled_dir(&on)?;
+    let want: HashSet<String> = members.iter().map(|m| member_key(m)).collect();
+    let images = |dir: &Path| -> Result<Vec<Installed>, String> {
+        Ok(scan(dir)?.into_iter().filter(|g| g.png.is_some() || g.exr.is_some() || g.jpg.is_some()).collect())
+    };
+    let on_groups = images(&on)?;
+    let off_groups = images(&off)?;
+    let on_names: HashSet<String> = on_groups.iter().map(|g| g.name.to_lowercase()).collect();
+    let off_names: HashSet<String> = off_groups.iter().map(|g| g.name.to_lowercase()).collect();
+
+    let mut r = CollectionResult::default();
+    let mut found = HashSet::new();
+    for g in &on_groups {
+        let key = member_key(&g.name);
+        if want.contains(&key) {
+            found.insert(key);
+        } else if off_names.contains(&g.name.to_lowercase()) {
+            r.failed.push(format!("{} (there's one with the same name in the disabled folder)", g.name));
+        } else {
+            match move_group(g, &on, &off) {
+                Ok(()) => r.disabled.push(g.name.clone()),
+                Err(e) => r.failed.push(e),
+            }
+        }
+    }
+    for g in &off_groups {
+        let key = member_key(&g.name);
+        if !want.contains(&key) {
+            continue;
+        }
+        found.insert(key);
+        if on_names.contains(&g.name.to_lowercase()) {
+            r.failed.push(format!("{} (there's one with the same name enabled)", g.name));
+            continue;
+        }
+        match move_group(g, &off, &on) {
+            Ok(()) => r.enabled.push(g.name.clone()),
+            Err(e) => r.failed.push(e),
+        }
+    }
+    r.missing = members.into_iter().filter(|m| !found.contains(&member_key(m))).collect();
+    let _ = fs::remove_dir(&off); // only goes if it is now empty
+    Ok(r)
+}
+
+// Collections are kept as plain text in the app data folder, like the user's themes.
+fn collections_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let dir = app.path().app_data_dir().map_err(|e| format!("app_data_dir error: {e}"))?;
+    fs::create_dir_all(&dir).map_err(|e| format!("create {} failed: {e}", dir.display()))?;
+    Ok(dir.join("matcap_collections.json"))
+}
+
+#[tauri::command]
+pub fn load_matcap_collections(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    let path = collections_path(&app)?;
+    match fs::read_to_string(&path) {
+        Ok(s) => Ok(Some(s)),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(format!("read {} failed: {e}", path.display())),
+    }
+}
+
+#[tauri::command]
+pub fn save_matcap_collections(app: tauri::AppHandle, contents: String) -> Result<(), String> {
+    let path = collections_path(&app)?;
+    fs::write(&path, contents).map_err(|e| format!("write {} failed: {e}", path.display()))
 }
 
 // Deleting only works on disabled matcaps, so it always takes two clicks (Disable, then
@@ -923,6 +1016,29 @@ mod tests {
         assert!(dir.join("Fig.json").exists());
         run(set_matcap_tinted(folder.clone(), "Fig".into(), false, false)).unwrap();
         assert!(!dir.join("Fig.json").exists());
+        let _ = fs::remove_dir_all(dir.parent().unwrap());
+    }
+
+    #[test]
+    fn collections() {
+        let dir = temp_folder("coll");
+        for f in ["01_Clay.exr", "01_Clay.png", "02_Chrome.exr", "02_Chrome.png", "03_Sunset.exr", "03_Sunset.png", "03_Sunset.json"] {
+            fs::write(dir.join(f), f).unwrap();
+        }
+        let folder = dir.to_string_lossy().into_owned();
+        let off = disabled_dir(&dir).unwrap();
+        // members are stored without numbers; "Gone" isn't installed
+        let r = run(apply_matcap_collection(folder.clone(), vec!["Clay".into(), "Gone".into()])).unwrap();
+        assert_eq!(r.disabled.len(), 2);
+        assert_eq!(r.missing, ["Gone"]);
+        assert_eq!(files(&dir), ["01_Clay.exr", "01_Clay.png"]);
+        assert_eq!(files(&off), ["02_Chrome.exr", "02_Chrome.png", "03_Sunset.exr", "03_Sunset.json", "03_Sunset.png"]);
+        let r = run(apply_matcap_collection(folder.clone(), vec!["Chrome".into(), "Sunset".into()])).unwrap();
+        assert_eq!((r.enabled.len(), r.disabled.len()), (2, 1));
+        assert_eq!(files(&dir), ["02_Chrome.exr", "02_Chrome.png", "03_Sunset.exr", "03_Sunset.json", "03_Sunset.png"]);
+        let r = run(apply_matcap_collection(folder.clone(), vec!["Clay".into(), "Chrome".into(), "Sunset".into()])).unwrap();
+        assert_eq!(r.enabled, ["01_Clay"]);
+        assert!(!off.exists());
         let _ = fs::remove_dir_all(dir.parent().unwrap());
     }
 
