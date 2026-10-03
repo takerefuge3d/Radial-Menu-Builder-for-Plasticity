@@ -18,8 +18,30 @@ tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 
+# Matcaps tab: PNG/JPG/EXR reading and writing
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+exr = "1.74"
+base64 = "0.22"
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
+
+# Decoding big matcaps is slow in an unoptimised build, so optimise the image crates
+# even in `tauri dev`.
+[profile.dev.package.image]
+opt-level = 3
+[profile.dev.package.exr]
+opt-level = 3
+[profile.dev.package.png]
+opt-level = 3
+[profile.dev.package.zune-jpeg]
+opt-level = 3
+[profile.dev.package.fdeflate]
+opt-level = 3
+[profile.dev.package.miniz_oxide]
+opt-level = 3
+[profile.dev.package.zune-inflate]
+opt-level = 3
 
 [features]
 default = []

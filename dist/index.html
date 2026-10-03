@@ -122,6 +122,46 @@ body {
 .app-container { height: calc(100vh - 41px); }
 body[data-tab="theme"] > .app-container:not(#tpApp), body[data-tab="theme"] > .json-preview { display: none !important; }
 body:not([data-tab="theme"]) > #tpApp { display: none; }
+body[data-tab="matcaps"] > .app-container:not(#mcApp), body[data-tab="matcaps"] > .json-preview { display: none !important; }
+body:not([data-tab="matcaps"]) > #mcApp { display: none; }
+
+/* ===== Matcaps tab ===== */
+#mcApp { color-scheme: dark; }
+.mc-drop {
+  flex: none; margin-bottom: 12px; padding: 22px; text-align: center; cursor: pointer;
+  background: #121212; border: 1.5px dashed #3a3a3a; border-radius: 6px; transition: border-color .2s, background .2s;
+}
+.mc-drop:hover, .mc-drop:focus-visible, .mc-drop.over { border-color: var(--accent); outline: none; }
+.mc-drop.over { background: #1a1015; }
+.mc-drop.off { opacity: .4; pointer-events: none; }
+.mc-drop-title { font-size: 14px; font-weight: 600; }
+.mc-drop-sub { color: var(--muted); font-size: 12px; margin-top: 4px; }
+.mc-head { flex: none; display: flex; align-items: center; gap: 8px; margin: 4px 0 8px; }
+.mc-head[hidden] { display: none; }
+.mc-head .section-title { margin: 0; flex: 1; }
+.mc-head .section-title span { text-transform: none; font-weight: 400; }
+.btn.mc-small { width: auto; margin: 0; padding: 5px 10px; }
+.mc-check { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); cursor: pointer; white-space: nowrap; }
+.mc-check input { accent-color: var(--accent); }
+.mc-list { background: #121212; border: 1px solid var(--border); border-radius: 4px; overflow-y: auto; }
+#mcStaged { flex: none; max-height: 42%; margin-bottom: 12px; }
+#mcStaged:empty { display: none; }
+#mcInstalled { flex: 1; min-height: 120px; }
+.mc-row { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto auto; gap: 12px; align-items: center; padding: 8px 12px; border-bottom: 1px solid #222; }
+.mc-thumb { width: 48px; height: 48px; border-radius: 4px; background: #0a0a0a; object-fit: contain; }
+.mc-thumb.bad { outline: 1px solid #ff5555; }
+.mc-title { font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+.mc-name { width: 100%; max-width: 340px; padding: 4px 6px; font-weight: 600; }
+.mc-files { font-size: 12px; color: var(--muted); margin-top: 3px; overflow-wrap: anywhere; }
+.mc-status { font-size: 12px; margin-top: 3px; color: #6fcf97; }
+.mc-status.warning { color: #ffb84d; }
+.mc-status.error { color: #ff5555; }
+.mc-status .mc-check { display: inline-flex; margin-left: 8px; color: var(--text); }
+.mc-tag {
+  display: inline-block; margin-left: 6px; padding: 0 4px; border: 1px solid currentColor; border-radius: 3px;
+  color: var(--accent); font-size: 10px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; vertical-align: 1px;
+}
+.mc-empty { padding: 16px; text-align: center; color: var(--muted); font-size: 12px; }
 
 /* ===== Theme Preview tab ===== */
 #tpApp { color-scheme: dark; }
@@ -262,6 +302,7 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
   <div class="app-tabs" role="tablist">
     <button class="app-tab active" type="button" role="tab" data-tab="radial" aria-selected="true">Radial Menus</button>
     <button class="app-tab" type="button" role="tab" data-tab="theme" aria-selected="false">Theme Preview</button>
+    <button class="app-tab" type="button" role="tab" data-tab="matcaps" aria-selected="false">Matcaps</button>
   </div>
   <div class="app-container">
     <!-- Left Sidebar - Commands -->
@@ -608,6 +649,52 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
     </div>
   </div>
 
+  <!-- ===== Matcaps tab ===== -->
+  <div class="app-container" id="mcApp">
+    <div class="center-panel">
+      <div class="notification" id="mcNote"></div>
+      <div class="mc-drop" id="mcDrop" tabindex="0" role="button" aria-label="Add matcap images">
+        <div class="mc-drop-title">Drop PNG, JPG or EXR matcaps here</div>
+        <div class="mc-drop-sub">or click to choose files</div>
+      </div>
+      <div class="mc-head" id="mcStageHead" hidden>
+        <div class="section-title">To Add <span id="mcStageCount"></span></div>
+        <button class="btn mc-small" id="mcClear" type="button">Clear</button>
+        <button class="btn mc-small" id="mcSave" type="button">Save to Matcaps</button>
+      </div>
+      <div class="mc-list" id="mcStaged"></div>
+      <div class="mc-head">
+        <div class="section-title">Installed <span id="mcCount"></span></div>
+        <label class="mc-check"><input type="checkbox" id="mcOnlyBroken" /> Problems only</label>
+        <button class="btn mc-small" id="mcRefresh" type="button">Refresh</button>
+        <button class="btn mc-small" id="mcFixAll" type="button">Fix All</button>
+      </div>
+      <div class="mc-list" id="mcInstalled"></div>
+    </div>
+
+    <div class="properties-panel">
+      <div class="section-title">Matcaps Folder</div>
+      <div class="tp-path" id="mcFolder">Finding Plasticity's matcaps folder…</div>
+      <button class="btn" id="mcChange" type="button">Change Folder…</button>
+      <button class="btn" id="mcDefault" type="button">Use Plasticity's Folder</button>
+
+      <div class="separator"></div>
+      <div class="section-title">Files We Make</div>
+      <div class="form-group">
+        <label class="form-label" for="mcPngSize">PNG thumbnail</label>
+        <select class="form-input" id="mcPngSize"><option value="128">128 × 128</option><option value="64">64 × 64</option></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="mcExrSize">EXR texture (16-bit)</label>
+        <select class="form-input" id="mcExrSize"><option value="1024">1024 × 1024</option><option value="512">512 × 512</option></select>
+      </div>
+      <div class="tp-hint">Plasticity wants each matcap as a pair with the same name: an EXR for the texture and a PNG for the picker. Files you add are copied as they are under the clean name (spaces become _). Only the missing half of the pair is made, at the sizes above.</div>
+      <div class="tp-hint">A JPG has no transparency, so the files made from it are cut to a circle.</div>
+      <div class="tp-hint">Tinted (beta) also saves NAME.json containing { isTinted: true }, which makes the matcap tintable in Plasticity.</div>
+      <div class="tp-hint">Installed matcaps are only changed when you click Fix or Fix All. Fix renames the files to the clean name and makes a missing PNG or EXR.</div>
+    </div>
+  </div>
+
   <!-- JSON Preview Window -->
   <div class="json-preview" id="jsonPreview">
     <div class="json-preview-header">
@@ -636,13 +723,14 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
       }
     }
 
-    async function invokeCommand(command, args = {}) {
+    // args can also be a Uint8Array, sent as raw bytes; options then carries headers.
+    async function invokeCommand(command, args = {}, options) {
       if (!tauriAvailable) throw new Error("Tauri not available");
       if (window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.invoke) {
-        return await window.__TAURI_INTERNALS__.invoke(command, args);
+        return await window.__TAURI_INTERNALS__.invoke(command, args, options);
       }
       if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
-        return await window.__TAURI__.core.invoke(command, args);
+        return await window.__TAURI__.core.invoke(command, args, options);
       }
       throw new Error("No invoke method available");
     }
@@ -2076,7 +2164,7 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
         appState.jsonPreviewVisible = false;
       });
       document.addEventListener('keydown', (e) => {
-        if (document.body.dataset.tab === 'theme') return; // Theme Preview tab is showing
+        if (document.body.dataset.tab && document.body.dataset.tab !== 'radial') return; // another tab is showing
         const activeElement = document.activeElement;
         const isTyping = activeElement && (
           activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA' || activeElement.isContentEditable
@@ -3052,6 +3140,7 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
           b.setAttribute('aria-selected', String(on));
         });
         try { localStorage.setItem(TABKEY, name); } catch (e) {}
+        document.dispatchEvent(new CustomEvent('app-tab', { detail: name }));
         if (name === 'theme') fit();
         else if (!initial && typeof resizeCanvas === 'function') { try { resizeCanvas(); } catch (e) {} }
       }
@@ -3069,8 +3158,524 @@ body:not([data-tab="theme"]) > #tpApp { display: none; }
       initPlasticity();
       loadUserThemes();
       let startTab = 'radial';
-      try { if (localStorage.getItem(TABKEY) === 'theme') startTab = 'theme'; } catch (e) {}
+      try { const t = localStorage.getItem(TABKEY); if (t === 'theme' || t === 'matcaps') startTab = t; } catch (e) {}
       showTab(startTab, true);
+    })();
+  </script>
+
+  <!-- ===== Matcaps tab script ===== -->
+  <script>
+    // Matcaps tab: add PNG, JPG and EXR files, save them to Plasticity's matcaps folder as
+    // clean PNG + EXR pairs, and check the matcaps already there. The image work happens in
+    // Rust (src-tauri/src/matcaps.rs); this keeps the lists and the page.
+    (function () {
+      'use strict';
+
+      const $ = (id) => document.getElementById(id);
+      const FOLDERKEY = 'plasticity-matcaps-folder', SIZEKEY = 'plasticity-matcaps-sizes';
+      const IMAGE_RE = /\.(png|jpe?g|exr)$/i;
+
+      let folder = null;
+      let installed = [];   // from list_installed_matcaps
+      let groups = [];      // to add: { key, name, png, exr, jpg, tinted, replace, saveError }
+      let nextKey = 1;
+      let busy = false;
+      let started = false;
+      const previews = new Map(); // "folder|file" -> data URL
+
+      // Same rule as clean_name in matcaps.rs.
+      function mcClean(raw) {
+        let out = '';
+        for (const ch of String(raw).trim()) {
+          const c = /[\p{Alphabetic}\p{N}-]/u.test(ch) ? ch : '_';
+          if (c === '_' && out.endsWith('_')) continue;
+          out += c;
+        }
+        return out.replace(/^[_-]+|[_-]+$/g, '');
+      }
+      const lower = (s) => s.toLowerCase();
+      const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+      const pngSize = () => Number($('mcPngSize').value);
+      const exrSize = () => Number($('mcExrSize').value);
+
+      function el(tag, className, text) {
+        const e = document.createElement(tag);
+        if (className) e.className = className;
+        if (text != null) e.textContent = text;
+        return e;
+      }
+
+      // ---------- messages ----------
+      function note(message, type = 'success', sticky) {
+        const box = $('mcNote');
+        box.textContent = message;
+        box.className = `notification ${type}`;
+        clearTimeout(note._t);
+        if (!sticky) note._t = setTimeout(() => { box.textContent = ''; box.className = 'notification'; }, 5000);
+      }
+
+      function confirmBox(title, lines, okLabel) {
+        return new Promise((resolve) => {
+          const wrap = el('div', 'tp-modal');
+          const box = el('div', 'tp-modal-box');
+          box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true');
+          box.appendChild(el('h3', null, title));
+          lines.forEach((t) => box.appendChild(el('p', null, t)));
+          const btns = el('div', 'tp-modal-btns');
+          const cancel = el('button', 'btn', 'Cancel'); cancel.type = 'button';
+          const ok = el('button', 'btn', okLabel); ok.type = 'button';
+          btns.append(cancel, ok); box.appendChild(btns); wrap.appendChild(box);
+          document.body.appendChild(wrap);
+          const done = (yes) => { document.removeEventListener('keydown', onKey, true); wrap.remove(); resolve(yes); };
+          const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); done(false); } };
+          document.addEventListener('keydown', onKey, true);
+          cancel.addEventListener('click', () => done(false));
+          ok.addEventListener('click', () => done(true));
+          wrap.addEventListener('click', (e) => { if (e.target === wrap) done(false); });
+          cancel.focus();
+        });
+      }
+
+      // ---------- folder and sizes ----------
+      function showFolder() { $('mcFolder').textContent = folder || 'No folder set. Click Change Folder.'; }
+
+      async function useDefaultFolder() {
+        try { localStorage.removeItem(FOLDERKEY); } catch (e) {}
+        folder = await invokeCommand('default_matcaps_folder');
+        showFolder();
+        await refreshInstalled();
+      }
+
+      async function changeFolder() {
+        const picked = await invokeCommand('pick_matcaps_folder');
+        if (!picked) return;
+        folder = picked;
+        try { localStorage.setItem(FOLDERKEY, folder); } catch (e) {}
+        showFolder();
+        await refreshInstalled();
+      }
+
+      function loadSizes() {
+        try {
+          const s = JSON.parse(localStorage.getItem(SIZEKEY) || 'null');
+          if (s && ['64', '128'].includes(String(s.png))) $('mcPngSize').value = String(s.png);
+          if (s && ['512', '1024'].includes(String(s.exr))) $('mcExrSize').value = String(s.exr);
+        } catch (e) {}
+      }
+      function sizesChanged() {
+        try { localStorage.setItem(SIZEKEY, JSON.stringify({ png: pngSize(), exr: exrSize() })); } catch (e) {}
+        render();
+      }
+
+      // ---------- adding files ----------
+      function place(info) {
+        const base = mcClean(info.stem) || 'matcap';
+        let name = base;
+        for (let n = 2; ; n++) {
+          const g = groups.find((x) => lower(x.name) === lower(name));
+          if (!g) {
+            const fresh = { key: nextKey++, name, png: null, exr: null, jpg: null, tinted: false, replace: false, saveError: '' };
+            fresh[info.kind] = info;
+            groups.push(fresh);
+            return;
+          }
+          if (!g[info.kind]) { g[info.kind] = info; return; }
+          name = `${base}_${n}`;
+        }
+      }
+
+      // items: [{ name, file }] from a drop or [{ name, path }] from the file picker
+      async function addFiles(items, skipped = []) {
+        if (busy) { note('Still working. Try again in a moment.', 'warning'); return; }
+        busy = true;
+        const failed = [];
+        let added = 0;
+        try {
+          for (let i = 0; i < items.length; i++) {
+            const it = items[i];
+            note(`Reading ${it.name} (${i + 1} of ${items.length})…`, 'success', true);
+            try {
+              const info = it.file
+                ? await invokeCommand('stage_matcap_bytes', new Uint8Array(await it.file.arrayBuffer()),
+                    { headers: { 'x-file-name': encodeURIComponent(it.name) } })
+                : await invokeCommand('stage_matcap_path', { path: it.path });
+              place(info);
+              added++;
+            } catch (err) {
+              failed.push(String(err));
+            }
+          }
+        } finally {
+          busy = false;
+        }
+        render();
+        const extra = skipped.length ? ` Skipped ${skipped.join(', ')}: only PNG, JPG and EXR can be used.` : '';
+        if (failed.length) note(failed.join('  ') + extra, 'error', true);
+        else if (skipped.length) note(`Added ${plural(added, 'file')}.${extra}`, 'warning', true);
+        else if (added) note(`Added ${plural(added, 'file')}. Check the names, then click Save to Matcaps.`);
+      }
+
+      function takeDropped(fileList) {
+        const ok = [], skipped = [];
+        Array.from(fileList || []).forEach((f) => (IMAGE_RE.test(f.name) ? ok.push({ name: f.name, file: f }) : skipped.push(f.name)));
+        if (ok.length || skipped.length) addFiles(ok, skipped);
+      }
+
+      async function pickFiles() {
+        if (busy) return;
+        let paths;
+        try { paths = await invokeCommand('pick_matcap_files'); }
+        catch (err) { note(`Could not open the file picker: ${err}`, 'error'); return; }
+        if (paths && paths.length) addFiles(paths.map((p) => ({ name: p.split(/[\\/]/).pop(), path: p })));
+      }
+
+      function unstage(list) {
+        const ids = [];
+        list.forEach((g) => ['png', 'exr', 'jpg'].forEach((k) => { if (g[k]) ids.push(g[k].id); }));
+        if (ids.length) invokeCommand('unstage_matcaps', { ids }).catch(() => {});
+      }
+
+      // ---------- what a row will do ----------
+      function installedMatch(name) {
+        return installed.find((g) => lower(g.name) === lower(name)) || null;
+      }
+
+      function analyze(g, dupNames) {
+        const a = { error: '', warnings: [], plan: [], canReplace: false };
+        const P = pngSize(), E = exrSize();
+        const exrFrom = g.exr ? null : (g.png || g.jpg);
+        const pngFrom = g.png ? null : (g.exr || g.jpg);
+        const cut = (src) => (src && src.kind === 'jpg' ? ', cut to a circle' : '');
+
+        a.plan.push(g.exr ? `${g.exr.fileName} → ${g.name}.exr` : `makes ${g.name}.exr (${E} px) from the ${exrFrom.kind.toUpperCase()}${cut(exrFrom)}`);
+        a.plan.push(g.png ? `${g.png.fileName} → ${g.name}.png` : `makes ${g.name}.png (${P} px) from the ${pngFrom.kind.toUpperCase()}${cut(pngFrom)}`);
+        if (g.tinted) a.plan.push(`${g.name}.json`);
+
+        if (g.jpg && exrFrom !== g.jpg && pngFrom !== g.jpg) a.warnings.push(`${g.jpg.fileName} isn't needed and won't be saved.`);
+        if (exrFrom && Math.min(exrFrom.width, exrFrom.height) < E) {
+          a.warnings.push(`${exrFrom.fileName} is only ${Math.min(exrFrom.width, exrFrom.height)} px, so the EXR is enlarged and may look soft.`);
+        }
+        [exrFrom, pngFrom].filter((s, i, all) => s && all.indexOf(s) === i && s.width !== s.height)
+          .forEach((s) => a.warnings.push(`${s.fileName} isn't square, so only its centre is used.`));
+
+        if (!g.name) a.error = 'Needs a name.';
+        else if (dupNames.has(lower(g.name))) a.error = 'Another row has the same name.';
+        else {
+          const inst = installedMatch(g.name);
+          if (inst) {
+            // Replace deletes the old NAME.png/.exr/.json, so it is only offered when those are the
+            // installed matcap's only files; otherwise leftovers would clash with the new pair.
+            const files = [inst.png, inst.exr, inst.json].filter(Boolean);
+            const exact = !inst.jpg && !inst.extra.length && files.every((f) => f.slice(0, f.lastIndexOf('.')) === inst.name);
+            if (exact) {
+              a.canReplace = true;
+              if (!g.replace) a.error = `${inst.name} is already installed.`;
+            } else {
+              a.error = `Clashes with the installed ${[...files, inst.jpg, ...inst.extra].filter(Boolean).join(', ')}. Pick another name.`;
+            }
+          }
+        }
+        if (!a.error && g.saveError) a.error = g.saveError;
+        return a;
+      }
+
+      function dupSet() {
+        const seen = new Set(), dup = new Set();
+        groups.forEach((g) => { const k = lower(g.name); if (seen.has(k)) dup.add(k); seen.add(k); });
+        return dup;
+      }
+
+      // ---------- saving ----------
+      async function saveAll() {
+        if (busy) return;
+        const dup = dupSet();
+        const ready = groups.filter((g) => !analyze(g, dup).error);
+        if (!ready.length) { note('Nothing is ready to save. Check the message under each name.', 'warning'); return; }
+        const replacing = ready.filter((g) => installedMatch(g.name));
+        if (replacing.length) {
+          const names = replacing.map((g) => g.name).join(', ');
+          const ok = await confirmBox('Replace installed matcaps?', [
+            `This deletes the installed ${names} (the PNG, the EXR and any .json) and saves the new ${replacing.length === 1 ? 'one' : 'ones'} in ${replacing.length === 1 ? 'its' : 'their'} place.`
+          ], 'Replace');
+          if (!ok) return;
+        }
+        busy = true;
+        $('mcSave').disabled = true;
+        let saved = 0;
+        const failed = [];
+        for (const g of ready) {
+          note(`Saving ${g.name}…`, 'success', true);
+          try {
+            await invokeCommand('save_matcap', { req: {
+              folder, name: g.name,
+              pngId: g.png ? g.png.id : null, exrId: g.exr ? g.exr.id : null, jpgId: g.jpg ? g.jpg.id : null,
+              pngSize: pngSize(), exrSize: exrSize(), tinted: g.tinted, replace: g.replace
+            } });
+            saved++;
+            unstage([g]); // the backend drops what it used; this clears an unused JPG too
+            groups = groups.filter((x) => x !== g);
+          } catch (err) {
+            g.saveError = String(err);
+            failed.push(g.name);
+          }
+        }
+        busy = false;
+        await refreshInstalled(true);
+        const left = groups.length ? ` ${plural(groups.length, 'row')} still to sort out.` : '';
+        if (failed.length) note(`Saved ${saved}. Could not save ${failed.join(', ')}.${left}`, 'error', true);
+        else note(`Saved ${plural(saved, 'matcap')} to ${folder}.${left}`, left ? 'warning' : 'success', !!left);
+      }
+
+      async function clearStaged() {
+        if (busy || !groups.length) return;
+        unstage(groups);
+        groups = [];
+        render();
+      }
+
+      // ---------- installed ----------
+      async function refreshInstalled(keepPreviews) {
+        if (!folder) { installed = []; render(); return; }
+        if (!keepPreviews) previews.clear();
+        try {
+          installed = await invokeCommand('list_installed_matcaps', { folder });
+        } catch (err) {
+          installed = [];
+          note(`Could not read ${folder}: ${err}`, 'error', true);
+        }
+        render();
+      }
+
+      async function fixOne(g) {
+        const done = await invokeCommand('fix_installed_matcap', { folder, name: g.name, pngSize: pngSize(), exrSize: exrSize() });
+        return done;
+      }
+
+      async function fix(g) {
+        if (busy) return;
+        busy = true;
+        try {
+          const done = await fixOne(g);
+          note(`${g.name}: ${done.join('. ')}.`);
+        } catch (err) {
+          note(`Could not fix ${g.name}: ${err}`, 'error', true);
+        }
+        busy = false;
+        await refreshInstalled();
+      }
+
+      async function fixAll() {
+        if (busy) return;
+        const list = installed.filter((g) => g.fixable);
+        if (!list.length) return;
+        const ok = await confirmBox(`Fix ${plural(list.length, 'matcap')}?`, [
+          'This renames files in your matcaps folder and makes any missing PNG or EXR:',
+          ...list.map((g) => `${g.name}: ${g.fix.join('. ')}.`)
+        ], 'Fix All');
+        if (!ok) return;
+        busy = true;
+        const failed = [];
+        for (const g of list) {
+          note(`Fixing ${g.name}…`, 'success', true);
+          try { await fixOne(g); } catch (err) { failed.push(`${g.name}: ${err}`); }
+        }
+        busy = false;
+        await refreshInstalled();
+        if (failed.length) note(`Fixed ${list.length - failed.length}. ${failed.join('  ')}`, 'error', true);
+        else note(`Fixed ${plural(list.length, 'matcap')}.`);
+      }
+
+      // Thumbnails load as rows scroll into view, a few at a time.
+      const waiting = [];
+      let running = 0;
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach((en) => { if (en.isIntersecting) { io.unobserve(en.target); waiting.push(en.target); } });
+        pump();
+      }, { root: $('mcInstalled'), rootMargin: '200px' });
+
+      function pump() {
+        while (running < 3 && waiting.length) {
+          const img = waiting.shift();
+          if (!img.isConnected) continue;
+          const file = img.dataset.file, key = `${folder}|${file}`;
+          if (previews.has(key)) { img.src = previews.get(key); continue; }
+          running++;
+          invokeCommand('installed_matcap_preview', { folder, fileName: file })
+            .then((url) => { previews.set(key, url); img.src = url; })
+            .catch((err) => {
+              img.classList.add('bad');
+              const row = img.closest('.mc-row');
+              const status = row && row.querySelector('.mc-status');
+              if (status) { status.className = 'mc-status error'; status.textContent = `Can't read ${file}: ${err}`; }
+            })
+            .finally(() => { running--; pump(); });
+        }
+      }
+
+      // ---------- drawing ----------
+      function thumb(src) {
+        const img = el('img', 'mc-thumb');
+        img.alt = '';
+        if (src) img.src = src;
+        return img;
+      }
+
+      function stagedRow(g, dup) {
+        const a = analyze(g, dup);
+        const row = el('div', 'mc-row');
+        const first = g.exr || g.png || g.jpg;
+        row.appendChild(thumb(first.preview));
+
+        const main = el('div');
+        const name = el('input', 'form-input mc-name');
+        name.type = 'text'; name.spellcheck = false; name.value = g.name;
+        name.setAttribute('aria-label', 'Matcap name');
+        name.addEventListener('change', () => {
+          g.name = mcClean(name.value);
+          g.replace = false; g.saveError = '';
+          render();
+        });
+        main.appendChild(name);
+        main.appendChild(el('div', 'mc-files', a.plan.join(' · ')));
+        a.warnings.forEach((w) => main.appendChild(el('div', 'mc-status warning', w)));
+        const status = el('div', `mc-status${a.error ? ' error' : ''}`, a.error || 'Ready to save.');
+        if (a.canReplace) {
+          const label = el('label', 'mc-check');
+          const box = el('input'); box.type = 'checkbox'; box.checked = g.replace;
+          box.addEventListener('change', () => { g.replace = box.checked; g.saveError = ''; render(); });
+          label.append(box, 'Replace it');
+          status.appendChild(label);
+        }
+        main.appendChild(status);
+        row.appendChild(main);
+
+        const tint = el('label', 'mc-check');
+        const tbox = el('input'); tbox.type = 'checkbox'; tbox.checked = g.tinted;
+        tbox.addEventListener('change', () => { g.tinted = tbox.checked; render(); });
+        tint.append(tbox, 'Tinted (beta)');
+        row.appendChild(tint);
+
+        const remove = el('button', 'close-btn', '×');
+        remove.type = 'button'; remove.title = 'Remove from the list'; remove.setAttribute('aria-label', `Remove ${g.name}`);
+        remove.addEventListener('click', () => { unstage([g]); groups = groups.filter((x) => x !== g); render(); });
+        row.appendChild(remove);
+        return row;
+      }
+
+      const HAND = {
+        clash: 'Fix can\'t choose between these, so rename or remove the extra file by hand.',
+        orphan: 'Add the matcap with this name, or delete the .json by hand.'
+      };
+
+      function installedRow(g) {
+        const row = el('div', 'mc-row');
+        const file = g.png || g.exr || g.jpg;
+        const img = thumb(file ? previews.get(`${folder}|${file}`) : null);
+        if (file && !img.src) { img.dataset.file = file; io.observe(img); }
+        row.appendChild(img);
+
+        const main = el('div');
+        const title = el('div', 'mc-title', g.name || '(no name)');
+        if (g.tinted) title.appendChild(el('span', 'mc-tag', 'Tinted'));
+        main.appendChild(title);
+        main.appendChild(el('div', 'mc-files', [g.exr, g.png, g.json, g.jpg, ...g.extra].filter(Boolean).join(' · ')));
+        if (g.issues.length) {
+          main.appendChild(el('div', 'mc-status warning', g.issues.join(' · ')));
+          if (g.fixable) main.appendChild(el('div', 'mc-files', `Fix will: ${g.fix.join('. ')}.`));
+          else main.appendChild(el('div', 'mc-files', g.extra.length ? HAND.clash : (!g.png && !g.exr && !g.jpg ? HAND.orphan : '')));
+        } else {
+          main.appendChild(el('div', 'mc-status', ''));
+        }
+        row.appendChild(main);
+        row.appendChild(el('span'));
+
+        if (g.fixable) {
+          const b = el('button', 'btn mc-small', 'Fix');
+          b.type = 'button'; b.title = g.fix.join('\n');
+          b.addEventListener('click', () => fix(g));
+          row.appendChild(b);
+        } else {
+          row.appendChild(el('span'));
+        }
+        return row;
+      }
+
+      function render() {
+        const dup = dupSet();
+        const staged = $('mcStaged');
+        staged.replaceChildren(...groups.map((g) => stagedRow(g, dup)));
+        $('mcStageHead').hidden = !groups.length;
+        const ready = groups.filter((g) => !analyze(g, dup).error).length;
+        $('mcStageCount').textContent = groups.length ? `· ${ready} of ${groups.length} ready` : '';
+        $('mcSave').disabled = !ready || busy;
+
+        const broken = installed.filter((g) => g.issues.length);
+        const real = installed.filter((g) => g.png || g.exr || g.jpg).length;
+        $('mcCount').textContent = installed.length
+          ? `· ${plural(real, 'matcap')}${broken.length ? `, ${broken.length} with problems` : ''}`
+          : '';
+        $('mcFixAll').disabled = !installed.some((g) => g.fixable);
+        const list = $('mcInstalled');
+        const shown = $('mcOnlyBroken').checked ? broken : installed;
+        if (!folder) list.replaceChildren(el('div', 'mc-empty', 'Choose the matcaps folder on the right.'));
+        else if (!installed.length) list.replaceChildren(el('div', 'mc-empty', 'No matcaps in this folder yet.'));
+        else if (!shown.length) list.replaceChildren(el('div', 'mc-empty', 'No problems found.'));
+        else list.replaceChildren(...shown.map(installedRow));
+      }
+
+      // ---------- start ----------
+      const app = $('mcApp'), drop = $('mcDrop');
+      const hasFiles = (e) => !!e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
+
+      // A file dropped anywhere else would open in the window and replace the app.
+      document.addEventListener('dragover', (e) => {
+        if (!hasFiles(e)) return;
+        e.preventDefault();
+        if (document.body.dataset.tab !== 'matcaps') e.dataTransfer.dropEffect = 'none';
+      });
+      document.addEventListener('drop', (e) => {
+        if (!hasFiles(e)) return;
+        e.preventDefault();
+        if (document.body.dataset.tab === 'matcaps' && tauriAvailable) takeDropped(e.dataTransfer.files);
+      });
+      let depth = 0;
+      app.addEventListener('dragenter', (e) => { if (hasFiles(e)) { depth++; drop.classList.add('over'); } });
+      app.addEventListener('dragleave', (e) => { if (hasFiles(e) && --depth <= 0) { depth = 0; drop.classList.remove('over'); } });
+      app.addEventListener('drop', () => { depth = 0; drop.classList.remove('over'); });
+
+      drop.addEventListener('click', pickFiles);
+      drop.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pickFiles(); } });
+      $('mcSave').addEventListener('click', saveAll);
+      $('mcClear').addEventListener('click', clearStaged);
+      $('mcRefresh').addEventListener('click', () => refreshInstalled());
+      $('mcFixAll').addEventListener('click', fixAll);
+      $('mcOnlyBroken').addEventListener('change', render);
+      $('mcChange').addEventListener('click', changeFolder);
+      $('mcDefault').addEventListener('click', useDefaultFolder);
+      $('mcPngSize').addEventListener('change', sizesChanged);
+      $('mcExrSize').addEventListener('change', sizesChanged);
+      loadSizes();
+
+      async function start() {
+        if (started) { refreshInstalled(true); return; }
+        started = true;
+        if (!initTauriAPI()) {
+          drop.classList.add('off');
+          ['mcChange', 'mcDefault', 'mcRefresh', 'mcFixAll'].forEach((id) => { $(id).disabled = true; });
+          $('mcFolder').textContent = 'Not available';
+          note('The Matcaps tab needs the desktop app: it reads and writes your Plasticity folder.', 'warning', true);
+          return;
+        }
+        try { folder = localStorage.getItem(FOLDERKEY) || null; } catch (e) {}
+        if (!folder) {
+          try { folder = await invokeCommand('default_matcaps_folder'); } catch (e) { folder = null; }
+        }
+        showFolder();
+        await refreshInstalled();
+      }
+      document.addEventListener('app-tab', (e) => { if (e.detail === 'matcaps') start(); });
+      if (document.body.dataset.tab === 'matcaps') start();
+      render();
     })();
   </script>
 </body>

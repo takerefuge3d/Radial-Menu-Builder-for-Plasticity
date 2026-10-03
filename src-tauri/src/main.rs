@@ -5,6 +5,8 @@ use std::{
 use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
 
+mod matcaps;
+
 // ---------- Error helpers ----------
 fn io_err<T: ToString>(msg: T) -> String {
     msg.to_string()
@@ -268,6 +270,7 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
+        .manage(matcaps::StagingState::default())
         .invoke_handler(tauri::generate_handler![
             load_commands,
             load_commands_from_file,
@@ -287,7 +290,17 @@ fn main() {
             save_user_themes,
             toggle_fullscreen,
             read_text_file,
-            write_text_file
+            write_text_file,
+            matcaps::stage_matcap_bytes,
+            matcaps::stage_matcap_path,
+            matcaps::unstage_matcaps,
+            matcaps::save_matcap,
+            matcaps::list_installed_matcaps,
+            matcaps::installed_matcap_preview,
+            matcaps::fix_installed_matcap,
+            matcaps::default_matcaps_folder,
+            matcaps::pick_matcap_files,
+            matcaps::pick_matcaps_folder
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
