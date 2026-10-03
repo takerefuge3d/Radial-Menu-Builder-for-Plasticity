@@ -199,7 +199,8 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
 #evApp .mc-row { grid-template-columns: 150px minmax(0, 1fr) auto auto; }
 #evApp .mc-thumb { width: 96px; height: 48px; }
 .ev-views { display: flex; align-items: center; gap: 6px; }
-.ev-sphere { width: 48px; height: 48px; flex: none; }
+.ev-sphere { width: 48px; height: 48px; flex: none; cursor: grab; touch-action: none; }
+.ev-sphere.spinning { cursor: grabbing; }
 
 /* ===== Keyboard Shortcuts tab ===== */
 #ksApp { color-scheme: dark; }
@@ -4255,33 +4256,43 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       // ---------- sphere view (environments) ----------
       // The panorama thumbnail wrapped onto a mirror ball, as a quick feel for the reflections.
       // The camera looks along -z; the ball's middle reflects what's behind the camera and its
-      // rim what's behind the ball (the panorama's centre). Drawn from the 8-bit thumbnail, so
-      // bright lights show as white.
-      const SPHERE_SIZE = 48; // CSS px, matches .ev-sphere
+      // rim what's behind the ball (the panorama's centre). Drag to spin it round and tilt it;
+      // double-click to put it back. Drawn from the 8-bit thumbnail, so bright lights show as white.
+      const SPHERE_SIZE = 48;            // CSS px, matches .ev-sphere
+      const TURN_PX = 160;               // dragging this far sideways spins it all the way round
+      const TILT_MAX = Math.PI / 3;      // up to 60° up or down
       function sphereView(img) {
         const c = el('canvas', 'ev-sphere');
-        c.title = 'On a mirror ball';
+        c.title = 'On a mirror ball. Drag to spin it; double-click to reset.';
         c.setAttribute('role', 'img'); c.setAttribute('aria-label', 'The environment reflected on a mirror ball');
-        const draw = () => {
-          if (!img.naturalWidth) return;
-          const sw = img.naturalWidth, sh = img.naturalHeight;
+        let src = null, sw = 0, sh = 0;
+        let yaw = 0, tilt = 0;
+
+        const load = () => {
+          if (!img.naturalWidth) return false;
+          sw = img.naturalWidth; sh = img.naturalHeight;
           const srcCanvas = document.createElement('canvas');
           srcCanvas.width = sw; srcCanvas.height = sh;
           const sctx = srcCanvas.getContext('2d');
           sctx.drawImage(img, 0, 0);
-          const src = sctx.getImageData(0, 0, sw, sh).data;
+          src = sctx.getImageData(0, 0, sw, sh).data;
+          return true;
+        };
+        // bilinear sample, wrapping round the panorama sideways
+        const sample = (u, v, k) => {
+          const x = u * sw - 0.5, y = Math.min(Math.max(v * sh - 0.5, 0), sh - 1);
+          const x0 = Math.floor(x), y0 = Math.floor(y), fx = x - x0, fy = y - y0;
+          const y1 = Math.min(y0 + 1, sh - 1);
+          const at = (xx, yy) => src[(yy * sw + (((xx % sw) + sw) % sw)) * 4 + k];
+          return (at(x0, y0) * (1 - fx) + at(x0 + 1, y0) * fx) * (1 - fy) + (at(x0, y1) * (1 - fx) + at(x0 + 1, y1) * fx) * fy;
+        };
+        const draw = () => {
+          if (!src) return;
           const px = Math.round(SPHERE_SIZE * (window.devicePixelRatio || 1));
-          c.width = c.height = px;
+          if (c.width !== px) c.width = c.height = px;
           const ctx = c.getContext('2d');
           const out = ctx.createImageData(px, px);
-          // bilinear sample, wrapping round the panorama sideways
-          const sample = (u, v, k) => {
-            const x = u * sw - 0.5, y = Math.min(Math.max(v * sh - 0.5, 0), sh - 1);
-            const x0 = Math.floor(x), y0 = Math.floor(y), fx = x - x0, fy = y - y0;
-            const y1 = Math.min(y0 + 1, sh - 1);
-            const at = (xx, yy) => src[(yy * sw + (((xx % sw) + sw) % sw)) * 4 + k];
-            return (at(x0, y0) * (1 - fx) + at(x0 + 1, y0) * fx) * (1 - fy) + (at(x0, y1) * (1 - fx) + at(x0 + 1, y1) * fx) * fy;
-          };
+          const ct = Math.cos(tilt), st = Math.sin(tilt), turn = yaw / (2 * Math.PI);
           const r = px / 2;
           for (let j = 0; j < px; j++) {
             for (let i = 0; i < px; i++) {
@@ -4289,9 +4300,10 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
               const cover = Math.min(Math.max((1 - Math.sqrt(d2)) * r + 0.5, 0), 1); // soft 1px edge
               if (cover <= 0) continue;
               const nz = Math.sqrt(Math.max(0, 1 - d2));
-              // reflect the view ray (0, 0, -1) about the normal
-              const rx = 2 * nz * nx, ry = 2 * nz * ny, rz = 2 * nz * nz - 1;
-              const u = 0.5 + Math.atan2(rx, -rz) / (2 * Math.PI);
+              // reflect the view ray (0, 0, -1) about the normal, then tilt about x
+              const rx = 2 * nz * nx, ry0 = 2 * nz * ny, rz0 = 2 * nz * nz - 1;
+              const ry = ry0 * ct - rz0 * st, rz = ry0 * st + rz0 * ct;
+              const u = 0.5 + Math.atan2(rx, -rz) / (2 * Math.PI) + turn;
               const v = 0.5 - Math.asin(Math.max(-1, Math.min(1, ry))) / Math.PI;
               const o = (j * px + i) * 4;
               out.data[o] = sample(u, v, 0);
@@ -4302,8 +4314,38 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
           }
           ctx.putImageData(out, 0, 0);
         };
-        if (img.complete && img.naturalWidth) draw();
-        else img.addEventListener('load', draw, { once: true });
+        if (img.complete && load()) draw();
+        else img.addEventListener('load', () => { if (load()) draw(); }, { once: true });
+
+        // Spin and tilt by dragging. A row being reordered is itself draggable, so that's
+        // switched off while the ball is held.
+        let held = null, frame = 0;
+        const redraw = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; draw(); }); };
+        c.addEventListener('pointerdown', (e) => {
+          if (e.button !== 0 || !src) return;
+          e.preventDefault();
+          e.stopPropagation();
+          const host = c.closest('[draggable="true"]');
+          if (host) host.draggable = false;
+          held = { x: e.clientX, y: e.clientY, yaw, tilt, host };
+          try { c.setPointerCapture(e.pointerId); } catch (err) {} // keeps the drag going outside the ball
+          c.classList.add('spinning');
+        });
+        c.addEventListener('pointermove', (e) => {
+          if (!held) return;
+          yaw = held.yaw + ((e.clientX - held.x) / TURN_PX) * 2 * Math.PI;
+          tilt = Math.max(-TILT_MAX, Math.min(TILT_MAX, held.tilt + ((e.clientY - held.y) / TURN_PX) * 2 * Math.PI));
+          redraw();
+        });
+        const release = () => {
+          if (!held) return;
+          if (held.host) held.host.draggable = true;
+          held = null;
+          c.classList.remove('spinning');
+        };
+        c.addEventListener('pointerup', release);
+        c.addEventListener('pointercancel', release);
+        c.addEventListener('dblclick', () => { yaw = 0; tilt = 0; redraw(); });
         return c;
       }
       // What a row shows on the left: the thumbnail, and for environments the sphere beside it.
