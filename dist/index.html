@@ -132,6 +132,8 @@ body[data-tab="theme"] > .app-container:not(#tpApp), body[data-tab="theme"] > .j
 body:not([data-tab="theme"]) > #tpApp { display: none; }
 body[data-tab="matcaps"] > .app-container:not(#mcApp), body[data-tab="matcaps"] > .json-preview { display: none !important; }
 body:not([data-tab="matcaps"]) > #mcApp { display: none; }
+body[data-tab="environments"] > .app-container:not(#evApp), body[data-tab="environments"] > .json-preview { display: none !important; }
+body:not([data-tab="environments"]) > #evApp { display: none; }
 body[data-tab="shortcuts"] > .app-container:not(#ksApp), body[data-tab="shortcuts"] > .json-preview { display: none !important; }
 body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
 
@@ -188,7 +190,14 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
 .mc-tintcell { display: flex; align-items: center; gap: 12px; }
 .mc-tints { display: inline-flex; gap: 4px; }
 .mc-tint { width: 26px; height: 26px; }
-#mcColl { margin-bottom: 4px; }
+#mcColl, #evColl { margin-bottom: 4px; }
+/* Environments reuse the Matcaps styles; their thumbnails are 2:1 panoramas */
+#evApp { color-scheme: dark; }
+#evStaged { flex: none; max-height: 42%; margin-bottom: 12px; }
+#evStaged:empty { display: none; }
+#evInstalled { flex: 1; min-height: 120px; }
+#evApp .mc-row { grid-template-columns: 96px minmax(0, 1fr) auto auto; }
+#evApp .mc-thumb { width: 96px; height: 48px; }
 
 /* ===== Keyboard Shortcuts tab ===== */
 #ksApp { color-scheme: dark; }
@@ -371,6 +380,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       <button class="app-tab active" type="button" role="tab" data-tab="radial" aria-selected="true">Radial Menus</button>
       <button class="app-tab" type="button" role="tab" data-tab="theme" aria-selected="false">Themes</button>
       <button class="app-tab" type="button" role="tab" data-tab="matcaps" aria-selected="false">Matcaps</button>
+      <button class="app-tab" type="button" role="tab" data-tab="environments" aria-selected="false">Environments</button>
       <button class="app-tab" type="button" role="tab" data-tab="shortcuts" aria-selected="false">Keyboard Shortcuts</button>
     </div>
     <button class="app-terms" type="button" id="termsLink">Terms of use</button>
@@ -785,6 +795,73 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       <div class="tp-hint">Disable moves a matcap into a matcaps-disabled folder next to this one, where Plasticity doesn't look. Enable moves it back. A disabled matcap can be deleted, which moves its files to the Recycle Bin (Trash on a Mac).</div>
       <div class="tp-hint">Reorder… lets you drag matcaps into order, then renames them 01_Name, 02_Name and so on so they sort that way. Remove Numbers takes the numbers off again. Restart Plasticity to see changes.</div>
       <div class="tp-hint">Installed matcaps are only changed when you click: Fix, Tinted, Disable, Enable, Delete or Apply Order.</div>
+    </div>
+  </div>
+
+  <div class="app-container" id="evApp">
+    <div class="center-panel">
+      <div class="notification" id="evNote"></div>
+      <div class="mc-drop" id="evDrop" tabindex="0" role="button" aria-label="Add environment images">
+        <div class="mc-drop-title">Drop EXR or HDR environments here</div>
+        <div class="mc-drop-sub">2:1 panoramas, from your files or straight from a browser, or click to choose files</div>
+      </div>
+      <div class="mc-head" id="evStageHead" hidden>
+        <div class="section-title">To Add <span id="evStageCount"></span></div>
+        <button class="btn mc-small" id="evClear" type="button">Clear</button>
+        <button class="btn mc-small" id="evSave" type="button">Save to Environments</button>
+      </div>
+      <div class="mc-list" id="evStaged"></div>
+      <div class="mc-head">
+        <div class="section-title">Installed <span id="evCount"></span></div>
+        <span class="mc-bar" id="evListBar">
+          <label class="mc-check"><input type="checkbox" id="evOnlyBroken" /> Problems only</label>
+          <button class="btn mc-small" id="evRefresh" type="button">Refresh</button>
+          <button class="btn mc-small" id="evFixAll" type="button">Fix All</button>
+          <button class="btn mc-small" id="evOrder" type="button">Reorder…</button>
+        </span>
+        <span class="mc-bar" id="evOrderBar" hidden>
+          <button class="btn mc-small" id="evOrderCancel" type="button">Cancel</button>
+          <button class="btn mc-small" id="evOrderStrip" type="button">Remove Numbers</button>
+          <button class="btn mc-small" id="evOrderApply" type="button">Apply Order</button>
+        </span>
+      </div>
+      <div class="mc-list" id="evInstalled"></div>
+    </div>
+
+    <div class="properties-panel">
+      <div class="section-title">Environments Folder</div>
+      <div class="tp-path" id="evFolder">Finding Plasticity's environments folder…</div>
+      <button class="btn" id="evChange" type="button">Change Folder…</button>
+      <button class="btn" id="evDefault" type="button">Use Plasticity's Folder</button>
+
+      <div class="separator"></div>
+      <div class="section-title">Collections</div>
+      <select class="form-input" id="evColl" aria-label="Environment collections"></select>
+      <button class="btn" id="evCollUse" type="button">Use Collection</button>
+      <button class="btn" id="evCollNew" type="button">Save Enabled as New…</button>
+      <div class="tp-btn-row">
+        <button class="btn" id="evCollUpdate" type="button">Update</button>
+        <button class="btn" id="evCollRename" type="button">Rename…</button>
+        <button class="btn" id="evCollDelete" type="button">Delete</button>
+      </div>
+      <div class="tp-hint">A collection is a set of environments to have switched on, such as a few studio lights for product shots. Enable the ones you want, then click Save Enabled as New. Use Collection enables its environments and disables the rest, which move to environments-disabled; nothing is deleted.</div>
+
+      <div class="separator"></div>
+      <div class="section-title">Files We Make</div>
+      <div class="form-group">
+        <label class="form-label" for="evPngSize">PNG thumbnail</label>
+        <select class="form-input" id="evPngSize"><option value="128">256 × 128</option><option value="64">128 × 64</option></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="evExrSize">EXR from an HDR (16-bit)</label>
+        <select class="form-input" id="evExrSize"><option value="1024">2048 × 1024 (2K)</option><option value="512">1024 × 512 (1K)</option><option value="0">Same size as the HDR</option></select>
+      </div>
+      <div class="tp-hint">Plasticity wants each environment as a pair with the same name: an EXR for the lighting and a PNG thumbnail for the picker. Both are 2:1 panoramas (equirectangular).</div>
+      <div class="tp-hint">An EXR you add is copied as it is, under the clean name (spaces become _), and a small PNG thumbnail is made from it.</div>
+      <div class="tp-hint">An HDR (.hdr or .hdri) is converted: it's made into a 16-bit EXR at the size above, plus the thumbnail. The HDR itself isn't copied.</div>
+      <div class="tp-hint">Disable moves an environment into an environments-disabled folder next to this one, where Plasticity doesn't look. Enable moves it back. A disabled environment can be deleted, which moves its files to the Recycle Bin (Trash on a Mac).</div>
+      <div class="tp-hint">Reorder… renames them 01_Name, 02_Name and so on so they sort that way. Restart Plasticity to see changes.</div>
+      <div class="tp-hint">Installed environments are only changed when you click: Fix, Disable, Enable, Delete or Apply Order.</div>
     </div>
   </div>
 
@@ -3339,7 +3416,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       initPlasticity();
       loadUserThemes();
       let startTab = 'radial';
-      try { const t = localStorage.getItem(TABKEY); if (t === 'theme' || t === 'matcaps' || t === 'shortcuts') startTab = t; } catch (e) {}
+      try { const t = localStorage.getItem(TABKEY); if (t === 'theme' || t === 'matcaps' || t === 'environments' || t === 'shortcuts') startTab = t; } catch (e) {}
       showTab(startTab, true);
     })();
   </script>
@@ -3354,9 +3431,9 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       const VERSION = '1';
       const BIN = isMacOS ? 'Trash' : 'Recycle Bin';
       const LINES = [
-        "This app changes files in your Plasticity folders. That's its job: it saves radial menus, writes themes and keyboard shortcuts, and adds, renames, moves and deletes matcaps.",
+        "This app changes files in your Plasticity folders. That's its job: it saves radial menus, writes themes and keyboard shortcuts, and adds, renames, moves and deletes matcaps and environments.",
         "By using it you agree to that, and you use it at your own risk. It's provided as is, and its creator isn't responsible for any loss or damage that comes from using it.",
-        `Most of this is easy to undo. Plasticity can reset its theme to defaults, disabled matcaps can be enabled again, and deleted matcaps go to the ${BIN} first. A backup of your .plasticity folder never hurts.`,
+        `Most of this is easy to undo. Plasticity can reset its theme to defaults, disabled matcaps and environments can be enabled again, and deleted ones go to the ${BIN} first. A backup of your .plasticity folder never hurts.`,
         "It's up to you to read the Plasticity documentation and understand how the pieces fit together. This app is a tool to make them fit more easily."
       ];
 
@@ -3414,19 +3491,38 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
 
   <!-- ===== Matcaps tab script ===== -->
   <script>
-    // Matcaps tab: add PNG, JPG and EXR files, save them to Plasticity's matcaps folder as
-    // clean PNG + EXR pairs, and check the matcaps already there. The image work happens in
-    // Rust (src-tauri/src/matcaps.rs); this keeps the lists and the page.
-    (function () {
+    // Matcaps and Environments tabs: add image files, save them to Plasticity's matcaps or
+    // environments folder as clean PNG + EXR pairs, and check the ones already there. Both
+    // tabs run libraryTab below with their own settings; the image work happens in Rust
+    // (src-tauri/src/matcaps.rs, which takes the same `library`), this keeps the lists and the page.
+    const LIBRARY_TABS = {
+      matcaps: {
+        tab: 'matcaps', p: 'mc', library: 'matcaps', one: 'matcap', many: 'matcaps', Title: 'Matcaps',
+        folderKey: 'plasticity-matcaps-folder', sizeKey: 'plasticity-matcaps-sizes',
+        accept: /\.(png|jpe?g|webp|exr)$/i, acceptText: 'PNG, JPG, WebP and EXR',
+        pngSizes: ['64', '128'], exrSizes: ['512', '1024'], tint: true, wide: false
+      },
+      // 2:1 panoramas: sizes are heights, and EXR size 0 keeps an HDR's own size
+      environments: {
+        tab: 'environments', p: 'ev', library: 'environments', one: 'environment', many: 'environments', Title: 'Environments',
+        folderKey: 'plasticity-environments-folder', sizeKey: 'plasticity-environments-sizes',
+        accept: /\.(exr|hdri?)$/i, acceptText: 'EXR and HDR',
+        pngSizes: ['64', '128'], exrSizes: ['0', '512', '1024'], tint: false, wide: true
+      }
+    };
+
+    function libraryTab(L) {
       'use strict';
 
-      const $ = (id) => document.getElementById(id);
-      const FOLDERKEY = 'plasticity-matcaps-folder', SIZEKEY = 'plasticity-matcaps-sizes';
-      const IMAGE_RE = /\.(png|jpe?g|webp|exr)$/i;
+      // The markup's ids start with mc (Matcaps) or ev (Environments); the code uses the mc names.
+      const $ = (id) => document.getElementById(L.p + id.slice(2));
+      const FOLDERKEY = L.folderKey, SIZEKEY = L.sizeKey;
+      const IMAGE_RE = L.accept;
+      const LIB = { library: L.library };
 
       let folder = null;
       let installed = [];   // from list_installed_matcaps
-      let groups = [];      // to add: { key, name, png, exr, jpg, tinted, replace, saveError }
+      let groups = [];      // to add: { key, name, png, exr, src, tinted, replace, saveError }
       let nextKey = 1;
       let busy = false;
       let started = false;
@@ -3507,13 +3603,13 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
 
       async function useDefaultFolder() {
         try { localStorage.removeItem(FOLDERKEY); } catch (e) {}
-        folder = await invokeCommand('default_matcaps_folder');
+        folder = await invokeCommand('default_matcaps_folder', LIB);
         showFolder();
         await refreshInstalled();
       }
 
       async function changeFolder() {
-        const picked = await invokeCommand('pick_matcaps_folder');
+        const picked = await invokeCommand('pick_matcaps_folder', LIB);
         if (!picked) return;
         folder = picked;
         try { localStorage.setItem(FOLDERKEY, folder); } catch (e) {}
@@ -3524,8 +3620,8 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       function loadSizes() {
         try {
           const s = JSON.parse(localStorage.getItem(SIZEKEY) || 'null');
-          if (s && ['64', '128'].includes(String(s.png))) $('mcPngSize').value = String(s.png);
-          if (s && ['512', '1024'].includes(String(s.exr))) $('mcExrSize').value = String(s.exr);
+          if (s && L.pngSizes.includes(String(s.png))) $('mcPngSize').value = String(s.png);
+          if (s && L.exrSizes.includes(String(s.exr))) $('mcExrSize').value = String(s.exr);
         } catch (e) {}
       }
       function sizesChanged() {
@@ -3534,10 +3630,10 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       }
 
       // ---------- adding files ----------
-      // A PNG and an EXR are kept as they are; a JPG or WebP is only a source to make them from.
+      // A PNG and an EXR are kept as they are; a JPG, WebP or HDR is only a source to make them from.
       function place(info) {
         const slot = info.kind === 'png' || info.kind === 'exr' ? info.kind : 'src';
-        const base = mcClean(info.stem) || 'matcap';
+        const base = mcClean(info.stem) || L.one;
         let name = base;
         for (let n = 2; ; n++) {
           const g = groups.find((x) => lower(x.name) === lower(name));
@@ -3565,8 +3661,8 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
             try {
               const info = it.file
                 ? await invokeCommand('stage_matcap_bytes', new Uint8Array(await it.file.arrayBuffer()),
-                    { headers: { 'x-file-name': encodeURIComponent(it.name) } })
-                : await invokeCommand('stage_matcap_path', { path: it.path });
+                    { headers: { 'x-file-name': encodeURIComponent(it.name), 'x-library': L.library } })
+                : await invokeCommand('stage_matcap_path', { path: it.path, library: L.library });
               place(info);
               added++;
             } catch (err) {
@@ -3577,10 +3673,10 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
           busy = false;
         }
         render();
-        const extra = skipped.length ? ` Skipped ${skipped.join(', ')}: only PNG, JPG, WebP and EXR can be used.` : '';
+        const extra = skipped.length ? ` Skipped ${skipped.join(', ')}: only ${L.acceptText} can be used.` : '';
         if (failed.length) note(failed.join('  ') + extra, 'error', true);
         else if (skipped.length) note(`Added ${plural(added, 'file')}.${extra}`, 'warning', true);
-        else if (added) note(`Added ${plural(added, 'file')}. Check the names, then click Save to Matcaps.`);
+        else if (added) note(`Added ${plural(added, 'file')}. Check the names, then click Save to ${L.Title}.`);
       }
 
       function takeDropped(fileList) {
@@ -3592,7 +3688,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       async function pickFiles() {
         if (busy) return;
         let paths;
-        try { paths = await invokeCommand('pick_matcap_files'); }
+        try { paths = await invokeCommand('pick_matcap_files', LIB); }
         catch (err) { note(`Could not open the file picker: ${err}`, 'error'); return; }
         if (paths && paths.length) addFiles(paths.map((p) => ({ name: p.split(/[\\/]/).pop(), path: p })));
       }
@@ -3611,39 +3707,52 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       function analyze(g, dupNames) {
         const a = { error: '', warnings: [], plan: [], canReplace: false };
         const P = pngSize(), E = exrSize();
-        const exrFrom = g.exr ? null : (g.png || g.src);
+        // matches save_matcap in matcaps.rs: an environment's EXR only comes from an HDR
+        const exrFrom = g.exr ? null : (L.wide ? g.src : (g.png || g.src));
         const pngFrom = g.png ? null : (g.exr || g.src);
         // matches convert() in matcaps.rs
-        const cut = (f) => (f && (f.kind === 'jpg' || (f.kind === 'webp' && !f.hasAlpha)) ? ', cut to a circle' : '');
+        const cut = (f) => (!L.wide && f && (f.kind === 'jpg' || (f.kind === 'webp' && !f.hasAlpha)) ? ', cut to a circle' : '');
         const kindName = (f) => (f.kind === 'webp' ? 'WebP' : f.kind.toUpperCase());
+        // matcaps are square; environments are 2:1, sized by height (0 = the HDR's own size)
+        const dims = (h, from) => (!L.wide ? `${h} px` : h ? `${h * 2} × ${h}` : `${from.width} × ${from.height}`);
 
-        a.plan.push(g.exr ? `${g.exr.fileName} → ${g.name}.exr` : `makes ${g.name}.exr (${E} px) from the ${kindName(exrFrom)}${cut(exrFrom)}`);
-        a.plan.push(g.png ? `${g.png.fileName} → ${g.name}.png` : `makes ${g.name}.png (${P} px) from the ${kindName(pngFrom)}${cut(pngFrom)}`);
-        if (g.tinted) a.plan.push(`${g.name}.json`);
+        if (!g.exr && !exrFrom) a.error = L.wide ? 'Needs an EXR or an HDR to make the EXR from.' : 'Needs a PNG, JPG or WebP to make the EXR from.';
+        else a.plan.push(g.exr ? `${g.exr.fileName} → ${g.name}.exr` : `makes ${g.name}.exr (${dims(E, exrFrom)}) from the ${kindName(exrFrom)}${cut(exrFrom)}`);
+        a.plan.push(g.png ? `${g.png.fileName} → ${g.name}.png` : `makes ${g.name}.png (${dims(P, pngFrom)}) from the ${kindName(pngFrom)}${cut(pngFrom)}`);
+        if (g.tinted && L.tint) a.plan.push(`${g.name}.json`);
 
         if (g.src && exrFrom !== g.src && pngFrom !== g.src) a.warnings.push(`${g.src.fileName} isn't needed and won't be saved.`);
-        if (exrFrom && Math.min(exrFrom.width, exrFrom.height) < E) {
-          a.warnings.push(`${exrFrom.fileName} is only ${Math.min(exrFrom.width, exrFrom.height)} px, so the EXR is enlarged and may look soft.`);
+        const short = exrFrom && (L.wide ? E && exrFrom.height < E : Math.min(exrFrom.width, exrFrom.height) < E);
+        if (short) {
+          a.warnings.push(L.wide
+            ? `${exrFrom.fileName} is only ${exrFrom.height} px tall, so the EXR is enlarged and may look soft.`
+            : `${exrFrom.fileName} is only ${Math.min(exrFrom.width, exrFrom.height)} px, so the EXR is enlarged and may look soft.`);
         }
-        [exrFrom, pngFrom].filter((s, i, all) => s && all.indexOf(s) === i && s.width !== s.height)
-          .forEach((s) => a.warnings.push(`${s.fileName} isn't square, so only its centre is used.`));
+        if (L.wide) {
+          [g.exr, g.src].filter((s) => s && s.width !== s.height * 2)
+            .forEach((s) => a.warnings.push(`${s.fileName} is ${s.width} × ${s.height}, not a 2:1 panorama, so it may not wrap around the scene properly.`));
+        } else {
+          [exrFrom, pngFrom].filter((s, i, all) => s && all.indexOf(s) === i && s.width !== s.height)
+            .forEach((s) => a.warnings.push(`${s.fileName} isn't square, so only its centre is used.`));
+        }
 
-        if (!g.name) a.error = 'Needs a name.';
+        if (a.error) { /* nothing to make the EXR from */ }
+        else if (!g.name) a.error = 'Needs a name.';
         else if (dupNames.has(lower(g.name))) a.error = 'Another row has the same name.';
         else {
           const inst = installedMatch(g.name);
           if (inst && inst.disabled) {
-            a.error = `A disabled matcap is called ${inst.name}. Pick another name, or enable and replace that one.`;
+            a.error = `A disabled ${L.one} is called ${inst.name}. Pick another name, or enable and replace that one.`;
           } else if (inst) {
             // Replace deletes the old NAME.png/.exr/.json, so it is only offered when those are the
-            // installed matcap's only files; otherwise leftovers would clash with the new pair.
+            // installed one's only files; otherwise leftovers would clash with the new pair.
             const files = [inst.png, inst.exr, inst.json].filter(Boolean);
-            const exact = !inst.jpg && !inst.extra.length && files.every((f) => f.slice(0, f.lastIndexOf('.')) === inst.name);
+            const exact = !inst.src && !inst.extra.length && files.every((f) => f.slice(0, f.lastIndexOf('.')) === inst.name);
             if (exact) {
               a.canReplace = true;
               if (!g.replace) a.error = `${inst.name} is already installed.`;
             } else {
-              a.error = `Clashes with the installed ${[...files, inst.jpg, ...inst.extra].filter(Boolean).join(', ')}. Pick another name.`;
+              a.error = `Clashes with the installed ${[...files, inst.src, ...inst.extra].filter(Boolean).join(', ')}. Pick another name.`;
             }
           }
         }
@@ -3666,7 +3775,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
         const replacing = ready.filter((g) => { const m = installedMatch(g.name); return m && !m.disabled; });
         if (replacing.length) {
           const names = replacing.map((g) => g.name).join(', ');
-          const ok = await confirmBox('Replace installed matcaps?', [
+          const ok = await confirmBox(`Replace installed ${L.many}?`, [
             `This deletes the installed ${names} (the PNG, the EXR and any .json) and saves the new ${replacing.length === 1 ? 'one' : 'ones'} in ${replacing.length === 1 ? 'its' : 'their'} place.`
           ], 'Replace');
           if (!ok) return;
@@ -3679,12 +3788,12 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
           note(`Saving ${g.name}…`, 'success', true);
           try {
             await invokeCommand('save_matcap', { req: {
-              folder, name: g.name,
+              library: L.library, folder, name: g.name,
               pngId: g.png ? g.png.id : null, exrId: g.exr ? g.exr.id : null, srcId: g.src ? g.src.id : null,
-              pngSize: pngSize(), exrSize: exrSize(), tinted: g.tinted, replace: g.replace
+              pngSize: pngSize(), exrSize: exrSize(), tinted: L.tint && g.tinted, replace: g.replace
             } });
             saved++;
-            unstage([g]); // the backend drops what it used; this clears an unused JPG or WebP too
+            unstage([g]); // the backend drops what it used; this clears an unused source too
             groups = groups.filter((x) => x !== g);
           } catch (err) {
             g.saveError = String(err);
@@ -3695,7 +3804,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
         await refreshInstalled(true);
         const left = groups.length ? ` ${plural(groups.length, 'row')} still to sort out.` : '';
         if (failed.length) note(`Saved ${saved}. Could not save ${failed.join(', ')}.${left}`, 'error', true);
-        else note(`Saved ${plural(saved, 'matcap')} to ${folder}.${left}`, left ? 'warning' : 'success', !!left);
+        else note(`Saved ${plural(saved, L.one)} to ${folder}.${left}`, left ? 'warning' : 'success', !!left);
       }
 
       async function clearStaged() {
@@ -3711,7 +3820,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
         if (!folder) { installed = []; render(); return; }
         if (!keepPreviews) previews.clear();
         try {
-          installed = await invokeCommand('list_installed_matcaps', { folder });
+          installed = await invokeCommand('list_installed_matcaps', { folder, ...LIB });
         } catch (err) {
           installed = [];
           note(`Could not read ${folder}: ${err}`, 'error', true);
@@ -3720,10 +3829,10 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       }
 
       async function fixOne(g) {
-        return invokeCommand('fix_installed_matcap', { folder, name: g.name, disabled: g.disabled, pngSize: pngSize(), exrSize: exrSize() });
+        return invokeCommand('fix_installed_matcap', { folder, name: g.name, disabled: g.disabled, pngSize: pngSize(), exrSize: exrSize(), ...LIB });
       }
 
-      // Tint, Disable and Enable each change one installed matcap, straight from a click.
+      // Tint, Disable and Enable each change one installed item, straight from a click.
       async function act(label, cmd, args, done) {
         if (busy) return;
         busy = true;
@@ -3740,24 +3849,24 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
         { folder, name: g.name, disabled: g.disabled, tinted },
         `${g.name} is ${tinted ? 'now tinted' : 'no longer tinted'}. Restart Plasticity to see it.`);
       const setEnabled = (g, enabled) => act(`${enabled ? 'enable' : 'disable'} ${g.name}`, 'set_matcap_enabled',
-        { folder, name: g.name, enabled },
-        enabled ? `${g.name} is back in Plasticity's matcaps.` : `${g.name} moved to the matcaps-disabled folder, so Plasticity won't load it.`);
+        { folder, name: g.name, enabled, ...LIB },
+        enabled ? `${g.name} is back in Plasticity's ${L.many}.` : `${g.name} moved to the ${L.many}-disabled folder, so Plasticity won't load it.`);
       const BIN = isMacOS ? 'Trash' : 'Recycle Bin';
       async function trash(g) {
         if (busy) return;
-        const files = [g.exr, g.png, g.json, g.jpg, ...g.extra].filter(Boolean);
+        const files = [g.exr, g.png, g.json, g.src, ...g.extra].filter(Boolean);
         const ok = await confirmBox(`Delete ${g.name}?`, [
           `${files.join(', ')} will be moved to the ${BIN}.`,
           `You can restore them from the ${BIN} until you empty it.`
         ], 'Delete');
         if (!ok) return;
-        act(`delete ${g.name}`, 'trash_disabled_matcap', { folder, name: g.name }, `${g.name} moved to the ${BIN}.`);
+        act(`delete ${g.name}`, 'trash_disabled_matcap', { folder, name: g.name, ...LIB }, `${g.name} moved to the ${BIN}.`);
       }
 
       // ---------- order ----------
-      // While ordering, `ordering` holds the enabled matcap names in their new order.
+      // While ordering, `ordering` holds the enabled names in their new order.
       let ordering = null;
-      const orderable = () => installed.filter((g) => !g.disabled && (g.png || g.exr || g.jpg));
+      const orderable = () => installed.filter((g) => !g.disabled && (g.png || g.exr || g.src));
       // Same as strip_number and the numbering in order_matcaps (matcaps.rs).
       const stripNumber = (n) => { const m = /^(\d+)_(.+)$/.exec(n); return m ? m[2] : n; };
       const numbered = (i, n, count) => `${String(i + 1).padStart(Math.max(2, String(count).length), '0')}_${stripNumber(n)}`;
@@ -3766,7 +3875,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
         if (busy) return;
         ordering = orderable().map((g) => g.name);
         if (!ordering.length) { ordering = null; return; }
-        note('Drag the matcaps into order (or use the arrows), then click Apply Order.', 'success', true);
+        note(`Drag the ${L.many} into order (or use the arrows), then click Apply Order.`, 'success', true);
         render();
       }
       function endOrder() { ordering = null; note(''); render(); }
@@ -3776,18 +3885,18 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
         const names = withNumbers ? ordering : orderable().map((g) => g.name);
         const changes = names.filter((n, i) => (withNumbers ? numbered(i, n, names.length) : stripNumber(n)) !== n).length;
         if (!changes) { note(withNumbers ? 'Already in this order.' : 'No numbers to remove.', 'warning'); return; }
-        const ok = await confirmBox(withNumbers ? `Rename ${plural(changes, 'matcap')} to set the order?` : `Remove the numbers from ${plural(changes, 'matcap')}?`, [
+        const ok = await confirmBox(withNumbers ? `Rename ${plural(changes, L.one)} to set the order?` : `Remove the numbers from ${plural(changes, L.one)}?`, [
           withNumbers
-            ? 'Each matcap is renamed with a number in front (01_Name, 02_Name…), including its .json. Plasticity shows the number as part of the name.'
-            : 'Each numbered matcap goes back to its name without the number.',
+            ? `Each ${L.one} is renamed with a number in front (01_Name, 02_Name…)${L.tint ? ', including its .json' : ''}. Plasticity shows the number as part of the name.`
+            : `Each numbered ${L.one} goes back to its name without the number.`,
           'Restart Plasticity afterwards to see the new order.'
         ], withNumbers ? 'Apply Order' : 'Remove Numbers');
         if (!ok) return;
         busy = true;
         try {
-          await invokeCommand('order_matcaps', { folder, names, numbered: withNumbers });
+          await invokeCommand('order_matcaps', { folder, names, numbered: withNumbers, ...LIB });
           ordering = null;
-          note(withNumbers ? `Renamed ${plural(changes, 'matcap')} into the new order.` : `Removed the numbers from ${plural(changes, 'matcap')}.`);
+          note(withNumbers ? `Renamed ${plural(changes, L.one)} into the new order.` : `Removed the numbers from ${plural(changes, L.one)}.`);
         } catch (err) {
           note(`Could not rename: ${err}`, 'error', true);
         }
@@ -3796,8 +3905,9 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       }
 
       // ---------- collections ----------
-      // A collection is a saved set of matcaps to have enabled. Members are kept without their
-      // order number, the same as member_key in matcaps.rs, so reordering doesn't break them.
+      // A collection is a saved set to have enabled. Members are kept without their order
+      // number, the same as member_key in matcaps.rs, so reordering doesn't break them.
+      // (The member list is called "matcaps" in both tabs' files.)
       let collections = []; // [{ name, matcaps: [names without numbers] }]
       const memberKey = (n) => lower(stripNumber(n));
       const enabledNow = () => orderable().map((g) => stripNumber(g.name));
@@ -3813,7 +3923,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
 
       async function loadCollections() {
         try {
-          const text = await invokeCommand('load_matcap_collections');
+          const text = await invokeCommand('load_matcap_collections', LIB);
           const data = text ? JSON.parse(text) : null;
           collections = data && Array.isArray(data.collections)
             ? data.collections.filter((c) => c && typeof c.name === 'string' && Array.isArray(c.matcaps))
@@ -3826,7 +3936,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
 
       async function storeCollections(before) {
         try {
-          await invokeCommand('save_matcap_collections', { contents: JSON.stringify({ collections }, null, 2) });
+          await invokeCommand('save_matcap_collections', { contents: JSON.stringify({ collections }, null, 2), ...LIB });
           return true;
         } catch (err) {
           collections = before;
@@ -3870,9 +3980,9 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       async function newCollection() {
         if (busy) return;
         const members = enabledNow();
-        if (!members.length) { note('Enable the matcaps you want in the collection first.', 'warning'); return; }
-        const name = await askCollectionName('Save enabled matcaps as a collection',
-          `The ${plural(members.length, 'matcap')} enabled now will make up the collection. What should it be called?`, '', 'Save');
+        if (!members.length) { note(`Enable the ${L.many} you want in the collection first.`, 'warning'); return; }
+        const name = await askCollectionName(`Save enabled ${L.many} as a collection`,
+          `The ${plural(members.length, L.one)} enabled now will make up the collection. What should it be called?`, '', 'Save');
         if (!name) return;
         const before = collections.slice();
         collections = [...collections, { name, matcaps: members }];
@@ -3880,7 +3990,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
           renderCollections();
           $('mcColl').value = name;
           render();
-          note(`Saved ${name} with ${plural(members.length, 'matcap')}.`);
+          note(`Saved ${name} with ${plural(members.length, L.one)}.`);
         }
       }
 
@@ -3888,14 +3998,14 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
         const c = chosenCollection();
         if (busy || !c) return;
         const members = enabledNow();
-        if (!members.length) { note('Enable the matcaps you want in the collection first.', 'warning'); return; }
+        if (!members.length) { note(`Enable the ${L.many} you want in the collection first.`, 'warning'); return; }
         const ok = await confirmBox(`Update ${c.name}?`, [
-          `${c.name} will be changed to the ${plural(members.length, 'matcap')} enabled now (it has ${c.matcaps.length} at the moment).`
+          `${c.name} will be changed to the ${plural(members.length, L.one)} enabled now (it has ${c.matcaps.length} at the moment).`
         ], 'Update');
         if (!ok) return;
         const before = collections.slice();
         collections = collections.map((x) => (x === c ? { name: c.name, matcaps: members } : x));
-        if (await storeCollections(before)) { render(); note(`${c.name} now has ${plural(members.length, 'matcap')}.`); }
+        if (await storeCollections(before)) { render(); note(`${c.name} now has ${plural(members.length, L.one)}.`); }
       }
 
       async function renameCollection() {
@@ -3912,7 +4022,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
         const c = chosenCollection();
         if (busy || !c) return;
         const ok = await confirmBox(`Delete the collection ${c.name}?`, [
-          'Only the collection goes. Your matcaps stay exactly as they are.'
+          `Only the collection goes. Your ${L.many} stay exactly as they are.`
         ], 'Delete');
         if (!ok) return;
         const before = collections.slice();
@@ -3924,7 +4034,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
         const c = chosenCollection();
         if (busy || !c) return;
         const want = new Set(c.matcaps.map(lower));
-        const withImage = installed.filter((g) => g.png || g.exr || g.jpg);
+        const withImage = installed.filter((g) => g.png || g.exr || g.src);
         const toEnable = withImage.filter((g) => g.disabled && want.has(memberKey(g.name)));
         const toDisable = withImage.filter((g) => !g.disabled && !want.has(memberKey(g.name)));
         const present = new Set(withImage.map((g) => memberKey(g.name)));
@@ -3934,7 +4044,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
           return;
         }
         const lines = [
-          `This enables ${plural(toEnable.length, 'matcap')} and disables ${plural(toDisable.length, 'other')}. Disabled matcaps move to the matcaps-disabled folder; nothing is deleted.`
+          `This enables ${plural(toEnable.length, L.one)} and disables ${plural(toDisable.length, 'other')}. Disabled ${L.many} move to the ${L.many}-disabled folder; nothing is deleted.`
         ];
         if (missing.length) lines.push(`Not installed any more, so skipped: ${missing.join(', ')}.`);
         lines.push('Restart Plasticity afterwards to see the change.');
@@ -3943,7 +4053,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
         busy = true;
         note(`Switching to ${c.name}…`, 'success', true);
         try {
-          const r = await invokeCommand('apply_matcap_collection', { folder, members: c.matcaps });
+          const r = await invokeCommand('apply_matcap_collection', { folder, members: c.matcaps, ...LIB });
           const parts = [`Now using ${c.name}: enabled ${r.enabled.length}, disabled ${r.disabled.length}.`];
           if (r.failed.length) parts.push(`Couldn't move ${r.failed.join(', ')}.`);
           note(parts.join(' '), r.failed.length ? 'error' : 'success', !!r.failed.length);
@@ -3978,8 +4088,8 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
         if (busy) return;
         const list = installed.filter((g) => g.fixable);
         if (!list.length) return;
-        const ok = await confirmBox(`Fix ${plural(list.length, 'matcap')}?`, [
-          'This renames files in your matcaps folder and makes any missing PNG or EXR:',
+        const ok = await confirmBox(`Fix ${plural(list.length, L.one)}?`, [
+          `This renames files in your ${L.many} folder and makes any missing PNG or EXR:`,
           ...list.map((g) => `${g.name}: ${g.fix.join('. ')}.`)
         ], 'Fix All');
         if (!ok) return;
@@ -3992,7 +4102,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
         busy = false;
         await refreshInstalled();
         if (failed.length) note(`Fixed ${list.length - failed.length}. ${failed.join('  ')}`, 'error', true);
-        else note(`Fixed ${plural(list.length, 'matcap')}.`);
+        else note(`Fixed ${plural(list.length, L.one)}.`);
       }
 
       // Thumbnails load as rows scroll into view, a few at a time.
@@ -4012,7 +4122,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
           const key = previewKey(disabled, file);
           if (previews.has(key)) { img.src = previews.get(key); continue; }
           running++;
-          invokeCommand('installed_matcap_preview', { folder, fileName: file, disabled })
+          invokeCommand('installed_matcap_preview', { folder, fileName: file, disabled, ...LIB })
             .then((url) => { previews.set(key, url); img.src = url; })
             .catch((err) => {
               img.classList.add('bad');
@@ -4042,7 +4152,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
         const main = el('div');
         const name = el('input', 'form-input mc-name');
         name.type = 'text'; name.spellcheck = false; name.value = g.name;
-        name.setAttribute('aria-label', 'Matcap name');
+        name.setAttribute('aria-label', `${L.Title.slice(0, -1)} name`);
         name.addEventListener('change', () => {
           g.name = mcClean(name.value);
           g.replace = false; g.saveError = '';
@@ -4062,12 +4172,16 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
         main.appendChild(status);
         row.appendChild(main);
 
-        const tint = el('label', 'mc-check');
-        const tbox = el('input'); tbox.type = 'checkbox'; tbox.checked = g.tinted;
-        tbox.addEventListener('change', () => { g.tinted = tbox.checked; render(); });
-        tint.append(tbox, 'Tinted (beta)');
-        tint.title = TINT_TIP;
-        row.appendChild(tintCell(g.tinted, img, tint));
+        if (L.tint) {
+          const tint = el('label', 'mc-check');
+          const tbox = el('input'); tbox.type = 'checkbox'; tbox.checked = g.tinted;
+          tbox.addEventListener('change', () => { g.tinted = tbox.checked; render(); });
+          tint.append(tbox, 'Tinted (beta)');
+          tint.title = TINT_TIP;
+          row.appendChild(tintCell(g.tinted, img, tint));
+        } else {
+          row.appendChild(el('span'));
+        }
 
         const remove = el('button', 'close-btn', '×');
         remove.type = 'button'; remove.title = 'Remove from the list'; remove.setAttribute('aria-label', `Remove ${g.name}`);
@@ -4145,7 +4259,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       }
 
       function installedThumb(g) {
-        const file = g.png || g.exr || g.jpg;
+        const file = g.png || g.exr || g.src;
         const img = thumb(file ? previews.get(previewKey(g.disabled, file)) : null);
         if (file && !img.src) { img.dataset.file = file; img.dataset.disabled = g.disabled ? '1' : ''; io.observe(img); }
         return img;
@@ -4155,11 +4269,11 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
         const row = el('div', `mc-row${g.disabled ? ' mc-off' : ''}`);
         const img = installedThumb(g);
         row.appendChild(img);
-        const hasImage = !!(g.png || g.exr || g.jpg);
+        const hasImage = !!(g.png || g.exr || g.src);
 
         const main = el('div');
         main.appendChild(el('div', 'mc-title', g.name || '(no name)'));
-        main.appendChild(el('div', 'mc-files', [g.exr, g.png, g.json, g.jpg, ...g.extra].filter(Boolean).join(' · ')));
+        main.appendChild(el('div', 'mc-files', [g.exr, g.png, g.json, g.src, ...g.extra].filter(Boolean).join(' · ')));
         if (g.issues.length) {
           main.appendChild(el('div', 'mc-status warning', g.issues.join(' · ')));
           if (g.fixable) main.appendChild(el('div', 'mc-files', `Fix will: ${g.fix.join('. ')}.`));
@@ -4169,7 +4283,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
         }
         row.appendChild(main);
 
-        if (hasImage) {
+        if (hasImage && L.tint) {
           const tint = el('label', 'mc-check');
           const box = el('input'); box.type = 'checkbox'; box.checked = g.tinted;
           box.addEventListener('change', () => setTint(g, box.checked));
@@ -4185,7 +4299,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
         if (hasImage) {
           acts.appendChild(g.disabled
             ? smallButton('Enable', 'Move it back so Plasticity loads it', () => setEnabled(g, true))
-            : smallButton('Disable', "Move it to the matcaps-disabled folder so Plasticity doesn't load it", () => setEnabled(g, false)));
+            : smallButton('Disable', `Move it to the ${L.many}-disabled folder so Plasticity doesn't load it`, () => setEnabled(g, false)));
           if (g.disabled) acts.appendChild(smallButton('Delete…', `Move its files to the ${BIN}`, () => trash(g)));
         }
         row.appendChild(acts);
@@ -4216,7 +4330,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
         row.addEventListener('dragstart', (e) => {
           dragFrom = i;
           e.dataTransfer.effectAllowed = 'move';
-          e.dataTransfer.setData('text/x-matcap', name);
+          e.dataTransfer.setData(`text/x-${L.one}`, name);
           row.classList.add('dragging');
         });
         row.addEventListener('dragend', () => { dragFrom = -1; row.classList.remove('dragging'); });
@@ -4252,10 +4366,10 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
 
         const on = installed.filter((g) => !g.disabled), off = installed.filter((g) => g.disabled);
         const broken = installed.filter((g) => g.issues.length);
-        const real = on.filter((g) => g.png || g.exr || g.jpg).length;
+        const real = on.filter((g) => g.png || g.exr || g.src).length;
         const inUse = collectionInUse();
         $('mcCount').textContent = installed.length
-          ? `· ${plural(real, 'matcap')}${off.length ? `, ${off.length} disabled` : ''}${broken.length ? `, ${broken.length} with problems` : ''}${inUse ? ` · using ${inUse.name}` : ''}`
+          ? `· ${plural(real, L.one)}${off.length ? `, ${off.length} disabled` : ''}${broken.length ? `, ${broken.length} with problems` : ''}${inUse ? ` · using ${inUse.name}` : ''}`
           : '';
         renderCollections();
         $('mcFixAll').disabled = !installed.some((g) => g.fixable);
@@ -4268,14 +4382,14 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
         const only = $('mcOnlyBroken').checked;
         const shownOn = only ? on.filter((g) => g.issues.length) : on;
         const shownOff = only ? off.filter((g) => g.issues.length) : off;
-        if (!folder) list.replaceChildren(el('div', 'mc-empty', 'Choose the matcaps folder on the right.'));
-        else if (!installed.length) list.replaceChildren(el('div', 'mc-empty', 'No matcaps in this folder yet.'));
+        if (!folder) list.replaceChildren(el('div', 'mc-empty', `Choose the ${L.many} folder on the right.`));
+        else if (!installed.length) list.replaceChildren(el('div', 'mc-empty', `No ${L.many} in this folder yet.`));
         else if (!shownOn.length && !shownOff.length) list.replaceChildren(el('div', 'mc-empty', 'No problems found.'));
         else {
           const rows = shownOn.map(installedRow);
           if (shownOff.length) {
             const sub = el('div', 'mc-sub', 'Disabled ');
-            sub.appendChild(el('span', null, "· in matcaps-disabled, so Plasticity doesn't load them"));
+            sub.appendChild(el('span', null, `· in ${L.many}-disabled, so Plasticity doesn't load them`));
             rows.push(sub, ...shownOff.map(installedRow));
           }
           list.replaceChildren(...rows);
@@ -4290,12 +4404,12 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       document.addEventListener('dragover', (e) => {
         if (!hasFiles(e)) return;
         e.preventDefault();
-        if (document.body.dataset.tab !== 'matcaps') e.dataTransfer.dropEffect = 'none';
+        if (!(document.body.dataset.tab in LIBRARY_TABS)) e.dataTransfer.dropEffect = 'none';
       });
       document.addEventListener('drop', (e) => {
         if (!hasFiles(e)) return;
         e.preventDefault();
-        if (document.body.dataset.tab === 'matcaps' && tauriAvailable) takeDropped(e.dataTransfer.files);
+        if (document.body.dataset.tab === L.tab && tauriAvailable) takeDropped(e.dataTransfer.files);
       });
       let depth = 0;
       app.addEventListener('dragenter', (e) => { if (hasFiles(e)) { depth++; drop.classList.add('over'); } });
@@ -4332,21 +4446,23 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
           drop.classList.add('off');
           ['mcChange', 'mcDefault', 'mcRefresh', 'mcFixAll', 'mcOrder'].forEach((id) => { $(id).disabled = true; });
           $('mcFolder').textContent = 'Not available';
-          note('The Matcaps tab needs the desktop app: it reads and writes your Plasticity folder.', 'warning', true);
+          note(`The ${L.Title} tab needs the desktop app: it reads and writes your Plasticity folder.`, 'warning', true);
           return;
         }
         try { folder = localStorage.getItem(FOLDERKEY) || null; } catch (e) {}
         if (!folder) {
-          try { folder = await invokeCommand('default_matcaps_folder'); } catch (e) { folder = null; }
+          try { folder = await invokeCommand('default_matcaps_folder', LIB); } catch (e) { folder = null; }
         }
         showFolder();
         await loadCollections();
         await refreshInstalled();
       }
-      document.addEventListener('app-tab', (e) => { if (e.detail === 'matcaps') start(); });
-      if (document.body.dataset.tab === 'matcaps') start();
+      document.addEventListener('app-tab', (e) => { if (e.detail === L.tab) start(); });
+      if (document.body.dataset.tab === L.tab) start();
       render();
-    })();
+    }
+    libraryTab(LIBRARY_TABS.matcaps);
+    libraryTab(LIBRARY_TABS.environments);
   </script>
 
   <!-- ===== Keyboard Shortcuts tab script ===== -->
