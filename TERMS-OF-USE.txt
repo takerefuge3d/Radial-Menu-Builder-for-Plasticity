@@ -3,8 +3,8 @@ Radial Menu Builder++ for Plasticity
 (formerly Plasticity Radial Menu Builder)
 
 This app changes files in your Plasticity folders. That's its job: it saves radial
-menus, writes themes and keyboard shortcuts, adds fonts, and adds, renames, moves
-and deletes matcaps and environments.
+menus, writes themes and keyboard shortcuts, adds fonts, turns asset packs on and off,
+and adds, renames, moves and deletes matcaps and environments.
 
 By using it you agree to that, and you use it at your own risk. It's provided as is,
 and its creator isn't responsible for any loss or damage that comes from using it.

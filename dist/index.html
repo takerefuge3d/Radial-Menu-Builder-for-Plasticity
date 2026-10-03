@@ -136,6 +136,8 @@ body[data-tab="environments"] > .app-container:not(#evApp), body[data-tab="envir
 body:not([data-tab="environments"]) > #evApp { display: none; }
 body[data-tab="fonts"] > .app-container:not(#ftApp), body[data-tab="fonts"] > .json-preview { display: none !important; }
 body:not([data-tab="fonts"]) > #ftApp { display: none; }
+body[data-tab="packs"] > .app-container:not(#apApp), body[data-tab="packs"] > .json-preview { display: none !important; }
+body:not([data-tab="packs"]) > #apApp { display: none; }
 body[data-tab="shortcuts"] > .app-container:not(#ksApp), body[data-tab="shortcuts"] > .json-preview { display: none !important; }
 body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
 
@@ -208,6 +210,17 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
 #ftInstalled { flex: 1; min-height: 120px; }
 .ft-row { grid-template-columns: 240px minmax(0, 1fr) auto auto; }
 .ft-sample { width: 240px; height: 44px; color: var(--text); }
+/* Asset Packs tab */
+#apApp { color-scheme: dark; }
+#apList { flex: 1; min-height: 120px; }
+#apRunning[hidden] { display: none; }
+.ap-row { grid-template-columns: 64px minmax(0, 1fr) auto; }
+.ap-switch { font-weight: 600; }
+.ap-head { display: flex; align-items: center; gap: 6px; text-transform: none; letter-spacing: 0; }
+.ap-head-title { flex: 1; min-width: 0; overflow-wrap: anywhere; color: var(--text); }
+.ap-head .btn.mc-small { width: auto; margin: 0; padding: 3px 8px; font-size: 11px; }
+.ap-folder { display: flex; align-items: center; gap: 6px; padding: 6px 8px; margin-bottom: 4px; background: #121212; border: 1px solid var(--border); border-radius: 4px; font-size: 12px; }
+.ap-folder-path { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .ev-sphere { width: 48px; height: 48px; flex: none; cursor: grab; touch-action: none; }
 .ev-views.spinning .ev-sphere { cursor: grabbing; }
 
@@ -394,6 +407,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       <button class="app-tab" type="button" role="tab" data-tab="matcaps" aria-selected="false">Matcaps</button>
       <button class="app-tab" type="button" role="tab" data-tab="environments" aria-selected="false">Environments</button>
       <button class="app-tab" type="button" role="tab" data-tab="fonts" aria-selected="false">Fonts</button>
+      <button class="app-tab" type="button" role="tab" data-tab="packs" aria-selected="false">Asset Packs</button>
       <button class="app-tab" type="button" role="tab" data-tab="shortcuts" aria-selected="false">Keyboard Shortcuts</button>
     </div>
     <button class="app-terms" type="button" id="termsLink">Terms of use</button>
@@ -912,6 +926,38 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       <div class="tp-hint">Very decorative or overlapping letters can make awkward geometry for extrudes and fillets, even when the font converts cleanly. Simple, solid typefaces work best.</div>
       <div class="tp-hint">Check that your font's licence lets you use it this way. Fonts whose own settings say they mustn't be embedded are flagged before you install them.</div>
       <div class="tp-hint">This tab uses Plasticity's fonts folder, which works in Plasticity 26.1.3 but isn't an official feature, so a future version could change it.</div>
+    </div>
+  </div>
+
+  <div class="app-container" id="apApp">
+    <div class="center-panel">
+      <div class="notification" id="apNote"></div>
+      <div class="notification warning" id="apRunning" hidden>Plasticity is open. It saves its own list of packs, which could undo changes made here, so close it before turning packs on or off.</div>
+      <div class="ks-tools">
+        <input class="search-input" id="apSearch" type="search" placeholder="Search packs by name or folder" aria-label="Search packs" spellcheck="false" />
+      </div>
+      <div class="mc-head">
+        <div class="section-title">Asset Packs <span id="apCount"></span></div>
+        <span class="mc-bar">
+          <button class="btn mc-small" id="apRescan" type="button">Look Again</button>
+        </span>
+      </div>
+      <div class="mc-list" id="apList"></div>
+    </div>
+
+    <div class="properties-panel">
+      <div class="section-title">Pack Folders</div>
+      <div id="apFolders"></div>
+      <button class="btn" id="apAdd" type="button">Add Folder…</button>
+      <div class="tp-hint">Add the folders where you keep .plasticitypack files, on any drive. Their subfolders are searched too.</div>
+
+      <div class="separator"></div>
+      <div class="section-title">Plasticity's Pack List</div>
+      <div class="tp-path" id="apFile">Finding asset-packs.json…</div>
+      <button class="btn" id="apBackup" type="button">Restore Backup</button>
+      <div class="tp-hint">A pack is on when it's in Plasticity's list of asset packs (asset-packs.json), which is what the Assets panel shows. Turning one off only takes it out of that list; the pack file stays where it is.</div>
+      <div class="tp-hint">Close Plasticity before making changes, then open it to see them: it reads the list when it starts and saves it again itself. Each change keeps the previous list as asset-packs.json.bak, and Restore Backup puts it back.</div>
+      <div class="tp-hint">Packs you opened in Plasticity from somewhere else are listed at the bottom, with any whose file has been moved or deleted.</div>
     </div>
   </div>
 
@@ -3466,7 +3512,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       initPlasticity();
       loadUserThemes();
       let startTab = 'radial';
-      try { const t = localStorage.getItem(TABKEY); if (['theme', 'matcaps', 'environments', 'fonts', 'shortcuts'].includes(t)) startTab = t; } catch (e) {}
+      try { const t = localStorage.getItem(TABKEY); if (['theme', 'matcaps', 'environments', 'fonts', 'packs', 'shortcuts'].includes(t)) startTab = t; } catch (e) {}
       showTab(startTab, true);
     })();
   </script>
@@ -3481,7 +3527,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       const VERSION = '1';
       const BIN = isMacOS ? 'Trash' : 'Recycle Bin';
       const LINES = [
-        "This app changes files in your Plasticity folders. That's its job: it saves radial menus, writes themes and keyboard shortcuts, adds fonts, and adds, renames, moves and deletes matcaps and environments.",
+        "This app changes files in your Plasticity folders. That's its job: it saves radial menus, writes themes and keyboard shortcuts, adds fonts, turns asset packs on and off, and adds, renames, moves and deletes matcaps and environments.",
         "By using it you agree to that, and you use it at your own risk. It's provided as is, and its creator isn't responsible for any loss or damage that comes from using it.",
         `Most of this is easy to undo. Plasticity can reset its theme to defaults, disabled matcaps and environments can be enabled again, and deleted ones go to the ${BIN} first. A backup of your .plasticity folder never hurts.`,
         "It's up to you to read the Plasticity documentation and understand how the pieces fit together. This app is a tool to make them fit more easily."
@@ -4701,81 +4747,13 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
     libraryTab(LIBRARY_TABS.environments);
   </script>
 
-  <!-- ===== Keyboard Shortcuts tab script ===== -->
+  <!-- ===== Plasticity's loose JSON ===== -->
   <script>
-    // Keyboard Shortcuts tab: shows Plasticity's built-in shortcuts with the user's own
-    // keymap.json laid over them, and adds, changes or turns off shortcuts. Changes are
-    // kept here until Save to Plasticity writes keymap.json (the old file goes to .bak).
-    (function () {
+    // Plasticity writes its own files (keymap.json, asset-packs.json) loosely: bare keys,
+    // single quotes, trailing commas. Loose.parse reads that (objects come back as Maps so the
+    // file's order is kept, number-like keys included); Loose.write writes it back the same way.
+    const Loose = (function () {
       'use strict';
-
-      const $ = (id) => document.getElementById(id);
-      const FOLDERKEY = 'plasticity-keymap-folder';
-      const PLATFORM = isMacOS ? 'mac' : 'win';
-      const MAIN = 'body:not([gizmo])';
-      const OFF = 'unset!'; // Plasticity's way of switching a built-in shortcut off
-      const RADIAL = 'view:radial:';
-
-      let folder = null;
-      let fileText = null;   // keymap.json as last read or saved; null when there is none
-      let doc = new Map();   // keymap.json: selector -> Map(keys -> command), in file order
-      let savedText = '';    // doc as written when it was last read or saved, to spot changes
-      let defaults = [];     // [{ selector, key, norm, command }] for this platform
-      let radials = [];      // [{ command, name }] from ~/.plasticity/radials
-      let known = new Set(); // every command id we know about
-      let commandSets = {};  // Plasticity's command lists, as the Radial Menus tab loads them
-      let editing = null;    // the row being changed, or null when adding
-      let started = false;
-      let busy = false;
-
-      function el(tag, className, text) {
-        const e = document.createElement(tag);
-        if (className) e.className = className;
-        if (text != null) e.textContent = text;
-        return e;
-      }
-      function button(label, onClick, title) {
-        const b = el('button', 'btn mc-small', label);
-        b.type = 'button';
-        if (title) b.title = title;
-        b.addEventListener('click', onClick);
-        return b;
-      }
-      const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
-
-      function note(message, type = 'success', sticky) {
-        const box = $('ksNote');
-        box.textContent = message;
-        box.className = `notification ${type}`;
-        clearTimeout(note._t);
-        if (!sticky) note._t = setTimeout(() => { box.textContent = ''; box.className = 'notification'; }, 6000);
-      }
-
-      function confirmBox(title, lines, okLabel) {
-        return new Promise((resolve) => {
-          const wrap = el('div', 'tp-modal');
-          const box = el('div', 'tp-modal-box');
-          box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true');
-          box.appendChild(el('h3', null, title));
-          lines.forEach((t) => box.appendChild(el('p', null, t)));
-          const btns = el('div', 'tp-modal-btns');
-          const cancel = el('button', 'btn', 'Cancel'); cancel.type = 'button';
-          const ok = el('button', 'btn', okLabel); ok.type = 'button';
-          btns.append(cancel, ok); box.appendChild(btns); wrap.appendChild(box);
-          document.body.appendChild(wrap);
-          const done = (yes) => { document.removeEventListener('keydown', onKey, true); wrap.remove(); resolve(yes); };
-          const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); done(false); } };
-          document.addEventListener('keydown', onKey, true);
-          cancel.addEventListener('click', () => done(false));
-          ok.addEventListener('click', () => done(true));
-          wrap.addEventListener('click', (e) => { if (e.target === wrap) done(false); });
-          cancel.focus();
-        });
-      }
-
-      // ---------- reading and writing keymap.json ----------
-      // Plasticity writes keymap.json loosely (bare keys, single quotes, trailing commas).
-      // Objects come back as Maps so the file's order is kept, number-like keys included.
       function parseLoose(text) {
         const s = String(text).replace(/^﻿/, '');
         let i = 0;
@@ -4863,7 +4841,6 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
         const v = value();
         ws();
         if (i < s.length) fail('Unexpected text after the end');
-        if (!(v instanceof Map)) throw new Error('The file is not a set of shortcuts');
         return v;
       }
 
@@ -4886,6 +4863,91 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
         if (typeof v === 'string') return quote(v);
         return JSON.stringify(v);
       }
+
+      return { parse: parseLoose, write: writeLoose };
+    })();
+  </script>
+
+  <!-- ===== Keyboard Shortcuts tab script ===== -->
+  <script>
+    // Keyboard Shortcuts tab: shows Plasticity's built-in shortcuts with the user's own
+    // keymap.json laid over them, and adds, changes or turns off shortcuts. Changes are
+    // kept here until Save to Plasticity writes keymap.json (the old file goes to .bak).
+    (function () {
+      'use strict';
+
+      const $ = (id) => document.getElementById(id);
+      const FOLDERKEY = 'plasticity-keymap-folder';
+      const PLATFORM = isMacOS ? 'mac' : 'win';
+      const MAIN = 'body:not([gizmo])';
+      const OFF = 'unset!'; // Plasticity's way of switching a built-in shortcut off
+      const RADIAL = 'view:radial:';
+
+      let folder = null;
+      let fileText = null;   // keymap.json as last read or saved; null when there is none
+      let doc = new Map();   // keymap.json: selector -> Map(keys -> command), in file order
+      let savedText = '';    // doc as written when it was last read or saved, to spot changes
+      let defaults = [];     // [{ selector, key, norm, command }] for this platform
+      let radials = [];      // [{ command, name }] from ~/.plasticity/radials
+      let known = new Set(); // every command id we know about
+      let commandSets = {};  // Plasticity's command lists, as the Radial Menus tab loads them
+      let editing = null;    // the row being changed, or null when adding
+      let started = false;
+      let busy = false;
+
+      function el(tag, className, text) {
+        const e = document.createElement(tag);
+        if (className) e.className = className;
+        if (text != null) e.textContent = text;
+        return e;
+      }
+      function button(label, onClick, title) {
+        const b = el('button', 'btn mc-small', label);
+        b.type = 'button';
+        if (title) b.title = title;
+        b.addEventListener('click', onClick);
+        return b;
+      }
+      const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+      function note(message, type = 'success', sticky) {
+        const box = $('ksNote');
+        box.textContent = message;
+        box.className = `notification ${type}`;
+        clearTimeout(note._t);
+        if (!sticky) note._t = setTimeout(() => { box.textContent = ''; box.className = 'notification'; }, 6000);
+      }
+
+      function confirmBox(title, lines, okLabel) {
+        return new Promise((resolve) => {
+          const wrap = el('div', 'tp-modal');
+          const box = el('div', 'tp-modal-box');
+          box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true');
+          box.appendChild(el('h3', null, title));
+          lines.forEach((t) => box.appendChild(el('p', null, t)));
+          const btns = el('div', 'tp-modal-btns');
+          const cancel = el('button', 'btn', 'Cancel'); cancel.type = 'button';
+          const ok = el('button', 'btn', okLabel); ok.type = 'button';
+          btns.append(cancel, ok); box.appendChild(btns); wrap.appendChild(box);
+          document.body.appendChild(wrap);
+          const done = (yes) => { document.removeEventListener('keydown', onKey, true); wrap.remove(); resolve(yes); };
+          const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); done(false); } };
+          document.addEventListener('keydown', onKey, true);
+          cancel.addEventListener('click', () => done(false));
+          ok.addEventListener('click', () => done(true));
+          wrap.addEventListener('click', (e) => { if (e.target === wrap) done(false); });
+          cancel.focus();
+        });
+      }
+
+      // ---------- reading and writing keymap.json ----------
+      // In Plasticity's loose format; see Loose above.
+      function parseLoose(text) {
+        const v = Loose.parse(text);
+        if (!(v instanceof Map)) throw new Error('The file is not a set of shortcuts');
+        return v;
+      }
+      const writeLoose = Loose.write;
 
       const sep = () => (folder && folder.includes('\\') ? '\\' : '/');
       const keymapPath = () => folder.replace(/[\\/]+$/, '') + sep() + 'keymap.json';
@@ -5991,6 +6053,290 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       document.addEventListener('app-tab', (e) => { if (e.detail === 'fonts') start(); });
       if (document.body.dataset.tab === 'fonts') start();
       render();
+    })();
+  </script>
+
+  <!-- ===== Asset Packs tab script ===== -->
+  <script>
+    // Asset Packs tab: finds .plasticitypack files in folders the user chooses and turns them
+    // on or off by adding them to, or taking them out of, Plasticity's own list
+    // (~/.plasticity/asset-packs.json). Pack files themselves are never moved or changed.
+    (function () {
+      'use strict';
+
+      const $ = (id) => document.getElementById(id);
+      const BIN = isMacOS ? 'Trash' : 'Recycle Bin';
+      let listPath = null;  // Plasticity's asset-packs.json
+      let fileText = null;  // it as last read; null when there isn't one yet
+      let entries = [];     // its entries (Maps), in file order
+      let readError = '';
+      let folders = [];     // the user's pack folders
+      let found = [];       // [{ path, folder, size, modified }]
+      let exists = new Map(); // listed path -> file still there
+      let running = false, askedWhileRunning = false;
+      let busy = false, started = false;
+
+      function el(tag, className, text) {
+        const e = document.createElement(tag);
+        if (className) e.className = className;
+        if (text != null) e.textContent = text;
+        return e;
+      }
+      const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+      // Windows paths match whatever the case and slashes; Mac paths as they are.
+      const norm = (p) => (isMacOS ? String(p) : String(p).replace(/\//g, '\\').toLowerCase());
+      const baseName = (p) => String(p).split(/[\\/]/).pop();
+      const packName = (p) => baseName(p).replace(/\.plasticitypack$/i, '');
+      const parentOf = (p) => String(p).replace(/[\\/][^\\/]*$/, '');
+      const sizeText = (b) => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
+      const dateText = (ms) => (ms ? new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '');
+
+      function note(message, type = 'success', sticky) {
+        const box = $('apNote');
+        box.textContent = message;
+        box.className = `notification ${type}`;
+        clearTimeout(note._t);
+        if (!sticky) note._t = setTimeout(() => { box.textContent = ''; box.className = 'notification'; }, 6000);
+      }
+      function confirmBox(title, lines, okLabel) {
+        return new Promise((resolve) => {
+          const wrap = el('div', 'tp-modal');
+          const box = el('div', 'tp-modal-box');
+          box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true');
+          box.appendChild(el('h3', null, title));
+          lines.forEach((t) => box.appendChild(el('p', null, t)));
+          const btns = el('div', 'tp-modal-btns');
+          const cancel = el('button', 'btn', 'Cancel'); cancel.type = 'button';
+          const ok = el('button', 'btn', okLabel); ok.type = 'button';
+          btns.append(cancel, ok); box.appendChild(btns); wrap.appendChild(box);
+          document.body.appendChild(wrap);
+          const done = (yes) => { document.removeEventListener('keydown', onKey, true); wrap.remove(); resolve(yes); };
+          const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); done(false); } };
+          document.addEventListener('keydown', onKey, true);
+          cancel.addEventListener('click', () => done(false));
+          ok.addEventListener('click', () => done(true));
+          wrap.addEventListener('click', (e) => { if (e.target === wrap) done(false); });
+          cancel.focus();
+        });
+      }
+
+      // ---------- Plasticity's list ----------
+      function parseList(text) {
+        if (text == null || !text.trim()) return [];
+        const v = Loose.parse(text);
+        if (!Array.isArray(v)) throw new Error('it is not a list of packs');
+        return v.filter((e) => e instanceof Map);
+      }
+      const isOn = (path) => entries.some((e) => norm(e.get('filePath')) === norm(path));
+
+      async function readList() {
+        try {
+          fileText = await invokeCommand('read_text_if_exists', { path: listPath });
+          entries = parseList(fileText);
+          readError = '';
+        } catch (err) {
+          entries = []; readError = String(err.message || err);
+        }
+        const paths = entries.map((e) => e.get('filePath')).filter((p) => typeof p === 'string');
+        let ok = [];
+        try { ok = await invokeCommand('files_exist', { paths }); } catch (e) {}
+        exists = new Map(paths.map((p, i) => [norm(p), ok[i] !== false]));
+      }
+
+      async function checkRunning() {
+        try { running = await invokeCommand('plasticity_running'); } catch (e) { running = false; }
+        $('apRunning').hidden = !running;
+      }
+
+      // Every change re-reads the list first, so anything Plasticity saved meanwhile is kept,
+      // copies the current file to asset-packs.json.bak, then writes the change.
+      async function change(describe, edit) {
+        if (busy) return false;
+        busy = true; // also while asking, so a second click can't start another change
+        try {
+          await checkRunning();
+          if (running && !askedWhileRunning) {
+            const ok = await confirmBox('Plasticity is open', [
+              'Plasticity saves its own list of packs, probably when it closes, which could undo changes made here.',
+              'Close Plasticity first, or carry on and check the packs afterwards.'
+            ], 'Carry On');
+            if (!ok) return false;
+            askedWhileRunning = true;
+          }
+          await readList();
+          if (readError) throw new Error(`asset-packs.json can't be read (${readError}), so it isn't safe to change`);
+          const before = fileText;
+          const next = edit(entries.slice());
+          const text = Loose.write(next);
+          if (before != null) await invokeCommand('write_text_file', { path: listPath + '.bak', contents: before });
+          await invokeCommand('write_text_file', { path: listPath, contents: text });
+          fileText = text; entries = next;
+          note(`${describe} Restart Plasticity to see the change in the Assets panel.`);
+          return true;
+        } catch (err) {
+          note(`Could not change the pack list: ${err.message || err}`, 'error', true);
+          return false;
+        } finally {
+          busy = false;
+          render();
+        }
+      }
+      const newEntry = (path) => new Map([['filePath', path], ['path', []], ['lastOpened', Date.now()]]);
+      const turnOn = (paths) => change(paths.length === 1 ? `${packName(paths[0])} is on.` : `Turned on ${plural(paths.length, 'pack')}.`,
+        (list) => [...list, ...paths.filter((p) => !list.some((e) => norm(e.get('filePath')) === norm(p))).map(newEntry)]);
+      const turnOff = (paths) => {
+        const keys = new Set(paths.map(norm));
+        return change(paths.length === 1 ? `${packName(paths[0])} is off.` : `Turned off ${plural(paths.length, 'pack')}.`,
+          (list) => list.filter((e) => !keys.has(norm(e.get('filePath')))));
+      };
+
+      async function restoreBackup() {
+        if (busy) return;
+        let text;
+        try { text = await invokeCommand('read_text_if_exists', { path: listPath + '.bak' }); } catch (err) { note(`Could not read the backup: ${err}`, 'error', true); return; }
+        if (text == null) { note('There is no backup yet. One is made each time the list changes.', 'warning'); return; }
+        let list;
+        try { list = parseList(text); } catch (err) { note(`The backup can't be read: ${err.message || err}`, 'error', true); return; }
+        const ok = await confirmBox('Put the backup back?', [`The pack list goes back to how it was before the last change: ${plural(list.length, 'pack')} on.`], 'Restore');
+        if (!ok) return;
+        await change('Restored the backup.', () => list);
+      }
+
+      // ---------- folders ----------
+      async function saveFolders() {
+        try { await invokeCommand('save_pack_folders', { folders }); } catch (err) { note(`Could not save your folders: ${err}`, 'error', true); }
+      }
+      async function addFolder() {
+        let dir;
+        try { dir = await invokeCommand('pick_pack_folder'); } catch (err) { note(`Could not open the folder picker: ${err}`, 'error'); return; }
+        if (!dir) return;
+        if (folders.some((f) => norm(f) === norm(dir))) { note('That folder is already in the list.', 'warning'); return; }
+        folders = [...folders, dir];
+        await saveFolders();
+        await rescan();
+      }
+      async function removeFolder(dir) {
+        folders = folders.filter((f) => f !== dir);
+        await saveFolders();
+        await rescan();
+        note(`Stopped looking in ${dir}. Packs from it stay as they are in Plasticity.`);
+      }
+      async function rescan() {
+        $('apCount').textContent = '· looking…';
+        try { found = await invokeCommand('scan_asset_packs', { folders }); }
+        catch (err) { found = []; note(`Could not look through the folders: ${err}`, 'error', true); }
+        await readList();
+        await checkRunning();
+        render();
+      }
+
+      // ---------- drawing ----------
+      function packRow(path, info, listed) {
+        const on = isOn(path), there = info ? true : exists.get(norm(path)) !== false;
+        const row = el('div', `mc-row ap-row${on ? '' : ' mc-off'}`);
+        const sw = el('label', 'mc-check ap-switch');
+        const box = el('input'); box.type = 'checkbox'; box.checked = on; box.disabled = busy || !!readError || (!there && !on);
+        box.setAttribute('aria-label', `${packName(path)} on in Plasticity`);
+        box.addEventListener('change', () => (box.checked ? turnOn([path]) : turnOff([path])));
+        sw.append(box, on ? 'On' : 'Off');
+        row.appendChild(sw);
+        const main = el('div');
+        main.appendChild(el('div', 'mc-title', packName(path)));
+        const where = info ? (norm(parentOf(path)) === norm(info.folder) ? '' : parentOf(path).slice(info.folder.length).replace(/^[\\/]/, '')) : parentOf(path);
+        main.appendChild(el('div', 'mc-files', [where, info ? sizeText(info.size) : '', info ? dateText(info.modified) : ''].filter(Boolean).join(' · ')));
+        if (!there) main.appendChild(el('div', 'mc-status error', 'File not found. It may have been moved, renamed or deleted.'));
+        else if (listed && !info) main.appendChild(el('div', 'mc-status', ''));
+        row.appendChild(main);
+        const acts = el('div', 'mc-acts');
+        if (there) {
+          const show = el('button', 'btn mc-small', isMacOS ? 'Show in Finder' : 'Show in Explorer');
+          show.type = 'button';
+          show.addEventListener('click', () => invokeCommand('reveal_file', { path }).catch((err) => note(String(err), 'error')));
+          acts.appendChild(show);
+        } else if (on) {
+          const rm = el('button', 'btn mc-small', 'Remove from List');
+          rm.type = 'button'; rm.title = "Take it out of Plasticity's list";
+          rm.addEventListener('click', () => turnOff([path]));
+          acts.appendChild(rm);
+        }
+        row.appendChild(acts);
+        return row;
+      }
+
+      function groupHead(title, sub, paths) {
+        const head = el('div', 'mc-sub ap-head');
+        const label = el('span', 'ap-head-title', title);
+        if (sub) label.appendChild(el('span', null, ` · ${sub}`));
+        head.appendChild(label);
+        if (paths && paths.length) {
+          const offs = paths.filter((p) => !isOn(p)), ons = paths.filter(isOn);
+          const all = el('button', 'btn mc-small', 'All On'); all.type = 'button'; all.disabled = !offs.length || busy || !!readError;
+          all.addEventListener('click', () => turnOn(offs));
+          const none = el('button', 'btn mc-small', 'All Off'); none.type = 'button'; none.disabled = !ons.length || busy || !!readError;
+          none.addEventListener('click', () => turnOff(ons));
+          head.append(all, none);
+        }
+        return head;
+      }
+
+      function render() {
+        const q = $('apSearch').value.trim().toLowerCase();
+        const match = (p) => !q || p.toLowerCase().includes(q);
+        const list = $('apList');
+        const rows = [];
+        folders.forEach((dir) => {
+          const here = found.filter((f) => f.folder === dir && match(f.path));
+          const total = found.filter((f) => f.folder === dir);
+          rows.push(groupHead(dir, `${plural(total.length, 'pack')}, ${total.filter((f) => isOn(f.path)).length} on`, here.map((f) => f.path)));
+          if (!here.length) rows.push(el('div', 'mc-empty', total.length ? 'No packs match.' : 'No .plasticitypack files in this folder or its subfolders.'));
+          here.forEach((f) => rows.push(packRow(f.path, f, isOn(f.path))));
+        });
+        const foundKeys = new Set(found.map((f) => norm(f.path)));
+        const others = entries.map((e) => e.get('filePath')).filter((p) => typeof p === 'string' && !foundKeys.has(norm(p)) && match(p));
+        if (others.length) {
+          rows.push(groupHead("On in Plasticity, from elsewhere", 'not in your folders', null));
+          others.forEach((p) => rows.push(packRow(p, null, true)));
+        }
+        if (!folders.length && !others.length) rows.push(el('div', 'mc-empty', 'Add the folders where you keep asset packs, on the right.'));
+        list.replaceChildren(...rows);
+        const onCount = entries.length;
+        $('apCount').textContent = `· ${plural(found.length, 'pack')} found, ${onCount} on`;
+        $('apFile').textContent = listPath ? listPath + (fileText == null ? ' (not made yet)' : '') : 'Not available';
+        if (readError) note(`Plasticity's pack list can't be read: ${readError}. Nothing will be changed until it can.`, 'error', true);
+        const fl = $('apFolders');
+        fl.replaceChildren(...folders.map((dir) => {
+          const r = el('div', 'ap-folder');
+          r.appendChild(el('span', 'ap-folder-path', dir));
+          const x = el('button', 'close-btn', '×'); x.type = 'button'; x.title = 'Stop looking in this folder'; x.setAttribute('aria-label', `Remove ${dir}`);
+          x.addEventListener('click', () => removeFolder(dir));
+          r.appendChild(x);
+          return r;
+        }));
+        if (!folders.length) fl.appendChild(el('div', 'tp-hint', 'No folders yet.'));
+      }
+
+      // ---------- start ----------
+      $('apAdd').addEventListener('click', addFolder);
+      $('apRescan').addEventListener('click', rescan);
+      $('apBackup').addEventListener('click', restoreBackup);
+      $('apSearch').addEventListener('input', render);
+
+      async function start() {
+        if (started) { rescan(); return; }
+        started = true;
+        if (!initTauriAPI()) {
+          ['apAdd', 'apRescan', 'apBackup'].forEach((id) => { $(id).disabled = true; });
+          note('The Asset Packs tab needs the desktop app: it reads your folders and Plasticity\'s pack list.', 'warning', true);
+          return;
+        }
+        try { listPath = await invokeCommand('default_asset_packs_file'); } catch (e) { listPath = null; }
+        // Developer override for testing against a copy: localStorage 'plasticity-asset-packs-file'.
+        try { listPath = localStorage.getItem('plasticity-asset-packs-file') || listPath; } catch (e) {}
+        try { folders = await invokeCommand('load_pack_folders'); } catch (err) { folders = []; note(String(err), 'error', true); }
+        await rescan();
+      }
+      document.addEventListener('app-tab', (e) => { if (e.detail === 'packs') start(); });
+      if (document.body.dataset.tab === 'packs') start();
     })();
   </script>
 </body>

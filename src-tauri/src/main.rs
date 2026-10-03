@@ -10,6 +10,7 @@ use tauri_plugin_dialog::DialogExt;
 
 mod fonts;
 mod matcaps;
+mod packs;
 mod shortcuts;
 
 // ---------- Error helpers ----------
@@ -331,6 +332,14 @@ fn main() {
             fonts::default_fonts_folder,
             fonts::pick_font_files,
             fonts::pick_fonts_folder,
+            packs::scan_asset_packs,
+            packs::files_exist,
+            packs::default_asset_packs_file,
+            packs::plasticity_running,
+            packs::reveal_file,
+            packs::pick_pack_folder,
+            packs::load_pack_folders,
+            packs::save_pack_folders,
             shortcuts::load_default_shortcuts,
             shortcuts::read_text_if_exists,
             shortcuts::list_plasticity_radials,
