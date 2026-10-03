@@ -322,6 +322,13 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
 .tp-hex { font-family: Consolas, "Courier New", monospace; }
 .tp-use { color: var(--muted); font-size: 12px; line-height: 1.45; margin-top: 6px; min-height: 4.4em; }
 .tp-legend { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+.tp-legend[hidden], #tpExtra[hidden], #tpSimpleHint[hidden] { display: none; }
+.tp-adv { margin-bottom: 4px; color: var(--text); font-size: 13px; }
+.tp-xhead { margin: 12px 0 6px; color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.tp-xpal { margin-bottom: 8px; }
+.tp-xpal-name { margin-bottom: 3px; color: var(--muted); font-size: 12px; font-weight: 600; }
+.tp-xramp { display: grid; grid-template-columns: repeat(10, 1fr); gap: 3px; }
+.tp-xramp .tp-color { width: 100%; height: 22px; }
 .tp-legend i { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--muted); flex: none; }
 .tp-row { display: grid; grid-template-columns: 1fr 36px 92px; gap: 8px; align-items: center; margin-bottom: 8px; font-size: 13px; }
 .tp-row label, .tp-range label { color: var(--muted); font-weight: 600; }
@@ -741,6 +748,9 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
 
       <div class="separator"></div>
 
+      <label class="mc-check tp-adv"><input type="checkbox" id="tpAdv" /> Advanced: show every colour in the theme file</label>
+      <div class="tp-hint" id="tpSimpleHint">Only the colours we've seen Plasticity use are shown. Turn on Advanced to see the rest too, in case a future version uses them or we've missed one.</div>
+
       <div class="tp-pal" data-pal="neutral">
         <div class="tp-pal-head">
           <div class="section-title">Neutral</div>
@@ -789,7 +799,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
         <div class="tp-use"></div>
       </div>
 
-      <div class="tp-legend"><i></i> A hollow dot means we haven't seen that shade used in Plasticity.</div>
+      <div class="tp-legend" id="tpLegend"><i></i> A hollow dot means we haven't seen that shade used in Plasticity.</div>
 
       <div class="separator"></div>
       <div class="section-title">Viewport</div>
@@ -801,7 +811,14 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       <div class="tp-row"><label for="tpMeT">Measurements</label><input type="color" class="tp-color" id="tpMeC" aria-label="Pick measurement colour" /><input type="text" class="form-input tp-hex" id="tpMeT" spellcheck="false" placeholder="default" /></div>
       <div class="tp-row"><label for="tpReT">Reticle</label><input type="color" class="tp-color" id="tpReC" aria-label="Pick reticle colour" /><input type="text" class="form-input tp-hex" id="tpReT" spellcheck="false" placeholder="default" /></div>
       <div class="tp-hint">These need Plasticity 26.2 or later, and match the colour settings in Plasticity's Preferences &gt; Appearance. Clear a box to go back to Plasticity's default. Setting the reticle saves Supporting as a single colour, the same way Plasticity does, and also colours the Scene folder icon.</div>
-      <div class="tp-hint">A few colours are built into Plasticity and no theme can change them: the yellow selection outline, blue curves and the faint lines between control points. Plasticity also draws the grid a little darker than the colour you pick, and the preview does the same. Settings that showed no effect (the old edge values, edge sizes, matcap tint, dialog and white) stay in the file but are hidden here.</div>
+      <div class="tp-hint">A few colours are built into Plasticity and no theme can change them: the yellow selection outline, blue curves and the faint lines between control points. Plasticity also draws the grid a little darker than the colour you pick, and the preview does the same. Settings that showed no effect (the old edge values, edge sizes, matcap tint, dialog and white) stay in the file; turn on Advanced to see and change them.</div>
+
+      <div id="tpExtra" hidden>
+        <div class="separator"></div>
+        <div class="section-title">Everything Else in the File</div>
+        <div class="tp-hint">Colours and sizes in the theme file that we haven't seen Plasticity use, including the spare colour ranges Plasticity's own theme files carry. They're here in case a future version uses them, or in case we've missed one.</div>
+        <div id="tpExtraList"></div>
+      </div>
     </div>
   </div>
 
@@ -3006,6 +3023,111 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       }
       document.querySelectorAll('#tpApp .tp-pal').forEach(buildCard);
 
+      // ---------- simple and advanced ----------
+      // Simple shows only the shades we've seen Plasticity use (the USE list above), and hides
+      // the Supporting range, whose only known effect is the Reticle row. Advanced shows every
+      // shade and every other colour and size in the file, in case a future Plasticity uses
+      // them or we've missed one.
+      const ADVKEY = 'plasticity-theme-advanced';
+      let advanced = false;
+      try { advanced = localStorage.getItem(ADVKEY) === '1'; } catch (e) {}
+      const HANDLED = new Set(['neutral', 'accent', 'supporting', 'viewport', 'grid', ...EDGE_KEYS.map((k) => k[0])]);
+      function applyMode(skipRefresh) {
+        $('tpAdv').checked = advanced;
+        document.querySelectorAll('#tpApp .tp-pal').forEach((card) => {
+          const p = card.dataset.pal;
+          const show = advanced ? STEPS : STEPS.filter((s) => USE[p][s]);
+          card.hidden = !advanced && p === 'supporting';
+          card.querySelectorAll('.tp-sw').forEach((b) => { b.hidden = !show.includes(b.dataset.s); });
+          card.querySelectorAll('.tp-nums span').forEach((n) => { n.hidden = !show.includes(n.textContent); });
+          const cols = `repeat(${Math.max(show.length, 1)}, 1fr)`;
+          card.querySelector('.tp-ramp').style.gridTemplateColumns = cols;
+          card.querySelector('.tp-nums').style.gridTemplateColumns = cols;
+          // a hidden shade was selected: go back to the shade each range is mostly about
+          const home = { neutral: '900', accent: '600', supporting: '500' }[p];
+          if (show.length && !show.includes(sel[p])) sel[p] = show.includes(home) ? home : show[show.length - 1];
+        });
+        $('tpLegend').hidden = !advanced;
+        $('tpSimpleHint').hidden = advanced;
+        $('tpExtra').hidden = !advanced;
+        if (!skipRefresh) refresh();
+      }
+      $('tpAdv').addEventListener('change', () => {
+        advanced = $('tpAdv').checked;
+        try { localStorage.setItem(ADVKEY, advanced ? '1' : '0'); } catch (e) {}
+        applyMode();
+      });
+
+      // The rest of the file: single colours, colour ranges and sizes, in file order. A colour
+      // with transparency keeps it when picked (the picker itself has none).
+      function renderExtra() {
+        const list = $('tpExtraList');
+        if (!advanced || list.contains(document.activeElement)) return;
+        const rows = [];
+        const picker = (value, label, onPick) => {
+          const c = document.createElement('input');
+          c.type = 'color'; c.className = 'tp-color';
+          c.value = safe(value, '#000000').substr(0, 7);
+          c.setAttribute('aria-label', label);
+          c.title = `${label}: ${normHex(value) || value}`;
+          c.addEventListener('input', () => {
+            const old = normHex(value) || '';
+            value = c.value + (old.length === 9 ? old.substr(7) : '');
+            onPick(value); c.title = `${label}: ${value}`;
+            edited(); refresh(true);
+          });
+          return c;
+        };
+        const singles = [], ranges = [];
+        Object.keys(theme.colors).filter((k) => !HANDLED.has(k)).forEach((k) => {
+          const v = theme.colors[k];
+          if (typeof v === 'string') singles.push(k);
+          else if (v && typeof v === 'object' && Object.values(v).some((x) => typeof x === 'string')) ranges.push(k);
+        });
+        if (singles.length) {
+          rows.push(Object.assign(document.createElement('div'), { className: 'tp-xhead', textContent: 'Single colours' }));
+          singles.forEach((k) => {
+            const row = document.createElement('div'); row.className = 'tp-row';
+            const label = document.createElement('label'); label.textContent = k;
+            const txt = document.createElement('input');
+            txt.type = 'text'; txt.className = 'form-input tp-hex'; txt.spellcheck = false; txt.value = theme.colors[k];
+            txt.setAttribute('aria-label', `${k} hex value`);
+            const col = picker(theme.colors[k], k, (x) => { theme.colors[k] = x; txt.value = x; });
+            txt.addEventListener('change', () => { const v = normHex(txt.value); if (v) { theme.colors[k] = v; edited(); refresh(true); } else txt.value = theme.colors[k]; });
+            row.append(label, col, txt);
+            rows.push(row);
+          });
+        }
+        if (ranges.length) {
+          rows.push(Object.assign(document.createElement('div'), { className: 'tp-xhead', textContent: 'Colour ranges' }));
+          ranges.forEach((k) => {
+            const box = document.createElement('div'); box.className = 'tp-xpal';
+            box.appendChild(Object.assign(document.createElement('div'), { className: 'tp-xpal-name', textContent: k }));
+            const ramp = document.createElement('div'); ramp.className = 'tp-xramp';
+            Object.keys(theme.colors[k]).filter((s) => typeof theme.colors[k][s] === 'string')
+              .forEach((s) => ramp.appendChild(picker(theme.colors[k][s], `${k} ${s}`, (x) => { theme.colors[k][s] = x; })));
+            box.appendChild(ramp);
+            rows.push(box);
+          });
+        }
+        const sizes = theme.sizes && typeof theme.sizes === 'object' ? Object.keys(theme.sizes).filter((k) => typeof theme.sizes[k] === 'number') : [];
+        if (sizes.length) {
+          rows.push(Object.assign(document.createElement('div'), { className: 'tp-xhead', textContent: 'Sizes' }));
+          sizes.forEach((k) => {
+            const row = document.createElement('div'); row.className = 'tp-range';
+            const label = document.createElement('label'); label.textContent = k;
+            const n = document.createElement('input');
+            n.type = 'number'; n.className = 'form-input'; n.step = '0.1'; n.min = '0'; n.value = theme.sizes[k];
+            n.setAttribute('aria-label', `${k} size`);
+            n.addEventListener('change', () => { const v = Number(n.value); if (Number.isFinite(v) && v >= 0) { theme.sizes[k] = v; edited(); refresh(true); } else n.value = theme.sizes[k]; });
+            row.append(label, n);
+            rows.push(row);
+          });
+        }
+        if (!rows.length) rows.push(Object.assign(document.createElement('div'), { className: 'tp-hint', textContent: 'Nothing else in this theme file.' }));
+        list.replaceChildren(...rows);
+      }
+
       // ---------- edge colours (Plasticity 26.2+) ----------
       // [theme key, input id prefix, colour drawn when unset, preview CSS variable]. These are
       // written by Preferences > Appearance in the 26.2 beta; when the key is missing Plasticity
@@ -3068,7 +3190,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       }
       function refresh(keepText) {
         ['neutral', 'accent', 'supporting'].forEach((p) => refreshCard(p, keepText));
-        refreshSingles(keepText); refreshEdges(keepText); showPath(); paint();
+        refreshSingles(keepText); refreshEdges(keepText); renderExtra(); showPath(); paint();
       }
 
       // ---------- pointing at the stand-in ----------
@@ -3567,6 +3689,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
           filePath = saved.filePath || null; fileLabel = saved.fileLabel || null; dirty = !!saved.dirty;
         }
       } catch (e) {}
+      applyMode(true);
       refresh();
       initPlasticity();
       loadUserThemes();
