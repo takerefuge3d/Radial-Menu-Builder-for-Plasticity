@@ -1299,8 +1299,10 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       }
     }
 
-    // Menu items whose command the chosen Plasticity version doesn't have. Nested radial
-    // menus (view:radial:...) point at the user's own files, so they are never flagged.
+    // Menu items whose command isn't in the chosen version's list: the commands Plasticity shows
+    // in its command list (F). Some flagged ones still exist but are hidden in Plasticity, so the
+    // message says "command list" rather than calling them missing. Nested radial menus
+    // (view:radial:...) point at the user's own files, so they are never flagged.
     function missingCommands(items) {
       return (items || []).filter((it) => it.command && !it.command.startsWith('view:radial:') && !(it.command in appState.commandIcons));
     }
@@ -1309,7 +1311,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
     function warnMissing(missing, prefix = '') {
       const names = missing.map((it) => it.label || it.command);
       const list = names.length > 3 ? `${names.slice(0, 3).join(', ')} and ${names.length - 3} more` : names.join(', ');
-      showNotification(`${prefix}${missing.length} item${missing.length === 1 ? '' : 's'} not in Plasticity ${versionInfo(appState.plasticityVersion).label}: ${list}`, 'warning');
+      showNotification(`${prefix}${missing.length} item${missing.length === 1 ? '' : 's'} not in Plasticity ${versionInfo(appState.plasticityVersion).label}'s command list: ${list}`, 'warning');
     }
 
     async function initApp() {
@@ -4907,8 +4909,9 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
 
       function fillCommands() {
         const ids = new Set();
+        // Offered: the commands in Plasticity's command list (F), the same lists as the Radial Menus tab.
+        // Also accepted without a warning: commands that already have a built-in or user shortcut.
         Object.values(commandSets).forEach((set) => Object.keys(set || {}).forEach((c) => ids.add(c)));
-        defaults.forEach((d) => { if (!/^(gizmo|keyboard|direction|snaps|point-picker|selection:option|orbit|outliner|assets|dialog|tab|noop)(:|$)/.test(d.command)) ids.add(d.command); });
         known = new Set([...ids, ...defaults.map((d) => d.command)]);
         for (const m of doc.values()) if (m instanceof Map) for (const v of m.values()) if (typeof v === 'string' && !v.startsWith(RADIAL)) known.add(v);
         const opts = [];
