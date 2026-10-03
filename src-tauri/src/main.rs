@@ -6,6 +6,7 @@ use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
 
 mod matcaps;
+mod shortcuts;
 
 // ---------- Error helpers ----------
 fn io_err<T: ToString>(msg: T) -> String {
@@ -314,7 +315,10 @@ fn main() {
             matcaps::order_matcaps,
             matcaps::default_matcaps_folder,
             matcaps::pick_matcap_files,
-            matcaps::pick_matcaps_folder
+            matcaps::pick_matcaps_folder,
+            shortcuts::load_default_shortcuts,
+            shortcuts::read_text_if_exists,
+            shortcuts::list_plasticity_radials
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

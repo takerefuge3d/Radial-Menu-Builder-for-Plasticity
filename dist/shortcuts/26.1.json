@@ -1,0 +1,910 @@
+{
+ "plasticity": "26.1.3",
+ "note": "Plasticity built-in shortcuts. win = Windows and Linux, mac = macOS, none = both.",
+ "bindings": [
+  {
+   "selector": "body:not([gizmo]) plasticity-viewport",
+   "keys": {
+    "/": "viewport:focus",
+    "alt-mouse1": "viewport:set-and-center-focus-point",
+    "space": "viewport:navigate:selection",
+    "shift-space": "viewport:cplane:selection",
+    "ctrl-space": "command:create-viewspace-construction-plane-at-origin",
+    "ctrl-shift-space": "command:create-viewspace-construction-plane"
+   }
+  },
+  {
+   "selector": "body:not([gizmo]) .plasticity-outliner",
+   "keys": {
+    "/": "outliner:focus",
+    ".": "outliner:isolate",
+    "c": "outliner:root:collapse:recursive",
+    "f2": "outliner:rename",
+    "shift-d": "command:duplicate",
+    "up": "outliner:navigate:up",
+    "down": "outliner:navigate:down",
+    "left": "outliner:navigate:collapse",
+    "right": "outliner:navigate:expand",
+    "shift-up": "outliner:navigate:up:add",
+    "shift-down": "outliner:navigate:down:add"
+   }
+  },
+  {
+   "selector": "body:not([gizmo]) .plasticity-outliner",
+   "keys": {
+    "enter": "outliner:rename"
+   },
+   "platform": "mac"
+  },
+  {
+   "selector": "body:not([gizmo]) .plasticity-assets",
+   "keys": {
+    "f2": "assets:rename",
+    "up": "assets:navigate:up",
+    "down": "assets:navigate:down"
+   }
+  },
+  {
+   "selector": "body:not([gizmo]) .plasticity-assets",
+   "keys": {
+    "enter": "assets:rename"
+   },
+   "platform": "mac"
+  },
+  {
+   "selector": "body:not([gizmo]) plasticity-viewport, body[gizmo='point-picker'] plasticity-viewport",
+   "keys": {
+    "numpad1": "viewport:navigate:front",
+    "numpad3": "viewport:navigate:right",
+    "numpad7": "viewport:navigate:top",
+    "ctrl-numpad1": "viewport:navigate:back",
+    "ctrl-numpad3": "viewport:navigate:left",
+    "ctrl-numpad7": "viewport:navigate:bottom",
+    "numpad5": "viewport:toggle-orthographic",
+    "alt-z": "viewport:toggle-x-ray",
+    "shift-alt-z": "viewport:toggle-overlays"
+   }
+  },
+  {
+   "selector": "body[gizmo='point-picker'] plasticity-viewport",
+   "keys": {
+    "space": "point-picker:navigate:last-picked-point",
+    "shift-space": "point-picker:cplane:last-picked-point",
+    "ctrl-space": "point-picker:cplane:screen-space",
+    "ctrl-shift-space": "point-picker:cplane:screen-space"
+   }
+  },
+  {
+   "selector": "body:not([gizmo])",
+   "keys": {
+    "1": "selection:mode:set:control-point",
+    "2": "selection:mode:set:edge",
+    "3": "selection:mode:set:face",
+    "4": "selection:mode:set:solid",
+    "5": "selection:mode:set:all",
+    "ctrl-1": "selection:convert:control-point",
+    "ctrl-2": "selection:convert:edge",
+    "ctrl-3": "selection:convert:face",
+    "ctrl-4": "selection:convert:solid",
+    "ctrl-5": "selection:convert:group-children",
+    "shift-1": "selection:mode:toggle:control-point",
+    "shift-2": "selection:mode:toggle:edge",
+    "shift-3": "selection:mode:toggle:face",
+    "shift-4": "selection:mode:toggle:solid",
+    ".": "command:isolate",
+    "alt-.": "command:unisolate",
+    "c": "command:cut",
+    "j": "command:join",
+    "shift-j": "command:patch",
+    "alt-j": "command:unjoin",
+    "g": "command:move",
+    "shift-g": "command:slide",
+    "r": "command:rotate",
+    "shift-s": "command:raise-degree",
+    "s": "command:scale",
+    "shift-p": "command:sweep",
+    "p": "command:pipe",
+    "b": "command:fillet",
+    "e": "command:extrude",
+    "t": "command:trim",
+    "alt-t": "command:untrim",
+    "o": "command:offset-curve",
+    "alt-x": "command:mirror",
+    "l": "command:loft",
+    "alt-l": "command:loft-guide",
+    "i": "command:project",
+    "shift-i": "command:imprint",
+    "=": "command:dimension",
+    "ctrl-=": "command:measure-distance",
+    "x": "command:dissolve",
+    "delete": "command:dissolve",
+    "backspace": "command:dissolve",
+    "shift-x": "command:delete",
+    "shift-delete": "command:delete",
+    "shift-backspace": "command:delete",
+    "m": "command:set-material",
+    "shift-m": "command:fork-material",
+    "alt-m": "command:remove-material",
+    "shift-d": "command:duplicate",
+    "alt-d": "command:alternative-duplicate",
+    "ctrl-d": "command:place",
+    "shift-a": "command:line",
+    "shift-c": "command:center-circle",
+    "shift-b": "command:bridge",
+    "q": "command:boolean",
+    "h": "command:hide-selected",
+    "shift-h": "command:hide-unselected",
+    "alt-h": "command:unhide-all",
+    "ctrl-h": "command:invert-hidden",
+    "ctrl-g": "command:group-selected",
+    "alt-g": "command:ungroup-selected",
+    "ctrl-r": "command:isoparam",
+    "ctrl-t": "command:select-previous-entity-collection",
+    "ctrl-shift-t": "command:select-next-entity-collection",
+    "shift-r": "edit:repeat-last-command",
+    "alt-a": "command:invert-selection",
+    "a": "command:select-all",
+    "ctrl-shift-=": "command:select-adjacent",
+    "ctrl-shift-+": "command:select-adjacent",
+    "escape": "command:deselect-all-and-reset-construction-plane",
+    "f": "view:modal:command-palette",
+    "shift-f": "view:context-menu:suggested",
+    "ctrl-b": "view:sidebar:toggle-left",
+    "ctrl-shift-b": "view:sidebar:toggle-right"
+   }
+  },
+  {
+   "selector": "body:not([gizmo])",
+   "keys": {
+    "ctrl-q": "app:quit",
+    "ctrl-n": "file:new",
+    "ctrl-o": "file:open",
+    "ctrl-s": "file:save",
+    "ctrl-shift-s": "file:save-as",
+    "ctrl-shift-e": "file:export",
+    "ctrl-shift-o": "file:import",
+    "ctrl-c": "edit:copy",
+    "ctrl-v": "edit:paste",
+    "ctrl-shift-c": "edit:copy-with-placement",
+    "ctrl-shift-v": "edit:paste-with-placement",
+    "ctrl-shift-z": "edit:redo",
+    "ctrl-,": "view:modal:preferences",
+    "ctrl-f": "outliner:search"
+   },
+   "platform": "win"
+  },
+  {
+   "selector": "body:not([gizmo])",
+   "keys": {
+    "cmd-q": "app:quit",
+    "cmd-n": "file:new",
+    "cmd-o": "file:open",
+    "cmd-s": "file:save",
+    "cmd-shift-s": "file:save-as",
+    "cmd-shift-e": "file:export",
+    "cmd-shift-o": "file:import",
+    "cmd-c": "edit:copy",
+    "cmd-v": "edit:paste",
+    "cmd-shift-c": "edit:copy-with-placement",
+    "cmd-shift-v": "edit:paste-with-placement",
+    "cmd-shift-z": "edit:redo",
+    "cmd-,": "view:modal:preferences",
+    "cmd-f": "outliner:search"
+   },
+   "platform": "mac"
+  },
+  {
+   "selector": "orbit-controls",
+   "keys": {
+    "mouse1": "orbit:rotate",
+    "mouse2": "orbit:pan",
+    "ctrl-mouse1": "orbit:dolly",
+    "alt-mouse1": "orbit:align",
+    "alt": "orbit:snap"
+   }
+  },
+  {
+   "selector": "body[gizmo='modal'] plasticity-viewport, body[gizmo='modal']",
+   "keys": {
+    "escape": "view:modal:cancel"
+   }
+  },
+  {
+   "selector": "body[gizmo='radial']",
+   "keys": {
+    "escape": "view:radial:cancel"
+   }
+  },
+  {
+   "selector": "viewport-selector",
+   "keys": {
+    "mouse0": "selection:replace",
+    "shift-mouse0": "selection:add",
+    "ctrl-mouse0": "selection:remove",
+    "alt-shift-mouse0": "selection:add",
+    "ctrl-alt-mouse0": "selection:replace",
+    "ctrl-alt-shift-mouse0": "selection:add",
+    "ctrl-shift-mouse0": "selection:choose",
+    "cmd": "selection:option:ignore-mode",
+    "alt": "selection:option:extend",
+    "shift-alt": "selection:option:extend",
+    "ctrl-alt": "selection:option:extend-alt",
+    "ctrl-shift-alt": "selection:option:extend-alt"
+   }
+  },
+  {
+   "selector": "viewport-selector[quasimode]",
+   "keys": {
+    "mouse0": "selection:toggle",
+    "ctrl-mouse0": "selection:toggle",
+    "ctrl-alt-mouse0": "selection:toggle",
+    "ctrl-shift-alt-mouse0": "selection:toggle",
+    "cmd": "selection:option:ignore-mode",
+    "alt": "selection:option:extend",
+    "ctrl-alt": "selection:option:extend",
+    "ctrl-shift-alt": "selection:option:extend-alt"
+   }
+  },
+  {
+   "selector": "body[gizmo=point-picker]",
+   "keys": {
+    "n": "snaps:set-normal",
+    "b": "snaps:set-binormal",
+    "t": "snaps:set-tangent",
+    "x": "snaps:set-x",
+    "y": "snaps:set-y",
+    "z": "snaps:set-z",
+    "s": "snaps:set-square",
+    "mouse2": "point-picker:finish",
+    "enter": "point-picker:finish",
+    "dblclick+empty": "point-picker:finish",
+    "ctrl": "snaps:temporarily-disable",
+    "^ctrl": "snaps:temporarily-enable"
+   }
+  },
+  {
+   "selector": "body[gizmo=space-dialog]",
+   "keys": {
+    "mouse2": "dialog:finish"
+   }
+  },
+  {
+   "selector": "body",
+   "keys": {
+    "alt": "noop",
+    "ctrl-w": "noop"
+   }
+  },
+  {
+   "selector": "[command] plasticity-viewport",
+   "keys": {
+    "escape": "command:abort",
+    "tab": "tab:focus-next",
+    "shift-tab": "tab:focus-previous"
+   }
+  },
+  {
+   "selector": "[command] plasticity-viewport",
+   "keys": {
+    "ctrl-z": "command:undo"
+   },
+   "platform": "win"
+  },
+  {
+   "selector": "[command] plasticity-viewport",
+   "keys": {
+    "cmd-z": "command:undo"
+   },
+   "platform": "mac"
+  },
+  {
+   "selector": "body:not([command])",
+   "keys": {
+    "ctrl-z": "edit:undo"
+   },
+   "platform": "win"
+  },
+  {
+   "selector": "body:not([command])",
+   "keys": {
+    "cmd-z": "edit:undo"
+   },
+   "platform": "mac"
+  },
+  {
+   "selector": "[command]:not([gizmo]) plasticity-viewport",
+   "keys": {
+    "enter": "command:finish",
+    "mouse2": "command:finish",
+    "dblclick+empty": "command:finish",
+    "ctrl": "command:quasimode:start",
+    "^ctrl": "command:quasimode:stop",
+    "shift-tab": "command:dialog:place"
+   }
+  },
+  {
+   "selector": "[command][gizmo='point-picker'] plasticity-viewport",
+   "keys": {
+    "shift-tab": "command:dialog:place"
+   }
+  },
+  {
+   "selector": "[command][gizmo]:not([gizmo='point-picker']) plasticity-viewport",
+   "keys": {
+    "enter": "gizmo:finish",
+    "mouse2": "gizmo:finish"
+   }
+  },
+  {
+   "selector": "[command='center-circle'] plasticity-viewport, [command='two-point-circle'] plasticity-viewport, [command='three-point-circle'] plasticity-viewport, [command='ellipse'] plasticity-viewport",
+   "keys": {
+    "v": "gizmo:circle:mode",
+    "k": "gizmo:circle:knife"
+   }
+  },
+  {
+   "selector": "[command='three-point-arc'] plasticity-viewport, [command='center-point-arc'] plasticity-viewport",
+   "keys": {
+    "k": "gizmo:arc:knife"
+   }
+  },
+  {
+   "selector": "[command='center-circle'] plasticity-viewport",
+   "keys": {
+    "d": "gizmo:circle:radius"
+   }
+  },
+  {
+   "selector": "[command='tangent-circle'] plasticity-viewport",
+   "keys": {
+    "f": "gizmo:tangent-circle:freeze"
+   }
+  },
+  {
+   "selector": "[command='tangent-arc'] plasticity-viewport",
+   "keys": {
+    "d": "gizmo:tangent-arc:flip"
+   }
+  },
+  {
+   "selector": "[command='center-rectangle'] plasticity-viewport, [command='corner-rectangle'] plasticity-viewport, [command='three-point-rectangle'] plasticity-viewport",
+   "keys": {
+    "d": "gizmo:rectangle:width",
+    "f": "gizmo:rectangle:length",
+    "k": "gizmo:rectangle:knife"
+   }
+  },
+  {
+   "selector": "[command='corner-rectangle'] plasticity-viewport, [command='center-rectangle'] plasticity-viewport, [command='corner-box'] plasticity-viewport, [command='center-box'] plasticity-viewport",
+   "keys": {
+    "c": "keyboard:rectangle:mode"
+   }
+  },
+  {
+   "selector": "[command='polygon'] plasticity-viewport",
+   "keys": {
+    "shift-wheel+up": "gizmo:polygon:add-vertex",
+    "shift-wheel+down": "gizmo:polygon:subtract-vertex",
+    "up": "gizmo:polygon:add-vertex",
+    "down": "gizmo:polygon:subtract-vertex",
+    "v": "gizmo:polygon:toggle-vertical-horizontal",
+    "k": "gizmo:polygon:knife",
+    "c": "gizmo:polygon:toggle-circumscribed-inscribed"
+   }
+  },
+  {
+   "selector": "[command='radial-array-faces'] plasticity-viewport, [command='rectangular-array-faces'] plasticity-viewport, [command='radial-array-items'] plasticity-viewport, [command='rectangular-array-items'] plasticity-viewport, [command='curve-array'] plasticity-viewport",
+   "keys": {
+    "shift-wheel+up": "gizmo:array:add",
+    "shift-wheel+down": "gizmo:array:subtract",
+    "up": "gizmo:array:add",
+    "down": "gizmo:array:subtract",
+    "i": "gizmo:array:toggle-instances"
+   }
+  },
+  {
+   "selector": "[command='spiral'] plasticity-viewport",
+   "keys": {
+    "a": "gizmo:spiral:angle",
+    "d": "gizmo:spiral:length",
+    "r": "gizmo:spiral:radius"
+   }
+  },
+  {
+   "selector": "[command='revolve'] plasticity-viewport",
+   "keys": {
+    "a": "gizmo:revolve:angle",
+    "shift-q": "keyboard:revolve:slice",
+    "q": "keyboard:revolve:union",
+    "w": "keyboard:revolve:difference",
+    "shift-e": "keyboard:revolve:intersect",
+    "b": "keyboard:revolve:new-body",
+    "t": "keyboard:revolve:keep-tools"
+   }
+  },
+  {
+   "selector": "[command='loft-surface'] plasticity-viewport, [command='loft-edge'] plasticity-viewport, [command='continue-loft-edge'] plasticity-viewport",
+   "keys": {
+    "tab": "keyboard:loft:cycle"
+   }
+  },
+  {
+   "selector": "[command='loft-edge'] plasticity-viewport, [command='continue-loft-edge'] plasticity-viewport",
+   "keys": {
+    "d": "gizmo:loft:tension",
+    "l": "keyboard:loft:add-limit-point"
+   }
+  },
+  {
+   "selector": "[command='sweep'] plasticity-viewport",
+   "keys": {
+    "shift-t": "gizmo:sweep:thickness",
+    "d": "gizmo:sweep:twist",
+    "shift-q": "keyboard:sweep:slice",
+    "q": "keyboard:sweep:union",
+    "w": "keyboard:sweep:difference",
+    "shift-e": "keyboard:sweep:intersect",
+    "b": "keyboard:sweep:new-body",
+    "t": "keyboard:sweep:keep-tools"
+   }
+  },
+  {
+   "selector": "[command='pipe'] plasticity-viewport",
+   "keys": {
+    "d": "gizmo:pipe:section-size",
+    "shift-t": "gizmo:pipe:thickness",
+    "a": "gizmo:pipe:angle",
+    "c": "gizmo:pipe:custom-profile",
+    "shift-q": "keyboard:pipe:slice",
+    "q": "keyboard:pipe:union",
+    "w": "keyboard:pipe:difference",
+    "shift-e": "keyboard:pipe:intersect",
+    "b": "keyboard:pipe:new-body",
+    "t": "keyboard:pipe:keep-tools"
+   }
+  },
+  {
+   "selector": "[command='boolean'] plasticity-viewport",
+   "keys": {
+    "shift-q": "gizmo:boolean:slice",
+    "q": "gizmo:boolean:union",
+    "w": "gizmo:boolean:difference",
+    "shift-e": "gizmo:boolean:intersect",
+    "t": "gizmo:boolean:keep-tools",
+    "g": "keyboard:boolean:move",
+    "r": "keyboard:boolean:rotate",
+    "s": "keyboard:boolean:scale",
+    "x": "gizmo:move:x",
+    "y": "gizmo:move:y",
+    "z": "gizmo:move:z",
+    "shift-z": "gizmo:move:xy",
+    "shift-x": "gizmo:move:yz",
+    "shift-y": "gizmo:move:xz"
+   }
+  },
+  {
+   "selector": "[command='center-box'] plasticity-viewport, [command='corner-box'] plasticity-viewport, [command='three-point-box'] plasticity-viewport",
+   "keys": {
+    "shift-q": "keyboard:box:slice",
+    "q": "keyboard:box:union",
+    "w": "keyboard:box:difference",
+    "shift-e": "keyboard:box:intersect",
+    "b": "keyboard:box:new-body",
+    "t": "keyboard:box:keep-tools",
+    "d": "gizmo:box:width",
+    "f": "gizmo:box:length",
+    "h": "gizmo:box:height"
+   }
+  },
+  {
+   "selector": "[command='sphere'] plasticity-viewport",
+   "keys": {
+    "shift-q": "keyboard:sphere:slice",
+    "q": "keyboard:sphere:union",
+    "w": "keyboard:sphere:difference",
+    "shift-e": "keyboard:sphere:intersect",
+    "b": "keyboard:sphere:new-body",
+    "d": "gizmo:sphere:radius"
+   }
+  },
+  {
+   "selector": "[command='cylinder'] plasticity-viewport",
+   "keys": {
+    "shift-q": "keyboard:cylinder:slice",
+    "q": "keyboard:cylinder:union",
+    "w": "keyboard:cylinder:difference",
+    "shift-e": "keyboard:cylinder:intersect",
+    "b": "keyboard:cylinder:new-body",
+    "t": "keyboard:cylinder:keep-tools",
+    "v": "gizmo:circle:mode",
+    "d": "gizmo:cylinder:height",
+    "f": "gizmo:cylinder:radius"
+   }
+  },
+  {
+   "selector": "[command='extrude'] plasticity-viewport",
+   "keys": {
+    "a": "gizmo:extrude:angle1",
+    "d": "gizmo:extrude:distance1",
+    "shift-t": "gizmo:extrude:thickness",
+    "s": "gizmo:extrude:lock-distances",
+    "i": "gizmo:extrude:individual",
+    "shift-q": "keyboard:extrude:slice",
+    "q": "keyboard:extrude:union",
+    "w": "keyboard:extrude:difference",
+    "shift-e": "keyboard:extrude:intersect",
+    "b": "keyboard:extrude:new-body",
+    "t": "keyboard:extrude:keep-tools",
+    "f": "direction:extrude:free",
+    "v": "direction:extrude:pivot",
+    "ctrl": "keyboard:extrude:modify-selection"
+   }
+  },
+  {
+   "selector": "[command='offset-face'] plasticity-viewport",
+   "keys": {
+    "d": "gizmo:offset-face:distance",
+    "a": "gizmo:offset-face:angle",
+    "ctrl": "keyboard:offset-face:modify-selection"
+   }
+  },
+  {
+   "selector": "[command='draft-face'] plasticity-viewport",
+   "keys": {
+    "a": "gizmo:draft-face:angle",
+    "d": "gizmo:draft-face:offset",
+    "ctrl": "keyboard:draft-face:modify-selection"
+   }
+  },
+  {
+   "selector": "[command='isoparam'] plasticity-viewport",
+   "keys": {
+    "tab": "gizmo:isoparam:toggle",
+    "shift-wheel+up": "gizmo:isoparam:add-cut",
+    "shift-wheel+down": "gizmo:isoparam:subtract-cut",
+    "up": "gizmo:isoparam:add-cut",
+    "down": "gizmo:isoparam:subtract-cut",
+    "s": "gizmo:isoparam:toggle-subdivide"
+   }
+  },
+  {
+   "selector": "[command='refillet-face'] plasticity-viewport",
+   "keys": {
+    "d": "gizmo:refillet-face:distance"
+   }
+  },
+  {
+   "selector": "[command='cut'] plasticity-viewport",
+   "keys": {
+    "c": "gizmo:cut:curves"
+   }
+  },
+  {
+   "selector": "[command='cut'] plasticity-viewport, [command='cut-curve'] plasticity-viewport",
+   "keys": {
+    "s": "gizmo:cut:screen-space",
+    "e": "gizmo:cut:extend"
+   }
+  },
+  {
+   "selector": "[command='project-curve-body'] plasticity-viewport",
+   "keys": {
+    "s": "gizmo:project:screen-space"
+   }
+  },
+  {
+   "selector": "[command='imprint-curve-body'] plasticity-viewport",
+   "keys": {
+    "s": "gizmo:imprint:screen-space"
+   }
+  },
+  {
+   "selector": "[command='export-hidden-line'] plasticity-viewport",
+   "keys": {
+    "s": "gizmo:export-hidden-line:capture-screen"
+   }
+  },
+  {
+   "selector": "[command='offset-face-loop'] plasticity-viewport, [command='offset-edge'] plasticity-viewport, [command='offset-planar-curve'] plasticity-viewport, [command='offset-region'] plasticity-viewport, [command='freestyle-offset-planar-curve'] plasticity-viewport",
+   "keys": {
+    "d": "gizmo:offset-edge:distance",
+    "s": "gizmo:offset-edge:toggle",
+    "v": "gizmo:offset-edge:cycle",
+    "i": "gizmo:offset-edge:individual"
+   }
+  },
+  {
+   "selector": "[command='slot'] plasticity-viewport",
+   "keys": {
+    "d": "gizmo:offset-edge:distance"
+   }
+  },
+  {
+   "selector": "[command='offset-vertex'] plasticity-viewport",
+   "keys": {
+    "d": "gizmo:offset-vertex:distance"
+   }
+  },
+  {
+   "selector": "[command='offset-planar-curve'] plasticity-viewport",
+   "keys": {
+    "f": "gizmo:offset-edge:free",
+    "o": "gizmo:offset-edge:slot"
+   }
+  },
+  {
+   "selector": "[command='move'] plasticity-viewport, [command='move-item'] plasticity-viewport, [command='move-empty'] plasticity-viewport, [command='duplicate'] plasticity-viewport, [command='move-control-point'] plasticity-viewport, [command='move-shell-control-point'] plasticity-viewport, [command='move-face'] plasticity-viewport, [command='move-edge'] plasticity-viewport",
+   "keys": {
+    "x": "gizmo:move:x",
+    "y": "gizmo:move:y",
+    "z": "gizmo:move:z",
+    "shift-z": "gizmo:move:xy",
+    "shift-x": "gizmo:move:yz",
+    "shift-y": "gizmo:move:xz",
+    "g": "gizmo:move:screen",
+    "f": "keyboard:move:free",
+    "v": "keyboard:move:pivot",
+    "alt-v": "keyboard:move:remove-pivot",
+    "w": "keyboard:move:toggle-orientation"
+   }
+  },
+  {
+   "selector": "[command='scale'] plasticity-viewport, [command='scale-item'] plasticity-viewport, [command='scale-empty'] plasticity-viewport, [command='scale-control-point'] plasticity-viewport, [command='scale-shell-control-point'] plasticity-viewport, [command='scale-face'] plasticity-viewport",
+   "keys": {
+    "x": "gizmo:scale:x",
+    "y": "gizmo:scale:y",
+    "z": "gizmo:scale:z",
+    "shift-z": "gizmo:scale:xy",
+    "shift-x": "gizmo:scale:yz",
+    "shift-y": "gizmo:scale:xz",
+    "s": "gizmo:scale:xyz",
+    "f": "keyboard:scale:free",
+    "v": "keyboard:scale:pivot",
+    "alt-v": "keyboard:scale:remove-pivot",
+    "w": "keyboard:scale:toggle-orientation"
+   }
+  },
+  {
+   "selector": "[command='fillet-shell'] plasticity-viewport",
+   "keys": {
+    "d": "gizmo:fillet-shell:fillet",
+    "c": "gizmo:fillet-shell:chamfer",
+    "a": "gizmo:fillet-shell:angle",
+    "ctrl": "keyboard:fillet-shell:modify-selection"
+   }
+  },
+  {
+   "selector": "[command='fillet-vertex'] plasticity-viewport, [command='fillet-curve'] plasticity-viewport",
+   "keys": {
+    "d": "gizmo:fillet-vertex:fillet",
+    "c": "gizmo:fillet-vertex:chamfer"
+   }
+  },
+  {
+   "selector": "[command='fillet-shell'][changed] plasticity-viewport",
+   "keys": {
+    "v": "keyboard:fillet-shell:add-variation-point",
+    "l": "keyboard:fillet-shell:add-limit-point",
+    "t": "keyboard:fillet-shell:toggle-tangent-edges"
+   }
+  },
+  {
+   "selector": "[command='modify-contour'] plasticity-viewport",
+   "keys": {
+    "d": "gizmo:modify-contour:fillet-all"
+   }
+  },
+  {
+   "selector": "[command='rotate'] plasticity-viewport, [command='rotate-item'] plasticity-viewport, [command='rotate-empty'] plasticity-viewport, [command='rotate-control-point'] plasticity-viewport, [command='rotate-shell-control-point'] plasticity-viewport, [command='rotate-face'] plasticity-viewport",
+   "keys": {
+    "x": "gizmo:rotate:x",
+    "y": "gizmo:rotate:y",
+    "z": "gizmo:rotate:z",
+    "r": "gizmo:rotate:screen",
+    "f": "keyboard:rotate:free",
+    "v": "keyboard:rotate:pivot",
+    "alt-v": "keyboard:rotate:remove-pivot",
+    "w": "keyboard:rotate:toggle-orientation"
+   }
+  },
+  {
+   "selector": "[command='curve'] plasticity-viewport, [command='control-point-curve'] plasticity-viewport",
+   "keys": {
+    "tab": "gizmo:curve:toggle"
+   }
+  },
+  {
+   "selector": "[command='curve'] plasticity-viewport, [command='control-point-curve'] plasticity-viewport",
+   "keys": {
+    "ctrl-z": "gizmo:curve:undo"
+   },
+   "platform": "win"
+  },
+  {
+   "selector": "[command='curve'] plasticity-viewport, [command='control-point-curve'] plasticity-viewport",
+   "keys": {
+    "cmd-z": "gizmo:curve:undo"
+   },
+   "platform": "mac"
+  },
+  {
+   "selector": "[command='constrained-surface'] plasticity-viewport",
+   "keys": {
+    "ctrl-z": "gizmo:constrained-surface:undo"
+   },
+   "platform": "win"
+  },
+  {
+   "selector": "[command='constrained-surface'] plasticity-viewport",
+   "keys": {
+    "cmd-z": "gizmo:constrained-surface:undo"
+   },
+   "platform": "mac"
+  },
+  {
+   "selector": "[command='bridge-surface'] plasticity-viewport",
+   "keys": {
+    "a": "gizmo:bridge-surface:add-wall-pair"
+   }
+  },
+  {
+   "selector": "[command='line'] plasticity-viewport",
+   "keys": {
+    "ctrl-z": "gizmo:line:undo"
+   },
+   "platform": "win"
+  },
+  {
+   "selector": "[command='line'] plasticity-viewport",
+   "keys": {
+    "cmd-z": "gizmo:line:undo"
+   },
+   "platform": "mac"
+  },
+  {
+   "selector": "[command='mirror'] plasticity-viewport",
+   "keys": {
+    "x": "gizmo:mirror:x",
+    "y": "gizmo:mirror:y",
+    "z": "gizmo:mirror:z",
+    "shift-x": "gizmo:mirror:-x",
+    "shift-y": "gizmo:mirror:-y",
+    "shift-z": "gizmo:mirror:-z",
+    "f": "keyboard:mirror:free",
+    "v": "keyboard:mirror:pivot",
+    "q": "keyboard:mirror:union",
+    "i": "gizmo:mirror:toggle-instances"
+   }
+  },
+  {
+   "selector": "[command='freestyle-mirror'] plasticity-viewport",
+   "keys": {
+    "q": "keyboard:mirror:union",
+    "i": "gizmo:mirror:toggle-instances"
+   }
+  },
+  {
+   "selector": "[command='thicken-sheet'] plasticity-viewport, [command='thicken-face'] plasticity-viewport",
+   "keys": {
+    "d": "gizmo:thicken-sheet:thickness",
+    "s": "gizmo:thicken-sheet:lock-distances"
+   }
+  },
+  {
+   "selector": "[command='hollow-solids'] plasticity-viewport, [command='hollow-faces'] plasticity-viewport",
+   "keys": {
+    "d": "gizmo:hollow:thickness"
+   }
+  },
+  {
+   "selector": "[command='place'] plasticity-viewport, [command='paste-with-placement'] plasticity-viewport, [command='repeat-paste-with-placement'] plasticity-viewport",
+   "keys": {
+    "d": "gizmo:place:offset",
+    "f": "gizmo:place:flip",
+    "a": "gizmo:place:angle",
+    "s": "gizmo:place:scale",
+    "shift-q": "keyboard:place:slice",
+    "q": "keyboard:place:union",
+    "w": "keyboard:place:difference",
+    "shift-e": "keyboard:place:intersect",
+    "b": "keyboard:place:new-body",
+    "t": "keyboard:place:keep-tools",
+    "x": "gizmo:place:x",
+    "y": "gizmo:place:y",
+    "z": "gizmo:place:z"
+   }
+  },
+  {
+   "selector": "[command='place'] plasticity-viewport",
+   "keys": {
+    "i": "gizmo:place:toggle-instances"
+   }
+  },
+  {
+   "selector": "[command='loft-guide'] plasticity-viewport",
+   "keys": {
+    "v": "gizmo:loft-guide:add-vertex"
+   }
+  },
+  {
+   "selector": "[command='bridge-vertex'] plasticity-viewport, [command='bridge-edge'] plasticity-viewport, [command='align-vertex'] plasticity-viewport",
+   "keys": {
+    "d": "gizmo:bridge:tension:0",
+    "tab": "keyboard:loft:cycle"
+   }
+  },
+  {
+   "selector": "[command='patch-hole-in-sheet'] plasticity-viewport",
+   "keys": {
+    "tab": "keyboard:patch:cycle"
+   }
+  },
+  {
+   "selector": "[command='xnurbs'] plasticity-viewport, [command='square-edge'] plasticity-viewport, [command='square-face'] plasticity-viewport, [command='align-edge'] plasticity-viewport",
+   "keys": {
+    "tab": "keyboard:xnurbs:cycle"
+   }
+  },
+  {
+   "selector": "[command='bridge-curve'] plasticity-viewport",
+   "keys": {
+    "d": "gizmo:bridge:tension:0",
+    "q": "keyboard:bridge:trim",
+    "tab": "keyboard:bridge:cycle"
+   }
+  },
+  {
+   "selector": "[command='extend-curve'] plasticity-viewport",
+   "keys": {
+    "d": "gizmo:extend:distance",
+    "tab": "keyboard:extend:cycle"
+   }
+  },
+  {
+   "selector": "[command='extend-sheet'] plasticity-viewport",
+   "keys": {
+    "d": "gizmo:extend-sheet:distance",
+    "tab": "keyboard:extend:cycle"
+   }
+  },
+  {
+   "selector": "[command='slide'] plasticity-viewport",
+   "keys": {
+    "ctrl-z": "gizmo:slide:undo"
+   },
+   "platform": "win"
+  },
+  {
+   "selector": "[command='slide'] plasticity-viewport",
+   "keys": {
+    "cmd-z": "gizmo:slide:undo"
+   },
+   "platform": "mac"
+  },
+  {
+   "selector": "[command='section-analysis'] plasticity-viewport",
+   "keys": {
+    "d": "gizmo:section-analysis:distance",
+    "f": "gizmo:section-analysis:flip"
+   }
+  },
+  {
+   "selector": "[command='measure-continuity'] plasticity-viewport",
+   "keys": {
+    "tab": "keyboard:measure-continuity:cycle"
+   }
+  },
+  {
+   "selector": "[command='align-edge'] plasticity-viewport",
+   "keys": {
+    "ctrl": "keyboard:align-edge:show-original"
+   }
+  },
+  {
+   "selector": "[command='untrim'] plasticity-viewport",
+   "keys": {
+    "tab": "keyboard:untrim:keep-edges"
+   }
+  }
+ ]
+}

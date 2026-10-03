@@ -132,6 +132,8 @@ body[data-tab="theme"] > .app-container:not(#tpApp), body[data-tab="theme"] > .j
 body:not([data-tab="theme"]) > #tpApp { display: none; }
 body[data-tab="matcaps"] > .app-container:not(#mcApp), body[data-tab="matcaps"] > .json-preview { display: none !important; }
 body:not([data-tab="matcaps"]) > #mcApp { display: none; }
+body[data-tab="shortcuts"] > .app-container:not(#ksApp), body[data-tab="shortcuts"] > .json-preview { display: none !important; }
+body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
 
 /* ===== Matcaps tab ===== */
 #mcApp { color-scheme: dark; }
@@ -187,6 +189,43 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
 .mc-tints { display: inline-flex; gap: 4px; }
 .mc-tint { width: 26px; height: 26px; }
 #mcColl { margin-bottom: 4px; }
+
+/* ===== Keyboard Shortcuts tab ===== */
+#ksApp { color-scheme: dark; }
+.ks-tools { flex: none; display: flex; gap: 8px; margin-bottom: 4px; }
+.ks-tools .search-input { flex: 2; min-width: 0; }
+.ks-tools .form-input { flex: 1; width: auto; min-width: 0; }
+#ksList { flex: 1; min-height: 120px; }
+.ks-row { display: grid; grid-template-columns: minmax(130px, 210px) minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 7px 12px; border-bottom: 1px solid #222; }
+.ks-row.ks-sel { background: #22161b; }
+.ks-keys { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; }
+.ks-key {
+  display: inline-block; min-width: 22px; padding: 1px 6px; border: 1px solid #3a3a3a; border-bottom-width: 2px; border-radius: 4px;
+  background: #1f1f1f; color: var(--text); font-family: inherit; font-size: 12px; font-weight: 600; text-align: center; white-space: nowrap;
+}
+.ks-plus { color: var(--muted); font-size: 11px; }
+.ks-cmd { font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+.ks-id { font-size: 11px; color: var(--muted); margin-top: 2px; overflow-wrap: anywhere; }
+.ks-over { color: #ffb84d; }
+.ks-off .ks-keys, .ks-off .ks-cmd { opacity: .5; }
+.ks-off .ks-key { text-decoration: line-through; }
+.mc-tag.ks-tag-off { color: var(--muted); }
+.ks-unsaved { color: #ffb84d; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.ks-unsaved[hidden] { display: none; }
+.ks-capture {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 3px; min-height: 34px; padding: 5px 8px; margin-bottom: 6px;
+  background: #121212; border: 1px solid var(--border); border-radius: 4px; cursor: pointer; user-select: none;
+}
+.ks-capture:focus, .ks-capture.listening { border-color: var(--accent); outline: none; }
+.ks-placeholder { color: var(--muted); font-size: 12px; }
+.ks-capture.listening .ks-placeholder { color: var(--accent); }
+.ks-cmdname { color: var(--muted); font-size: 12px; margin-top: 4px; min-height: 16px; }
+.ks-warn p { font-size: 12px; line-height: 1.45; margin: 0 0 8px; padding-left: 8px; border-left: 2px solid currentColor; }
+.ks-warn .error { color: #ff5555; }
+.ks-warn .warning { color: #ffb84d; }
+.ks-warn .info { color: var(--muted); }
+#ksOffOldRow { margin-bottom: 10px; color: var(--text); white-space: normal; }
+#ksOffOldRow[hidden] { display: none; }
 
 /* ===== Theme Preview tab ===== */
 #tpApp { color-scheme: dark; }
@@ -329,6 +368,7 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
       <button class="app-tab active" type="button" role="tab" data-tab="radial" aria-selected="true">Radial Menus</button>
       <button class="app-tab" type="button" role="tab" data-tab="theme" aria-selected="false">Theme Preview</button>
       <button class="app-tab" type="button" role="tab" data-tab="matcaps" aria-selected="false">Matcaps</button>
+      <button class="app-tab" type="button" role="tab" data-tab="shortcuts" aria-selected="false">Keyboard Shortcuts</button>
     </div>
     <button class="app-terms" type="button" id="termsLink">Terms of use</button>
   </div>
@@ -742,6 +782,74 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
       <div class="tp-hint">Disable moves a matcap into a matcaps-disabled folder next to this one, where Plasticity doesn't look. Enable moves it back. A disabled matcap can be deleted, which moves its files to the Recycle Bin (Trash on a Mac).</div>
       <div class="tp-hint">Reorder… lets you drag matcaps into order, then renames them 01_Name, 02_Name and so on so they sort that way. Remove Numbers takes the numbers off again. Restart Plasticity to see changes.</div>
       <div class="tp-hint">Installed matcaps are only changed when you click: Fix, Tinted, Disable, Enable, Delete or Apply Order.</div>
+    </div>
+  </div>
+
+  <div class="app-container" id="ksApp">
+    <div class="center-panel">
+      <div class="notification" id="ksNote"></div>
+      <div class="ks-tools">
+        <input class="search-input" id="ksSearch" type="search" placeholder="Search by key or command, e.g. ctrl+s or fillet" aria-label="Search shortcuts" spellcheck="false" />
+        <select class="form-input" id="ksWhere" aria-label="Which shortcuts">
+          <option value="main">Main shortcuts</option>
+          <option value="mouse">Mouse</option>
+          <option value="commands">Inside commands</option>
+          <option value="all">Everything</option>
+        </select>
+        <select class="form-input" id="ksShow" aria-label="Whose shortcuts">
+          <option value="all">Yours and built-in</option>
+          <option value="yours">Yours only</option>
+          <option value="builtin">Built-in only</option>
+        </select>
+      </div>
+      <div class="mc-head">
+        <div class="section-title">Active Shortcuts <span id="ksCount"></span></div>
+        <span class="mc-bar">
+          <span class="ks-unsaved" id="ksUnsaved" hidden>Not saved yet</span>
+          <button class="btn mc-small" id="ksReload" type="button">Reload</button>
+          <button class="btn mc-small" id="ksDiscard" type="button">Discard Changes</button>
+          <button class="btn mc-small" id="ksSave" type="button">Save to Plasticity</button>
+        </span>
+      </div>
+      <div class="mc-list" id="ksList"></div>
+    </div>
+
+    <div class="properties-panel">
+      <div class="section-title" id="ksFormTitle">Add a Shortcut</div>
+      <div class="form-group">
+        <label class="form-label" for="ksCmd">Command</label>
+        <input class="form-input" id="ksCmd" list="ksCmdList" placeholder="Type to search, e.g. fillet" spellcheck="false" autocomplete="off" />
+        <datalist id="ksCmdList"></datalist>
+        <div class="ks-cmdname" id="ksCmdName"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="ksKeys">Keys</label>
+        <div class="ks-capture" id="ksKeys" tabindex="0" role="button" aria-label="Record keys: click, then press the keys"></div>
+        <input class="form-input" id="ksKeysText" placeholder="or type them, e.g. ctrl-shift-f" spellcheck="false" autocomplete="off" aria-label="Keys as text" />
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="ksCtx">Where</label>
+        <select class="form-input" id="ksCtx"></select>
+      </div>
+      <label class="mc-check" id="ksOffOldRow" hidden><input type="checkbox" id="ksOffOld" /> <span id="ksOffOldText"></span></label>
+      <div class="ks-warn" id="ksWarn" aria-live="polite"></div>
+      <div class="tp-btn-row">
+        <button class="btn" id="ksCancel" type="button">Clear</button>
+        <button class="btn" id="ksApply" type="button">Add</button>
+      </div>
+
+      <div class="separator"></div>
+      <div class="section-title">Keymap File</div>
+      <div class="tp-path" id="ksFile">Finding Plasticity's keymap.json…</div>
+      <button class="btn" id="ksChange" type="button">Change Folder…</button>
+      <button class="btn" id="ksDefault" type="button">Use Plasticity's Folder</button>
+      <button class="btn" id="ksBackup" type="button">Restore Backup</button>
+
+      <div class="tp-hint">Plasticity keeps your shortcuts in keymap.json. Only the ones you add or change are stored there; the rest are Plasticity's built-in shortcuts, listed here from Plasticity 26.1.3.</div>
+      <div class="tp-hint">Click the Keys box and press the keys. Mouse buttons work too: click the box, then press the middle or a side button. Tab and Escape can't be recorded, so type them instead (tab, escape).</div>
+      <div class="tp-hint">Where sets when a shortcut works. Everywhere covers the whole window while no command is running. Plasticity's own viewport keys, and the keys inside commands (like X for the X axis while moving), still take priority in their own places.</div>
+      <div class="tp-hint">Turn Off stops a built-in shortcut (it's saved as unset!). Reset and Remove take your shortcut out, so Plasticity's own comes back.</div>
+      <div class="tp-hint">Nothing changes until you click Save to Plasticity. The file you had is kept as keymap.json.bak, and Restore Backup brings it back. Restart Plasticity if new shortcuts don't work straight away.</div>
     </div>
   </div>
 
@@ -3221,7 +3329,7 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
       initPlasticity();
       loadUserThemes();
       let startTab = 'radial';
-      try { const t = localStorage.getItem(TABKEY); if (t === 'theme' || t === 'matcaps') startTab = t; } catch (e) {}
+      try { const t = localStorage.getItem(TABKEY); if (t === 'theme' || t === 'matcaps' || t === 'shortcuts') startTab = t; } catch (e) {}
       showTab(startTab, true);
     })();
   </script>
@@ -3236,7 +3344,7 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
       const VERSION = '1';
       const BIN = isMacOS ? 'Trash' : 'Recycle Bin';
       const LINES = [
-        "This app changes files in your Plasticity folders. That's its job: it saves radial menus, writes themes, and adds, renames, moves and deletes matcaps.",
+        "This app changes files in your Plasticity folders. That's its job: it saves radial menus, writes themes and keyboard shortcuts, and adds, renames, moves and deletes matcaps.",
         "By using it you agree to that, and you use it at your own risk. It's provided as is, and its creator isn't responsible for any loss or damage that comes from using it.",
         `Most of this is easy to undo. Plasticity can reset its theme to defaults, disabled matcaps can be enabled again, and deleted matcaps go to the ${BIN} first. A backup of your .plasticity folder never hurts.`,
         "It's up to you to read the Plasticity documentation and understand how the pieces fit together. This app is a tool to make them fit more easily."
@@ -4228,6 +4336,887 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
       document.addEventListener('app-tab', (e) => { if (e.detail === 'matcaps') start(); });
       if (document.body.dataset.tab === 'matcaps') start();
       render();
+    })();
+  </script>
+
+  <!-- ===== Keyboard Shortcuts tab script ===== -->
+  <script>
+    // Keyboard Shortcuts tab: shows Plasticity's built-in shortcuts with the user's own
+    // keymap.json laid over them, and adds, changes or turns off shortcuts. Changes are
+    // kept here until Save to Plasticity writes keymap.json (the old file goes to .bak).
+    (function () {
+      'use strict';
+
+      const $ = (id) => document.getElementById(id);
+      const FOLDERKEY = 'plasticity-keymap-folder';
+      const PLATFORM = isMacOS ? 'mac' : 'win';
+      const MAIN = 'body:not([gizmo])';
+      const OFF = 'unset!'; // Plasticity's way of switching a built-in shortcut off
+      const RADIAL = 'view:radial:';
+
+      let folder = null;
+      let fileText = null;   // keymap.json as last read or saved; null when there is none
+      let doc = new Map();   // keymap.json: selector -> Map(keys -> command), in file order
+      let savedText = '';    // doc as written when it was last read or saved, to spot changes
+      let defaults = [];     // [{ selector, key, norm, command }] for this platform
+      let radials = [];      // [{ command, name }] from ~/.plasticity/radials
+      let known = new Set(); // every command id we know about
+      let commandSets = {};  // Plasticity's command lists, as the Radial Menus tab loads them
+      let editing = null;    // the row being changed, or null when adding
+      let started = false;
+      let busy = false;
+
+      function el(tag, className, text) {
+        const e = document.createElement(tag);
+        if (className) e.className = className;
+        if (text != null) e.textContent = text;
+        return e;
+      }
+      function button(label, onClick, title) {
+        const b = el('button', 'btn mc-small', label);
+        b.type = 'button';
+        if (title) b.title = title;
+        b.addEventListener('click', onClick);
+        return b;
+      }
+      const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+      function note(message, type = 'success', sticky) {
+        const box = $('ksNote');
+        box.textContent = message;
+        box.className = `notification ${type}`;
+        clearTimeout(note._t);
+        if (!sticky) note._t = setTimeout(() => { box.textContent = ''; box.className = 'notification'; }, 6000);
+      }
+
+      function confirmBox(title, lines, okLabel) {
+        return new Promise((resolve) => {
+          const wrap = el('div', 'tp-modal');
+          const box = el('div', 'tp-modal-box');
+          box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true');
+          box.appendChild(el('h3', null, title));
+          lines.forEach((t) => box.appendChild(el('p', null, t)));
+          const btns = el('div', 'tp-modal-btns');
+          const cancel = el('button', 'btn', 'Cancel'); cancel.type = 'button';
+          const ok = el('button', 'btn', okLabel); ok.type = 'button';
+          btns.append(cancel, ok); box.appendChild(btns); wrap.appendChild(box);
+          document.body.appendChild(wrap);
+          const done = (yes) => { document.removeEventListener('keydown', onKey, true); wrap.remove(); resolve(yes); };
+          const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); done(false); } };
+          document.addEventListener('keydown', onKey, true);
+          cancel.addEventListener('click', () => done(false));
+          ok.addEventListener('click', () => done(true));
+          wrap.addEventListener('click', (e) => { if (e.target === wrap) done(false); });
+          cancel.focus();
+        });
+      }
+
+      // ---------- reading and writing keymap.json ----------
+      // Plasticity writes keymap.json loosely (bare keys, single quotes, trailing commas).
+      // Objects come back as Maps so the file's order is kept, number-like keys included.
+      function parseLoose(text) {
+        const s = String(text).replace(/^﻿/, '');
+        let i = 0;
+        const fail = (what) => { throw new Error(`${what} at character ${i + 1}`); };
+        const NUM = /true|false|null|[-+]?(?:0x[\da-fA-F]+|Infinity|NaN|\d+\.?\d*(?:[eE][-+]?\d+)?|\.\d+)/y;
+        const BAREKEY = /[^\s:'"{}[\],/]+/y;
+        function ws() {
+          for (;;) {
+            const c = s[i];
+            if (c === ' ' || c === '\t' || c === '\n' || c === '\r') i++;
+            else if (c === '/' && s[i + 1] === '/') { while (i < s.length && s[i] !== '\n') i++; }
+            else if (c === '/' && s[i + 1] === '*') { const e = s.indexOf('*/', i + 2); if (e < 0) fail('Unclosed comment'); i = e + 2; }
+            else return;
+          }
+        }
+        function str() {
+          const q = s[i++];
+          let out = '';
+          while (i < s.length && s[i] !== q) {
+            let c = s[i++];
+            if (c === '\\') {
+              c = s[i++];
+              if (c === 'u') { out += String.fromCharCode(parseInt(s.substr(i, 4), 16)); i += 4; }
+              else if (c === '\n' || c === '\r') { if (c === '\r' && s[i] === '\n') i++; }
+              else out += { n: '\n', t: '\t', r: '\r', b: '\b', f: '\f', v: '\v', 0: '\0' }[c] || c;
+            } else out += c;
+          }
+          if (s[i] !== q) fail('Unclosed string');
+          i++;
+          return out;
+        }
+        function value() {
+          ws();
+          const c = s[i];
+          if (c === '{') return obj();
+          if (c === '[') return arr();
+          if (c === '"' || c === "'") return str();
+          NUM.lastIndex = i;
+          const m = NUM.exec(s);
+          if (!m) fail(c ? `Unexpected ${c}` : 'Unexpected end of file');
+          i += m[0].length;
+          return m[0] === 'true' ? true : m[0] === 'false' ? false : m[0] === 'null' ? null : Number(m[0]);
+        }
+        function key() {
+          ws();
+          if (s[i] === '"' || s[i] === "'") return str();
+          BAREKEY.lastIndex = i;
+          const m = BAREKEY.exec(s);
+          if (!m) fail('Expected a name');
+          i += m[0].length;
+          return m[0];
+        }
+        function obj() {
+          i++;
+          const o = new Map();
+          for (;;) {
+            ws();
+            if (s[i] === '}') { i++; return o; }
+            const k = key();
+            ws();
+            if (s[i] !== ':') fail('Expected :');
+            i++;
+            o.set(k, value());
+            ws();
+            if (s[i] === ',') { i++; continue; }
+            if (s[i] === '}') { i++; return o; }
+            fail('Expected , or }');
+          }
+        }
+        function arr() {
+          i++;
+          const a = [];
+          for (;;) {
+            ws();
+            if (s[i] === ']') { i++; return a; }
+            a.push(value());
+            ws();
+            if (s[i] === ',') { i++; continue; }
+            if (s[i] === ']') { i++; return a; }
+            fail('Expected , or ]');
+          }
+        }
+        ws();
+        if (i >= s.length) return new Map();
+        const v = value();
+        ws();
+        if (i < s.length) fail('Unexpected text after the end');
+        if (!(v instanceof Map)) throw new Error('The file is not a set of shortcuts');
+        return v;
+      }
+
+      // Written the way Plasticity writes it: four-space indents, bare keys where they can be.
+      const BARE = /^[A-Za-z_$][\w$]*$/;
+      function quote(t) {
+        if (t.includes("'") && !t.includes('"')) return JSON.stringify(t);
+        return "'" + t.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/\r/g, '\\r') + "'";
+      }
+      function writeLoose(v, indent = '') {
+        const pad = indent + '    ';
+        if (v instanceof Map) {
+          if (!v.size) return '{}';
+          return '{\n' + [...v].map(([k, x]) => `${pad}${BARE.test(k) ? k : quote(k)}: ${writeLoose(x, pad)},\n`).join('') + indent + '}';
+        }
+        if (Array.isArray(v)) {
+          if (!v.length) return '[]';
+          return '[\n' + v.map((x) => `${pad}${writeLoose(x, pad)},\n`).join('') + indent + ']';
+        }
+        if (typeof v === 'string') return quote(v);
+        return JSON.stringify(v);
+      }
+
+      const sep = () => (folder && folder.includes('\\') ? '\\' : '/');
+      const keymapPath = () => folder.replace(/[\\/]+$/, '') + sep() + 'keymap.json';
+      const isDirty = () => writeLoose(doc) !== savedText;
+
+      // ---------- keys ----------
+      // "shift-alt-z" and "alt-shift-z" are the same shortcut; compare them as ctrl-alt-shift-cmd-key.
+      const MODS = ['ctrl', 'alt', 'shift', 'cmd'];
+      function normStroke(stroke) {
+        if (stroke.startsWith('^')) return stroke.toLowerCase();
+        const mods = new Set();
+        let rest = stroke;
+        for (;;) {
+          const m = /^(ctrl|alt|shift|cmd)-(.+)$/i.exec(rest);
+          if (!m) break;
+          mods.add(m[1].toLowerCase());
+          rest = m[2];
+        }
+        if (MODS.includes(rest.toLowerCase())) { mods.add(rest.toLowerCase()); rest = ''; }
+        else if (/^[A-Z]$/.test(rest)) { mods.add('shift'); rest = rest.toLowerCase(); }
+        else rest = rest.toLowerCase();
+        return [...MODS.filter((m) => mods.has(m)), rest].filter(Boolean).join('-');
+      }
+      const normKey = (keys) => String(keys).trim().split(/\s+/).filter(Boolean).map(normStroke).join(' ');
+
+      const KEY_NAMES = {
+        space: 'Space', enter: 'Enter', escape: 'Esc', tab: 'Tab', backspace: 'Backspace', delete: 'Delete',
+        insert: 'Insert', home: 'Home', end: 'End', pageup: 'Page Up', pagedown: 'Page Down',
+        up: '↑', down: '↓', left: '←', right: '→',
+        mouse0: 'Left Click', mouse1: 'Middle Button', mouse2: 'Right Button', mouse3: 'Back Button', mouse4: 'Forward Button',
+        'dblclick+empty': 'Double-Click Empty Space', 'wheel+up': 'Wheel Up', 'wheel+down': 'Wheel Down'
+      };
+      const MOD_NAMES = { ctrl: 'Ctrl', alt: isMacOS ? 'Option' : 'Alt', shift: 'Shift', cmd: isMacOS ? 'Cmd' : 'Win' };
+      function strokeParts(stroke) {
+        if (stroke.startsWith('^')) return [`${MOD_NAMES[stroke.slice(1)] || stroke.slice(1)} (let go)`];
+        const n = normStroke(stroke);
+        const parts = [];
+        let rest = n;
+        for (;;) {
+          const m = /^(ctrl|alt|shift|cmd)-(.+)$/.exec(rest);
+          if (!m) break;
+          parts.push(MOD_NAMES[m[1]]);
+          rest = m[2];
+        }
+        if (MOD_NAMES[rest]) parts.push(MOD_NAMES[rest]);
+        else if (KEY_NAMES[rest]) parts.push(KEY_NAMES[rest]);
+        else if (/^numpad(\d)$/.test(rest)) parts.push(`Num ${rest.slice(6)}`);
+        else if (/^f\d+$/.test(rest)) parts.push(rest.toUpperCase());
+        else parts.push(rest.length === 1 ? rest.toUpperCase() : rest.charAt(0).toUpperCase() + rest.slice(1));
+        return parts;
+      }
+      const keyText = (keys) => String(keys).trim().split(/\s+/).map((s) => strokeParts(s).join(' + ')).join(', then ');
+      function keyChips(keys) {
+        const box = el('div', 'ks-keys');
+        String(keys).trim().split(/\s+/).forEach((stroke, n) => {
+          if (n) box.appendChild(el('span', 'ks-plus', 'then'));
+          strokeParts(stroke).forEach((p, i) => {
+            if (i) box.appendChild(el('span', 'ks-plus', '+'));
+            box.appendChild(el('kbd', 'ks-key', p));
+          });
+        });
+        return box;
+      }
+
+      // ---------- places (selectors) ----------
+      const PLACES = [
+        [MAIN, 'Everywhere'],
+        ['body:not([gizmo]) plasticity-viewport', 'Viewport'],
+        ['body:not([gizmo]) .plasticity-outliner', 'Outliner'],
+        ['orbit-controls', 'Orbit (mouse)']
+      ];
+      const PLACE_NAMES = {
+        [MAIN]: 'Everywhere',
+        'body:not([gizmo]) plasticity-viewport': 'Viewport',
+        "body:not([gizmo]) plasticity-viewport, body[gizmo='point-picker'] plasticity-viewport": 'Viewport',
+        'body:not([gizmo]) .plasticity-outliner': 'Outliner',
+        'body:not([gizmo]) .plasticity-assets': 'Assets',
+        'body': 'Whole window',
+        'body:not([command])': 'When no command is running',
+        'orbit-controls': 'Orbit (mouse)',
+        'viewport-selector': 'Selecting (mouse)',
+        'viewport-selector[quasimode]': 'Selecting while Ctrl is held',
+        "body[gizmo='point-picker'] plasticity-viewport": 'While picking a point',
+        'body[gizmo=point-picker]': 'While picking a point',
+        "body[gizmo='modal'] plasticity-viewport, body[gizmo='modal']": 'Dialogs',
+        'body[gizmo=space-dialog]': 'Dialogs',
+        "body[gizmo='radial']": 'Radial menus',
+        '[command] plasticity-viewport': 'Any command',
+        '[command]:not([gizmo]) plasticity-viewport': 'Any command',
+        "[command][gizmo='point-picker'] plasticity-viewport": 'Any command, picking a point',
+        "[command][gizmo]:not([gizmo='point-picker']) plasticity-viewport": 'Any command, dragging a handle'
+      };
+      function placeName(sel) {
+        if (PLACE_NAMES[sel]) return PLACE_NAMES[sel];
+        const cmds = [...sel.matchAll(/\[command='([^']+)'\]/g)].map((m) => friendlyCommandName('command:' + m[1]));
+        if (cmds.length) {
+          const uniq = [...new Set(cmds)];
+          const shown = uniq.slice(0, 3).join(', ');
+          return `In ${shown}${uniq.length > 3 ? ` and ${uniq.length - 3} more` : ''}${/\[changed\]/.test(sel) ? ' (after a change)' : ''}`;
+        }
+        return sel;
+      }
+      // A shortcut that only applies while a command or tool is running.
+      const conditional = (sel) => /(?:^|[^(])\[(?:command|gizmo)/.test(sel);
+      // The element a selector picks: body, plasticity-viewport, .plasticity-outliner and so on.
+      const target = (sel) => sel.split(',')[0].trim().split(/\s+/).pop().replace(/[[:].*$/, '');
+      // Plain CSS specificity, enough to tell which of two matching shortcuts wins.
+      function specificity(sel) {
+        const s = sel.split(',')[0];
+        const b = (s.match(/\[[^\]]*\]/g) || []).length + (s.match(/\.[\w-]+/g) || []).length;
+        const c = (s.match(/(?:^|[\s(])[a-z][\w-]*/gi) || []).length;
+        return b * 100 + c;
+      }
+      function inPlace(sel) {
+        const n = placeName(sel);
+        return /^(Viewport|Outliner|Assets)$/.test(n) ? `In the ${n === 'Viewport' ? 'viewport' : n}` : `In ${n}`;
+      }
+      function group(sel) {
+        if (/^(orbit-controls|viewport-selector)/.test(sel)) return 'mouse';
+        if (conditional(sel)) return 'commands';
+        return 'main';
+      }
+
+      // ---------- names ----------
+      function cmdName(c) {
+        if (c === OFF) return 'Turned off';
+        if (typeof c !== 'string') return String(c);
+        if (c.startsWith(RADIAL)) {
+          const r = radials.find((x) => RADIAL + x.command === c);
+          return `${r ? r.name : friendlyCommandName(c)} (radial menu)`;
+        }
+        return typeof friendlyCommandName === 'function' ? friendlyCommandName(c) : c;
+      }
+
+      // ---------- shortcuts ----------
+      const defaultsIn = (sel) => defaults.filter((d) => d.selector === sel);
+      const defaultAt = (sel, norm) => defaults.find((d) => d.selector === sel && d.norm === norm) || null;
+      function userMap(sel, create) {
+        let m = doc.get(sel);
+        if (!(m instanceof Map)) {
+          if (!create) return null;
+          m = new Map();
+          doc.set(sel, m);
+        }
+        return m;
+      }
+      function userAt(sel, norm) {
+        const m = userMap(sel);
+        if (!m) return null;
+        for (const [k, v] of m) if (normKey(k) === norm) return { key: k, command: v };
+        return null;
+      }
+      function setUser(sel, keys, command) {
+        const m = userMap(sel, true);
+        const old = userAt(sel, normKey(keys));
+        if (old && old.key !== keys) {
+          const entries = [...m].map(([k, v]) => (k === old.key ? [keys, command] : [k, v]));
+          m.clear();
+          entries.forEach(([k, v]) => m.set(k, v));
+        } else {
+          m.set(keys, command);
+        }
+      }
+      function removeUser(sel, norm) {
+        const m = userMap(sel);
+        const old = userAt(sel, norm);
+        if (!m || !old) return;
+        m.delete(old.key);
+        if (!m.size) doc.delete(sel);
+      }
+
+      // Every shortcut, built-in and the user's, one row per place and keys.
+      function allRows() {
+        const rows = new Map();
+        const at = (sel, norm, keys) => {
+          const id = sel + '\n' + norm;
+          if (!rows.has(id)) rows.set(id, { selector: sel, norm, keys, def: null, user: null });
+          return rows.get(id);
+        };
+        defaults.forEach((d) => { at(d.selector, d.norm, d.key).def = d.command; });
+        for (const [sel, m] of doc) {
+          if (!(m instanceof Map)) continue;
+          for (const [k, v] of m) {
+            if (typeof v !== 'string') continue;
+            const row = at(sel, normKey(k), k);
+            row.user = v; row.keys = k;
+          }
+        }
+        return [...rows.values()].map((r) => {
+          r.command = r.user != null ? r.user : r.def;
+          r.state = r.user == null ? 'builtin' : r.user === OFF ? 'off' : r.def == null ? 'yours' : r.user === r.def ? 'same' : 'replaces';
+          return r;
+        });
+      }
+
+      // ---------- warnings ----------
+      const CORE_KEYS = new Set(['escape', 'enter', 'tab', 'shift-tab', 'space', 'mouse0', 'mouse1', 'mouse2', 'delete', 'backspace']);
+      const CORE_CMD = /^(file:|edit:|app:|orbit:|selection:|command:(undo|abort|finish|deselect-all)|view:modal:(cancel|preferences)|view:radial:cancel)/;
+      const SYSTEM_KEYS = isMacOS
+        ? new Set(['cmd-q', 'cmd-h', 'cmd-m', 'cmd-tab', 'cmd-space', 'ctrl-space', 'cmd-`', 'alt-cmd-escape'])
+        : new Set(['alt-f4', 'alt-tab', 'ctrl-alt-delete', 'ctrl-shift-escape', 'cmd-l', 'cmd-d', 'cmd-e', 'cmd-r', 'cmd-tab']);
+      const isCore = (norm, command) => CORE_KEYS.has(norm) || CORE_CMD.test(command || '');
+
+      // Other keys that run the same command in the same place, e.g. Dissolve on Delete and Backspace.
+      function otherKeysFor(command, sel, exceptNorm) {
+        return allRows()
+          .filter((r) => r.selector === sel && r.norm !== exceptNorm && r.command === command)
+          .map((r) => keyText(r.keys));
+      }
+
+      // [{ level: 'error' | 'warning' | 'info', text }] for putting `command` on `norm` in `sel`.
+      function warningsFor(sel, norm, command, skip) {
+        const out = [];
+        const add = (level, text) => out.push({ level, text });
+        const keys = keyText(norm);
+        const same = (s, n) => skip && skip.selector === s && skip.norm === n;
+
+        if (/^(ctrl|alt|shift|cmd)(-(ctrl|alt|shift|cmd))*$/.test(norm)) {
+          add('error', `${keys} on its own is a modifier Plasticity uses while selecting and orbiting. A shortcut on it will get in the way.`);
+        } else if (/^(mouse[012])$/.test(norm) && sel === MAIN) {
+          add('error', `${keys} is how you select and move around in Plasticity. Giving it a shortcut will get in the way.`);
+        }
+        if (SYSTEM_KEYS.has(norm)) add('warning', `${keys} belongs to ${isMacOS ? 'macOS' : 'Windows'}, so Plasticity may never see it.`);
+
+        // Your own shortcut on the same keys and place.
+        const mine = userAt(sel, norm);
+        if (mine && !same(sel, norm) && mine.command !== command) {
+          add('warning', mine.command === OFF
+            ? `You've turned off Plasticity's ${keys}. Adding this switches it back on for ${cmdName(command)}.`
+            : `You already use ${keys} for ${cmdName(mine.command)} here. This replaces it.`);
+        }
+
+        // Built-in shortcuts on the same keys. Ones for the same element replace or beat each other;
+        // ones deeper in the window (viewport, outliner) win while you're there; ones inside
+        // commands only apply while that command runs.
+        const t = target(sel), spec = specificity(sel);
+        const inCommands = [];
+        defaults.filter((d) => d.norm === norm && d.command !== command).forEach((d) => {
+          if (conditional(d.selector) && !conditional(sel)) { inCommands.push(d); return; }
+          if (d.command === 'noop') {
+            if (target(d.selector) === t && !MODS.includes(norm)) add('info', `Plasticity blocks ${keys} on purpose so it does nothing${norm === 'ctrl-w' ? ' (it would close the window)' : ''}. This takes it over.`);
+            return;
+          }
+          if (target(d.selector) === t) {
+            if (d.selector === sel || specificity(d.selector) <= spec) {
+              const others = otherKeysFor(d.command, d.selector, norm);
+              const still = others.length ? ` ${cmdName(d.command)} still has ${others.join(' and ')}.` : ` ${cmdName(d.command)} won't have a shortcut unless you give it another.`;
+              if (isCore(norm, d.command)) {
+                add('error', `${keys} is a core Plasticity shortcut: ${cmdName(d.command)}. This replaces it.${still}`);
+              } else {
+                add('warning', `${keys} is Plasticity's built-in shortcut for ${cmdName(d.command)}. This replaces it.${still}`);
+              }
+            } else {
+              add('warning', `${inPlace(d.selector)}, Plasticity's own ${keys} (${cmdName(d.command)}) takes priority over this one.`);
+            }
+          } else if (t === 'body') {
+            const pick = PLACES.some((p) => p[0] === d.selector) ? ` Choose ${placeName(d.selector)} under Where to replace it there.` : '';
+            add('warning', `${inPlace(d.selector)}, Plasticity's own ${keys} (${cmdName(d.command)}) takes priority.${pick}`);
+          }
+        });
+        if (inCommands.length) {
+          const eg = inCommands.slice(0, 2).map((d) => `${cmdName(d.command)} ${placeName(d.selector).replace(/^(In|While|Any) /, (m) => m.toLowerCase())}`).join('; ');
+          add('info', `While some commands run, ${keys} does their own thing (${eg}${inCommands.length > 2 ? '; and more' : ''}). That's normal: this shortcut works the rest of the time.`);
+        }
+
+        if (command && command !== OFF && !known.has(command)) {
+          add('info', command.startsWith(RADIAL)
+            ? `There's no radial menu called ${command.slice(RADIAL.length)} in your radials folder. Check the name.`
+            : `${command} isn't a command this app knows about. Check the spelling.`);
+        }
+        if (/\bcmd\b/.test(norm) && !isMacOS) add('info', 'cmd is the Windows key here, and Windows keeps many Win shortcuts for itself.');
+        return out;
+      }
+
+      // ---------- list ----------
+      // "ctrl+s" or "ctrl-s" finds exactly that shortcut; anything else searches names and keys.
+      function matches(r, q) {
+        if (!q) return true;
+        if (/^(ctrl|alt|shift|cmd)\s*[+-]\s*\S/.test(q)) return r.norm === normKey(q.replace(/\s*\+\s*/g, '-'));
+        const hay = [keyText(r.keys), r.norm, r.command || '', r.def || '', cmdName(r.command || ''), placeName(r.selector)].join(' ').toLowerCase();
+        return hay.includes(q);
+      }
+
+      function render() {
+        const list = $('ksList');
+        const rows = allRows();
+        const q = $('ksSearch').value.trim().toLowerCase();
+        const where = $('ksWhere').value, show = $('ksShow').value;
+        const shown = rows.filter((r) =>
+          (where === 'all' || group(r.selector) === where) &&
+          (show === 'all' || (show === 'yours' ? r.user != null : r.user == null)) &&
+          matches(r, q));
+
+        const order = new Map();
+        [...PLACES.map((p) => p[0]), ...defaults.map((d) => d.selector), ...doc.keys()].forEach((s) => { if (!order.has(s)) order.set(s, order.size); });
+        const bySel = new Map();
+        shown.forEach((r) => { if (!bySel.has(r.selector)) bySel.set(r.selector, []); bySel.get(r.selector).push(r); });
+
+        list.replaceChildren();
+        [...bySel.keys()].sort((a, b) => order.get(a) - order.get(b)).forEach((sel) => {
+          const head = el('div', 'mc-sub', placeName(sel));
+          if (placeName(sel) !== sel) { head.title = sel; }
+          list.appendChild(head);
+          bySel.get(sel)
+            .sort((a, b) => cmdName(a.command).localeCompare(cmdName(b.command)) || a.norm.localeCompare(b.norm))
+            .forEach((r) => list.appendChild(row(r)));
+        });
+        if (!shown.length) list.appendChild(el('div', 'mc-empty', rows.length ? 'No shortcuts match.' : 'Loading shortcuts…'));
+
+        const active = rows.filter((r) => r.state !== 'off');
+        const yours = rows.filter((r) => r.user != null && r.user !== OFF).length;
+        const off = rows.filter((r) => r.state === 'off').length;
+        $('ksCount').textContent = `· ${active.length} active, ${yours} yours${off ? `, ${off} turned off` : ''}`;
+        const dirty = isDirty();
+        $('ksSave').disabled = !dirty || !tauriAvailable || !folder;
+        $('ksDiscard').disabled = !dirty;
+        $('ksUnsaved').hidden = !dirty;
+      }
+
+      function row(r) {
+        const line = el('div', `ks-row${r.state === 'off' ? ' ks-off' : ''}${editing && editing.selector === r.selector && editing.norm === r.norm ? ' ks-sel' : ''}`);
+        line.appendChild(keyChips(r.keys));
+        const mid = el('div');
+        const title = el('div', 'ks-cmd', cmdName(r.state === 'off' ? r.def || OFF : r.command));
+        const tags = { yours: 'Yours', replaces: 'Yours', same: 'Yours', off: 'Turned off' };
+        if (tags[r.state]) title.appendChild(el('span', `mc-tag${r.state === 'off' ? ' ks-tag-off' : ''}`, tags[r.state]));
+        mid.appendChild(title);
+        const sub = [r.state === 'off' ? r.def || '' : r.command];
+        if (r.state === 'same') sub.push('same as Plasticity\'s own');
+        const subLine = el('div', 'ks-id', sub.filter(Boolean).join(' · '));
+        if (r.state === 'replaces') subLine.appendChild(el('span', 'ks-over', ` · replaces Plasticity's ${cmdName(r.def)}`));
+        mid.appendChild(subLine);
+        line.appendChild(mid);
+
+        const acts = el('div', 'mc-acts');
+        if (r.state === 'off') {
+          acts.appendChild(button('Turn On', () => { removeUser(r.selector, r.norm); changed(`${keyText(r.keys)} is back to ${cmdName(r.def)}.`); }));
+        } else {
+          acts.appendChild(button('Change…', () => startEdit(r)));
+          if (r.state === 'builtin') {
+            acts.appendChild(button('Turn Off', () => { setUser(r.selector, r.keys, OFF); changed(`Turned off ${keyText(r.keys)} (${cmdName(r.def)}).`); },
+              `Stops ${keyText(r.keys)} running ${cmdName(r.def)}`));
+          } else if (r.state === 'replaces') {
+            acts.appendChild(button('Reset', () => { removeUser(r.selector, r.norm); changed(`${keyText(r.keys)} is back to Plasticity's ${cmdName(r.def)}.`); },
+              `Puts back Plasticity's ${cmdName(r.def)}`));
+          } else {
+            acts.appendChild(button('Remove', () => { removeUser(r.selector, r.norm); changed(`Removed ${keyText(r.keys)} (${cmdName(r.command)}).`); }));
+          }
+        }
+        line.appendChild(acts);
+        return line;
+      }
+
+      function changed(message) {
+        if (editing) endEdit();
+        render();
+        note(`${message} Click Save to Plasticity to keep it.`);
+      }
+
+      // ---------- the add / change form ----------
+      function fillPlaces(sel) {
+        const box = $('ksCtx');
+        const sels = [...PLACES.map((p) => p[0])];
+        [...doc.keys()].forEach((s) => { if (!sels.includes(s)) sels.push(s); });
+        if (sel && !sels.includes(sel)) sels.push(sel);
+        box.replaceChildren(...sels.map((s) => { const o = el('option', null, placeName(s)); o.value = s; o.title = s; return o; }));
+        box.value = sel || MAIN;
+      }
+
+      function fillCommands() {
+        const ids = new Set();
+        Object.values(commandSets).forEach((set) => Object.keys(set || {}).forEach((c) => ids.add(c)));
+        defaults.forEach((d) => { if (!/^(gizmo|keyboard|direction|snaps|point-picker|selection:option|orbit|outliner|assets|dialog|tab|noop)(:|$)/.test(d.command)) ids.add(d.command); });
+        known = new Set([...ids, ...defaults.map((d) => d.command)]);
+        for (const m of doc.values()) if (m instanceof Map) for (const v of m.values()) if (typeof v === 'string' && !v.startsWith(RADIAL)) known.add(v);
+        const opts = [];
+        radials.forEach((r) => { const id = RADIAL + r.command; known.add(id); opts.push([id, `${r.name} (radial menu)`]); });
+        [...ids].sort().forEach((id) => opts.push([id, cmdName(id)]));
+        $('ksCmdList').replaceChildren(...opts.map(([id, label]) => { const o = el('option', null, label); o.value = id; return o; }));
+      }
+
+      function formValues() {
+        return { command: $('ksCmd').value.trim(), keys: normKey($('ksKeysText').value), selector: $('ksCtx').value || MAIN };
+      }
+
+      function showKeys(keys) {
+        const box = $('ksKeys');
+        box.replaceChildren();
+        if (keys) box.appendChild(keyChips(keys));
+        else box.appendChild(el('span', 'ks-placeholder', box.classList.contains('listening') ? 'Press the keys…' : 'Click, then press the keys'));
+      }
+
+      function updateForm() {
+        const v = formValues();
+        $('ksCmdName').textContent = v.command ? cmdName(v.command) : '';
+        showKeys(v.keys);
+        const warn = $('ksWarn');
+        warn.replaceChildren();
+        const skip = editing && editing.selector === v.selector && editing.norm === v.keys ? editing : null;
+        if (v.keys && v.command) warningsFor(v.selector, v.keys, v.command, skip).forEach((w) => warn.appendChild(el('p', w.level, w.text)));
+
+        // Moving a built-in shortcut to new keys: offer to turn the old keys off.
+        const old = editing && editing.def && (editing.selector !== v.selector || editing.norm !== v.keys) ? editing : null;
+        $('ksOffOldRow').hidden = !old;
+        if (old) $('ksOffOldText').textContent = `Turn off Plasticity's ${keyText(old.keys)} (${cmdName(old.def)})`;
+        $('ksApply').disabled = !v.command || !v.keys;
+      }
+
+      function startEdit(r) {
+        editing = r;
+        $('ksFormTitle').textContent = 'Change a Shortcut';
+        $('ksApply').textContent = 'Update';
+        $('ksCmd').value = r.state === 'off' ? r.def : r.command;
+        $('ksKeysText').value = r.keys;
+        fillPlaces(r.selector);
+        $('ksOffOld').checked = r.state === 'builtin';
+        updateForm();
+        render();
+        $('ksKeys').focus();
+      }
+
+      function endEdit() {
+        editing = null;
+        $('ksFormTitle').textContent = 'Add a Shortcut';
+        $('ksApply').textContent = 'Add';
+        $('ksCmd').value = '';
+        $('ksKeysText').value = '';
+        fillPlaces(MAIN);
+        updateForm();
+      }
+
+      function applyForm() {
+        const v = formValues();
+        if (!v.command || !v.keys) return;
+        const keysWritten = v.keys;
+        if (editing) {
+          const moved = editing.selector !== v.selector || editing.norm !== v.keys;
+          if (moved) {
+            if (editing.user != null) removeUser(editing.selector, editing.norm);
+            if (editing.def && $('ksOffOld').checked) setUser(editing.selector, editing.keys, OFF);
+          }
+        }
+        // Same as Plasticity's own: nothing needs to be in keymap.json for it.
+        const def = defaultAt(v.selector, v.keys);
+        if (def && def.command === v.command) removeUser(v.selector, v.keys);
+        else setUser(v.selector, keysWritten, v.command);
+        const verb = editing ? 'Changed' : 'Added';
+        endEdit();
+        changed(`${verb} ${keyText(keysWritten)}: ${cmdName(v.command)}.`);
+      }
+
+      // Recording keys: a key press with its modifiers, or a mouse button other than a plain left click.
+      const CODE_KEYS = {
+        Space: 'space', Enter: 'enter', NumpadEnter: 'enter', Escape: 'escape', Tab: 'tab', Backspace: 'backspace',
+        Delete: 'delete', Insert: 'insert', Home: 'home', End: 'end', PageUp: 'pageup', PageDown: 'pagedown',
+        ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
+        Minus: '-', Equal: '=', BracketLeft: '[', BracketRight: ']', Backslash: '\\', Semicolon: ';', Quote: "'",
+        Comma: ',', Period: '.', Slash: '/', Backquote: '`'
+      };
+      function codeKey(e) {
+        const c = e.code || '';
+        let m;
+        if ((m = /^Key([A-Z])$/.exec(c))) return m[1].toLowerCase();
+        if ((m = /^Digit(\d)$/.exec(c))) return m[1];
+        if ((m = /^Numpad(\d)$/.exec(c))) return 'numpad' + m[1];
+        if (/^F\d{1,2}$/.test(c)) return c.toLowerCase();
+        if (CODE_KEYS[c]) return CODE_KEYS[c];
+        if (['Shift', 'Control', 'Alt', 'Meta', 'OS', 'CapsLock'].includes(e.key)) return null;
+        return e.key && e.key.length === 1 ? e.key.toLowerCase() : null;
+      }
+      const withMods = (e, key) => [e.ctrlKey && 'ctrl', e.altKey && 'alt', e.shiftKey && 'shift', e.metaKey && 'cmd', key].filter(Boolean).join('-');
+
+      function listen(on) {
+        $('ksKeys').classList.toggle('listening', on);
+        showKeys(normKey($('ksKeysText').value));
+      }
+      function onCaptureKey(e) {
+        if (e.key === 'Tab' && !e.ctrlKey && !e.altKey && !e.metaKey) return; // keep Tab for moving around
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.key === 'Escape' && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) { $('ksKeys').blur(); return; }
+        if (e.repeat) return;
+        const key = codeKey(e);
+        if (!key) return;
+        $('ksKeysText').value = withMods(e, key);
+        updateForm();
+      }
+      function onCaptureMouse(e) {
+        const box = $('ksKeys');
+        if (document.activeElement !== box) return; // the first click focuses the box
+        if (e.button === 0 && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) return;
+        e.preventDefault();
+        $('ksKeysText').value = withMods(e, 'mouse' + e.button);
+        updateForm();
+      }
+
+      // ---------- loading and saving ----------
+      async function loadKeymap() {
+        if (!folder) return;
+        try {
+          const text = await invokeCommand('read_text_if_exists', { path: keymapPath() });
+          doc = text == null ? new Map() : parseLoose(text);
+          fileText = text;
+          savedText = writeLoose(doc);
+          $('ksFile').textContent = keymapPath() + (text == null ? ' (not made yet)' : '');
+        } catch (err) {
+          doc = new Map(); fileText = null; savedText = writeLoose(doc);
+          $('ksFile').textContent = keymapPath();
+          note(`Could not read keymap.json: ${err.message || err}. Nothing will be saved over it until it can be read.`, 'error', true);
+          $('ksSave').dataset.blocked = '1';
+          return;
+        }
+        delete $('ksSave').dataset.blocked;
+      }
+
+      async function reload() {
+        if (busy) return;
+        if (isDirty() && !(await confirmBox('Reload keymap.json?', ["You have changes that aren't saved. Reloading throws them away."], 'Reload'))) return;
+        await loadKeymap();
+        fillPlaces(editing ? editing.selector : MAIN);
+        fillCommands();
+        if (editing) endEdit();
+        render();
+        note('Reloaded keymap.json.');
+      }
+
+      async function discard() {
+        if (!isDirty()) return;
+        if (!(await confirmBox('Discard your changes?', ['Everything since the last save goes back to how keymap.json has it.'], 'Discard'))) return;
+        doc = fileText == null ? new Map() : parseLoose(fileText);
+        if (editing) endEdit();
+        render();
+        note('Changes discarded.');
+      }
+
+      // A list of what's different from the file, for the save message.
+      function changeList() {
+        const before = fileText == null ? new Map() : parseLoose(fileText);
+        const flat = (d) => {
+          const out = new Map();
+          for (const [sel, m] of d) if (m instanceof Map) for (const [k, v] of m) out.set(sel + '\n' + normKey(k), { sel, k, v });
+          return out;
+        };
+        const a = flat(before), b = flat(doc), lines = [];
+        const what = (v) => (v === OFF ? 'turned off' : cmdName(v));
+        for (const [id, x] of b) {
+          const y = a.get(id);
+          if (!y) lines.push(`${keyText(x.k)}: ${what(x.v)}`);
+          else if (y.v !== x.v) lines.push(`${keyText(x.k)}: ${what(y.v)} → ${what(x.v)}`);
+        }
+        for (const [id, y] of a) if (!b.has(id)) {
+          const def = defaultAt(y.sel, normKey(y.k));
+          lines.push(`${keyText(y.k)}: ${def ? `back to Plasticity's ${cmdName(def.command)}` : 'removed'}`);
+        }
+        return lines;
+      }
+
+      async function save() {
+        if (busy || !isDirty() || !folder) return;
+        if ($('ksSave').dataset.blocked) { note("keymap.json couldn't be read, so it isn't safe to save over it. Fix or move the file, then click Reload.", 'error', true); return; }
+        busy = true;
+        try {
+          const path = keymapPath();
+          const now = await invokeCommand('read_text_if_exists', { path });
+          if (now !== fileText) {
+            const ok = await confirmBox('keymap.json has changed', [
+              'It was changed after this tab read it, perhaps in Plasticity\'s Preferences.',
+              'Save anyway to replace those changes with yours, or Cancel and click Reload to see them first.'
+            ], 'Save Anyway');
+            if (!ok) return;
+          }
+          const lines = changeList();
+          const shown = lines.slice(0, 8).concat(lines.length > 8 ? [`…and ${lines.length - 8} more.`] : []);
+          const ok = await confirmBox(`Save ${plural(lines.length, 'change')} to Plasticity?`, [
+            ...shown,
+            now != null ? 'Your current keymap.json is kept as keymap.json.bak.' : 'This makes a new keymap.json.'
+          ], 'Save');
+          if (!ok) return;
+          if (now != null) await invokeCommand('write_text_file', { path: path + '.bak', contents: now });
+          const text = writeLoose(doc);
+          await invokeCommand('write_text_file', { path, contents: text });
+          fileText = text; savedText = text;
+          $('ksFile').textContent = path;
+          render();
+          note("Saved keymap.json. Restart Plasticity if the new shortcuts don't work straight away.");
+        } catch (err) {
+          note(`Could not save keymap.json: ${err.message || err}`, 'error', true);
+        } finally {
+          busy = false;
+        }
+      }
+
+      async function restoreBackup() {
+        if (busy || !folder) return;
+        let text;
+        try { text = await invokeCommand('read_text_if_exists', { path: keymapPath() + '.bak' }); }
+        catch (err) { note(`Could not read keymap.json.bak: ${err}`, 'error', true); return; }
+        if (text == null) { note('There is no keymap.json.bak yet. One is made each time you save.', 'warning'); return; }
+        try { doc = parseLoose(text); }
+        catch (err) { note(`keymap.json.bak can't be read: ${err.message || err}`, 'error', true); return; }
+        if (editing) endEdit();
+        fillPlaces(MAIN);
+        render();
+        note('Loaded the backup. Click Save to Plasticity to put it back.', 'success', true);
+      }
+
+      async function setFolder(dir) {
+        folder = dir;
+        await loadKeymap();
+        fillPlaces(MAIN);
+        fillCommands();
+        render();
+      }
+      async function changeFolder() {
+        if (isDirty() && !(await confirmBox('Change folder?', ["You have changes that aren't saved. Changing folder throws them away."], 'Change Folder'))) return;
+        let dir;
+        try { dir = await invokeCommand('pick_plasticity_folder'); } catch (err) { note(`Could not open the folder picker: ${err}`, 'error'); return; }
+        if (!dir) return;
+        try { localStorage.setItem(FOLDERKEY, dir); } catch (e) {}
+        await setFolder(dir);
+        note('Folder set.');
+      }
+      async function useDefaultFolder() {
+        if (isDirty() && !(await confirmBox('Change folder?', ["You have changes that aren't saved. Changing folder throws them away."], 'Change Folder'))) return;
+        try { localStorage.removeItem(FOLDERKEY); } catch (e) {}
+        await setFolder(await invokeCommand('default_plasticity_folder'));
+      }
+
+      async function start() {
+        if (started) return;
+        started = true;
+        try {
+          const data = initTauriAPI()
+            ? await invokeCommand('load_default_shortcuts')
+            : await (await fetch('./shortcuts/26.1.json')).json();
+          defaults = [];
+          data.bindings.forEach((b) => {
+            if (b.platform && b.platform !== PLATFORM) return;
+            Object.entries(b.keys).forEach(([key, command]) => defaults.push({ selector: b.selector, key, norm: normKey(key), command }));
+          });
+        } catch (err) {
+          note(`Could not load Plasticity's built-in shortcuts: ${err}`, 'error', true);
+        }
+        if (!tauriAvailable) {
+          ['ksSave', 'ksReload', 'ksChange', 'ksDefault', 'ksBackup'].forEach((id) => { $(id).disabled = true; });
+          $('ksFile').textContent = 'Not available';
+          fillPlaces(MAIN); fillCommands(); render(); updateForm();
+          note('Saving shortcuts needs the desktop app: it reads and writes keymap.json in your Plasticity folder.', 'warning', true);
+          return;
+        }
+        try { radials = await invokeCommand('list_plasticity_radials'); } catch (e) { radials = []; }
+        commandSets = (typeof appState !== 'undefined' && appState.commandSets) || {};
+        if (!Object.keys(commandSets).length) {
+          commandSets = {};
+          for (const v of ['26.1', '26.2-beta']) {
+            try { commandSets[v] = await invokeCommand('load_commands', { version: v }); } catch (e) {}
+          }
+        }
+        try { folder = localStorage.getItem(FOLDERKEY) || null; } catch (e) {}
+        if (!folder) { try { folder = await invokeCommand('default_plasticity_folder'); } catch (e) { folder = null; } }
+        if (!folder) $('ksFile').textContent = 'No folder set. Click Change Folder.';
+        await loadKeymap();
+        fillPlaces(MAIN);
+        fillCommands();
+        render();
+        updateForm();
+      }
+
+      // ---------- wiring ----------
+      $('ksSearch').addEventListener('input', render);
+      $('ksWhere').addEventListener('change', render);
+      $('ksShow').addEventListener('change', render);
+      $('ksSave').addEventListener('click', save);
+      $('ksDiscard').addEventListener('click', discard);
+      $('ksReload').addEventListener('click', reload);
+      $('ksChange').addEventListener('click', changeFolder);
+      $('ksDefault').addEventListener('click', useDefaultFolder);
+      $('ksBackup').addEventListener('click', restoreBackup);
+      $('ksCmd').addEventListener('input', updateForm);
+      $('ksKeysText').addEventListener('input', updateForm);
+      $('ksCtx').addEventListener('change', updateForm);
+      $('ksApply').addEventListener('click', applyForm);
+      $('ksCancel').addEventListener('click', () => { endEdit(); render(); });
+      const keysBox = $('ksKeys');
+      keysBox.addEventListener('focus', () => listen(true));
+      keysBox.addEventListener('blur', () => listen(false));
+      keysBox.addEventListener('keydown', onCaptureKey);
+      keysBox.addEventListener('mousedown', onCaptureMouse);
+      keysBox.addEventListener('contextmenu', (e) => e.preventDefault());
+      keysBox.addEventListener('auxclick', (e) => e.preventDefault());
+
+      document.addEventListener('app-tab', (e) => { if (e.detail === 'shortcuts') start(); });
+      if (document.body.dataset.tab === 'shortcuts') start();
     })();
   </script>
 </body>
