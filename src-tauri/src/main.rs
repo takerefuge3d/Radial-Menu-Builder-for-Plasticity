@@ -1,3 +1,6 @@
+// Release builds on Windows run without a console window (debug builds keep it for logs).
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 use std::{
     fs, io,
     path::{Path, PathBuf},
