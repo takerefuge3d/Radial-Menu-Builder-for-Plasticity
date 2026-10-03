@@ -208,6 +208,12 @@ async fn pick_save_theme_path(app: tauri::AppHandle, suggested_name: Option<Stri
     Ok(picked.map(|p| p.to_string()))
 }
 
+// The Quit button on the first-launch terms.
+#[tauri::command]
+fn quit_app(app: tauri::AppHandle) {
+    app.exit(0);
+}
+
 // F11 full screen. macOS has its own full-screen button; Windows has none.
 #[tauri::command]
 async fn toggle_fullscreen(window: tauri::WebviewWindow) -> Result<bool, String> {
@@ -289,6 +295,7 @@ fn main() {
             load_user_themes,
             save_user_themes,
             toggle_fullscreen,
+            quit_app,
             read_text_file,
             write_text_file,
             matcaps::stage_matcap_bytes,

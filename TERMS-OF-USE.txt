@@ -1,0 +1,18 @@
+TERMS OF USE
+Plasticity Radial Menu Builder
+
+This app changes files in your Plasticity folders. That's its job: it saves radial
+menus, writes themes, and adds, renames, moves and deletes matcaps.
+
+By using it you agree to that, and you use it at your own risk. It's provided as is,
+and its creator isn't responsible for any loss or damage that comes from using it.
+
+Most of this is easy to undo. Plasticity can reset its theme to defaults, disabled
+matcaps can be enabled again, and deleted matcaps go to the Recycle Bin (the Trash on
+a Mac) first. A backup of your .plasticity folder never hurts.
+
+It's up to you to read the Plasticity documentation and understand how the pieces fit
+together. This app is a tool to make them fit more easily.
+
+This app isn't made by or affiliated with the makers of Plasticity. The open-source
+libraries it is built with are listed, with their licences, in THIRD-PARTY-NOTICES.txt.

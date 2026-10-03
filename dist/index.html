@@ -119,6 +119,14 @@ body {
 .app-tab:hover { color: var(--text); }
 .app-tab.active { color: var(--text); border-bottom-color: var(--accent); }
 .app-tab:focus-visible { outline: 1px solid var(--accent); outline-offset: -2px; }
+.app-tablist { display: flex; gap: 2px; align-items: flex-end; height: 100%; }
+.app-terms {
+  margin: 0 0 9px auto; padding: 2px 4px; background: none; border: none; cursor: pointer;
+  color: var(--muted); font-family: inherit; font-size: 12px; text-decoration: underline; text-underline-offset: 3px;
+}
+.app-terms:hover, .app-terms:focus-visible { color: var(--text); outline: none; }
+.terms-box { width: 520px; }
+.terms-box p { color: var(--text); }
 .app-container { height: calc(100vh - 41px); }
 body[data-tab="theme"] > .app-container:not(#tpApp), body[data-tab="theme"] > .json-preview { display: none !important; }
 body:not([data-tab="theme"]) > #tpApp { display: none; }
@@ -312,10 +320,13 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
   </style>
 </head>
 <body>
-  <div class="app-tabs" role="tablist">
-    <button class="app-tab active" type="button" role="tab" data-tab="radial" aria-selected="true">Radial Menus</button>
-    <button class="app-tab" type="button" role="tab" data-tab="theme" aria-selected="false">Theme Preview</button>
-    <button class="app-tab" type="button" role="tab" data-tab="matcaps" aria-selected="false">Matcaps</button>
+  <div class="app-tabs">
+    <div class="app-tablist" role="tablist">
+      <button class="app-tab active" type="button" role="tab" data-tab="radial" aria-selected="true">Radial Menus</button>
+      <button class="app-tab" type="button" role="tab" data-tab="theme" aria-selected="false">Theme Preview</button>
+      <button class="app-tab" type="button" role="tab" data-tab="matcaps" aria-selected="false">Matcaps</button>
+    </div>
+    <button class="app-terms" type="button" id="termsLink">Terms of use</button>
   </div>
   <div class="app-container">
     <!-- Left Sidebar - Commands -->
@@ -3183,6 +3194,74 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
       let startTab = 'radial';
       try { const t = localStorage.getItem(TABKEY); if (t === 'theme' || t === 'matcaps') startTab = t; } catch (e) {}
       showTab(startTab, true);
+    })();
+  </script>
+
+  <!-- ===== Terms of use ===== -->
+  <script>
+    // Shown once on first launch (I agree / Quit), and again from the "Terms of use" link.
+    // The same words are in TERMS-OF-USE.txt, which is installed next to the app.
+    (function () {
+      'use strict';
+      const KEY = 'plasticity-tools-terms-agreed'; // bump the value if the wording changes a lot
+      const VERSION = '1';
+      const BIN = isMacOS ? 'Trash' : 'Recycle Bin';
+      const LINES = [
+        "This app changes files in your Plasticity folders. That's its job: it saves radial menus, writes themes, and adds, renames, moves and deletes matcaps.",
+        "By using it you agree to that, and you use it at your own risk. It's provided as is, and its creator isn't responsible for any loss or damage that comes from using it.",
+        `Most of this is easy to undo. Plasticity can reset its theme to defaults, disabled matcaps can be enabled again, and deleted matcaps go to the ${BIN} first. A backup of your .plasticity folder never hurts.`,
+        "It's up to you to read the Plasticity documentation and understand how the pieces fit together. This app is a tool to make them fit more easily."
+      ];
+
+      function show(firstRun) {
+        const wrap = document.createElement('div');
+        wrap.className = 'tp-modal';
+        const box = document.createElement('div');
+        box.className = 'tp-modal-box terms-box';
+        box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-labelledby', 'termsTitle');
+        const h = document.createElement('h3'); h.id = 'termsTitle';
+        h.textContent = firstRun ? 'Before you start' : 'Terms of use';
+        box.appendChild(h);
+        LINES.forEach((t) => { const p = document.createElement('p'); p.textContent = t; box.appendChild(p); });
+        const btns = document.createElement('div'); btns.className = 'tp-modal-btns';
+        const button = (label, onClick) => {
+          const b = document.createElement('button'); b.className = 'btn'; b.type = 'button'; b.textContent = label;
+          b.addEventListener('click', onClick); btns.appendChild(b); return b;
+        };
+        const close = () => { document.removeEventListener('keydown', onKey, true); wrap.remove(); };
+        let focus;
+        if (firstRun) {
+          button('Quit', () => {
+            if (initTauriAPI()) invokeCommand('quit_app').catch(() => {});
+            else window.close();
+          });
+          focus = button('I agree', () => {
+            try { localStorage.setItem(KEY, VERSION); } catch (e) {}
+            close();
+          });
+        } else {
+          focus = button('Close', close);
+        }
+        box.appendChild(btns); wrap.appendChild(box); document.body.appendChild(wrap);
+        // First run has to be answered; afterwards Esc or a click outside closes it.
+        const onKey = (e) => {
+          if (e.key === 'Escape') { e.stopPropagation(); if (!firstRun) close(); }
+          if (e.key === 'Tab') { // keep focus inside the box
+            const items = [...btns.querySelectorAll('button')];
+            const i = items.indexOf(document.activeElement);
+            e.preventDefault();
+            items[(i + (e.shiftKey ? items.length - 1 : 1)) % items.length].focus();
+          }
+        };
+        document.addEventListener('keydown', onKey, true);
+        if (!firstRun) wrap.addEventListener('click', (e) => { if (e.target === wrap) close(); });
+        focus.focus();
+      }
+
+      document.getElementById('termsLink').addEventListener('click', () => show(false));
+      let agreed = false;
+      try { agreed = localStorage.getItem(KEY) === VERSION; } catch (e) {}
+      if (!agreed) show(true);
     })();
   </script>
 
