@@ -2723,18 +2723,31 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
 
       // ---------- pointing at the stand-in ----------
       const info = $('tpInfo');
-      // Hover text, e.g. "Grid lines — Set by Grid lines (drawn a little darker than you pick)."
-      const ROW_NAMES = { viewport: 'Background', grid: 'Grid lines', 'sheet-edge': 'Regular edges', 'instance-edge': 'Instance edges', measurement: 'Measurements', reticle: 'Reticle' };
-      const shadeName = (t) => t.replace(/\b(neutral|accent|supporting)-(\d+)/g, (_, p, n) => `${cap(p)} ${n}`);
+      // Hover text: what sets this part of the window, and what else that colour changes.
+      const ROW_TEXT = {
+        viewport: 'Set by Background. It only changes the viewport behind your model.',
+        grid: 'Set by Grid lines and Grid strength. Plasticity draws the grid a little darker than the colour you pick.',
+        'sheet-edge': "Set by Regular edges, the same as Regular edge colour in Plasticity's Preferences.",
+        'instance-edge': "Set by Instance edges, the same as Instance edge colour in Plasticity's Preferences.",
+        measurement: "Set by Measurements, the same as Measurement colour in Plasticity's Preferences.",
+        reticle: 'Set by Reticle, which colours the reticle and the Scene folder icon. Left empty, both stay near-white.'
+      };
+      const lowerFirst = (t) => t.charAt(0).toLowerCase() + t.slice(1);
       function describe(el) {
-        const d = el.dataset.u.split('|'), name = d[0], ref = d[1], extra = shadeName(d[2] || ''), inferred = d[3] === 'i';
-        let text = ref === 'fixed' ? 'Built into Plasticity, so no theme setting changes it'
-          : `Set by ${ROW_NAMES[ref] || shadeName(ref)}`;
-        if (extra) text += /^(about )?\d/.test(extra) ? ` at ${extra}` : ` (${extra})`;
-        text += '.' + (inferred ? ' This one is our best guess from a screenshot.' : '');
+        const d = el.dataset.u.split('|'), name = d[0], ref = d[1], note = d[2] || '';
+        const m = /^(neutral|accent|supporting)-(\d+)$/.exec(ref);
+        let text;
+        if (ref === 'fixed') {
+          text = 'Built into Plasticity, so no theme can change it.' + (/^always /.test(note) ? ` It's ${note}.` : '');
+        } else if (m) {
+          const use = USE[m[1]] && USE[m[1]][m[2]];
+          text = `Set by ${cap(m[1])} ${m[2]}` + (use ? `, which colours ${lowerFirst(use)}` : '.');
+        } else {
+          text = ROW_TEXT[ref] || '';
+        }
         info.textContent = '';
         const b = document.createElement('b'); b.textContent = name; info.appendChild(b);
-        info.appendChild(document.createTextNode(' — ' + text));
+        if (text) info.appendChild(document.createTextNode(' — ' + text));
       }
       mock.addEventListener('pointerover', (e) => { const el = e.target.closest && e.target.closest('[data-u]'); if (el) describe(el); });
       mock.addEventListener('click', (e) => {
