@@ -183,6 +183,9 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
 .mc-row.drop-before { box-shadow: inset 0 2px 0 var(--accent); }
 .mc-row.drop-after { box-shadow: inset 0 -2px 0 var(--accent); }
 .mc-new { color: var(--accent); }
+.mc-tintcell { display: flex; align-items: center; gap: 12px; }
+.mc-tints { display: inline-flex; gap: 4px; }
+.mc-tint { width: 26px; height: 26px; }
 
 /* ===== Theme Preview tab ===== */
 #tpApp { color-scheme: dark; }
@@ -722,7 +725,7 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
       </div>
       <div class="tp-hint">Plasticity wants each matcap as a pair with the same name: an EXR for the texture and a PNG for the picker. Files you add are copied as they are under the clean name (spaces become _). Only the missing half of the pair is made, at the sizes above.</div>
       <div class="tp-hint">A JPG or WebP has no transparency, so the files made from it are cut to a circle.</div>
-      <div class="tp-hint">Tinted (beta) saves NAME.json containing { isTinted: true }, which lets Plasticity tint the matcap with the material colour. Tinting works best on neutral matcaps with low saturation (greys, silvers, clay); colourful matcaps don't tint well.</div>
+      <div class="tp-hint">Tinted (beta) saves NAME.json containing { isTinted: true }, which lets Plasticity tint the matcap with the material colour. Plasticity multiplies the matcap by the material colour, so tinting can only darken and shift colours. It works best on neutral matcaps with low saturation (greys, silvers, clay); colourful matcaps don't tint well. A tinted matcap shows a row of examples (red, yellow, green, blue and grey materials) next to its checkbox.</div>
       <div class="tp-hint">Disable moves a matcap into a matcaps-disabled folder next to this one, where Plasticity doesn't look. Enable moves it back. A disabled matcap can be deleted, which moves its files to the Recycle Bin (Trash on a Mac).</div>
       <div class="tp-hint">Reorder… lets you drag matcaps into order, then renames them 01_Name, 02_Name and so on so they sort that way. Remove Numbers takes the numbers off again. Restart Plasticity to see changes.</div>
       <div class="tp-hint">Installed matcaps are only changed when you click: Fix, Tinted, Disable, Enable, Delete or Apply Order.</div>
@@ -3713,7 +3716,8 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
         const a = analyze(g, dup);
         const row = el('div', 'mc-row');
         const first = g.exr || g.png || g.src;
-        row.appendChild(thumb(first.preview));
+        const img = thumb(first.preview);
+        row.appendChild(img);
 
         const main = el('div');
         const name = el('input', 'form-input mc-name');
@@ -3743,7 +3747,7 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
         tbox.addEventListener('change', () => { g.tinted = tbox.checked; render(); });
         tint.append(tbox, 'Tinted (beta)');
         tint.title = TINT_TIP;
-        row.appendChild(tint);
+        row.appendChild(tintCell(g.tinted, img, tint));
 
         const remove = el('button', 'close-btn', '×');
         remove.type = 'button'; remove.title = 'Remove from the list'; remove.setAttribute('aria-label', `Remove ${g.name}`);
@@ -3757,6 +3761,60 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
         orphan: 'Add the matcap with this name, or delete the .json by hand.'
       };
       const TINT_TIP = 'Lets Plasticity tint this matcap with the material colour. Works best on neutral, low-saturation matcaps.';
+
+      // ---------- tint examples ----------
+      // Plasticity draws a tinted matcap with three.js's matcap shader, which multiplies it by
+      // the material colour in linear light (diffuseColor.rgb * matcapColor.rgb). These redo
+      // that on the thumbnail for a few material colours.
+      const TINTS = [['Red', '#e53935'], ['Yellow', '#fdd835'], ['Green', '#43a047'], ['Blue', '#1e88e5'], ['Grey', '#9e9e9e']];
+      const LIN = Array.from({ length: 256 }, (_, i) => { const c = i / 255; return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); });
+      const toSrgb8 = (l) => Math.round(255 * (l <= 0.0031308 ? l * 12.92 : 1.055 * Math.pow(l, 1 / 2.4) - 0.055));
+      const tintLinear = (hex) => [1, 3, 5].map((i) => LIN[parseInt(hex.slice(i, i + 2), 16)]);
+      const TINT_SIZE = 26; // CSS px, matches .mc-tint
+
+      function tintExamples(img) {
+        const wrap = el('span', 'mc-tints');
+        const canvases = TINTS.map(([name]) => {
+          const c = el('canvas', 'mc-tint');
+          c.title = `With a ${name.toLowerCase()} material`;
+          c.setAttribute('role', 'img'); c.setAttribute('aria-label', c.title);
+          wrap.appendChild(c);
+          return c;
+        });
+        const draw = () => {
+          if (!img.naturalWidth) return;
+          const px = Math.round(TINT_SIZE * (window.devicePixelRatio || 1));
+          const base = document.createElement('canvas');
+          base.width = base.height = px;
+          const bctx = base.getContext('2d');
+          bctx.drawImage(img, 0, 0, px, px);
+          const src = bctx.getImageData(0, 0, px, px).data;
+          canvases.forEach((c, k) => {
+            const t = tintLinear(TINTS[k][1]);
+            c.width = c.height = px;
+            const cctx = c.getContext('2d');
+            const out = cctx.createImageData(px, px);
+            for (let i = 0; i < src.length; i += 4) {
+              out.data[i] = toSrgb8(LIN[src[i]] * t[0]);
+              out.data[i + 1] = toSrgb8(LIN[src[i + 1]] * t[1]);
+              out.data[i + 2] = toSrgb8(LIN[src[i + 2]] * t[2]);
+              out.data[i + 3] = src[i + 3];
+            }
+            cctx.putImageData(out, 0, 0);
+          });
+        };
+        if (img.complete && img.naturalWidth) draw();
+        else img.addEventListener('load', draw, { once: true });
+        return wrap;
+      }
+
+      // The Tinted checkbox, with the examples beside it when it's ticked.
+      function tintCell(on, img, label) {
+        if (!on) return label;
+        const cell = el('div', 'mc-tintcell');
+        cell.append(tintExamples(img), label);
+        return cell;
+      }
 
       function smallButton(label, title, onClick) {
         const b = el('button', 'btn mc-small', label);
@@ -3775,7 +3833,8 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
 
       function installedRow(g) {
         const row = el('div', `mc-row${g.disabled ? ' mc-off' : ''}`);
-        row.appendChild(installedThumb(g));
+        const img = installedThumb(g);
+        row.appendChild(img);
         const hasImage = !!(g.png || g.exr || g.jpg);
 
         const main = el('div');
@@ -3796,7 +3855,7 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
           box.addEventListener('change', () => setTint(g, box.checked));
           tint.append(box, 'Tinted (beta)');
           tint.title = TINT_TIP;
-          row.appendChild(tint);
+          row.appendChild(tintCell(g.tinted, img, tint));
         } else {
           row.appendChild(el('span'));
         }
