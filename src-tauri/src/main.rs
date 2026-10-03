@@ -318,7 +318,8 @@ fn main() {
             matcaps::pick_matcaps_folder,
             shortcuts::load_default_shortcuts,
             shortcuts::read_text_if_exists,
-            shortcuts::list_plasticity_radials
+            shortcuts::list_plasticity_radials,
+            shortcuts::pick_radial_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -220,6 +220,9 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
 .ks-placeholder { color: var(--muted); font-size: 12px; }
 .ks-capture.listening .ks-placeholder { color: var(--accent); }
 .ks-cmdname { color: var(--muted); font-size: 12px; margin-top: 4px; min-height: 16px; }
+.ks-radial-row { display: flex; gap: 6px; align-items: center; margin-top: 4px; }
+.ks-radial-row .form-input { flex: 1; min-width: 0; }
+.ks-radial-row .btn { width: auto; margin: 0; }
 .ks-warn p { font-size: 12px; line-height: 1.45; margin: 0 0 8px; padding-left: 8px; border-left: 2px solid currentColor; }
 .ks-warn .error { color: #ff5555; }
 .ks-warn .warning { color: #ffb84d; }
@@ -366,7 +369,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
   <div class="app-tabs">
     <div class="app-tablist" role="tablist">
       <button class="app-tab active" type="button" role="tab" data-tab="radial" aria-selected="true">Radial Menus</button>
-      <button class="app-tab" type="button" role="tab" data-tab="theme" aria-selected="false">Theme Preview</button>
+      <button class="app-tab" type="button" role="tab" data-tab="theme" aria-selected="false">Themes</button>
       <button class="app-tab" type="button" role="tab" data-tab="matcaps" aria-selected="false">Matcaps</button>
       <button class="app-tab" type="button" role="tab" data-tab="shortcuts" aria-selected="false">Keyboard Shortcuts</button>
     </div>
@@ -821,6 +824,10 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
         <input class="form-input" id="ksCmd" list="ksCmdList" placeholder="Type to search, e.g. fillet" spellcheck="false" autocomplete="off" />
         <datalist id="ksCmdList"></datalist>
         <div class="ks-cmdname" id="ksCmdName"></div>
+        <div class="ks-radial-row">
+          <select class="form-input" id="ksRadial" aria-label="Or choose one of your radial menus"></select>
+          <button class="btn mc-small" id="ksRadialBrowse" type="button" title="Choose any radial menu file">Browse…</button>
+        </div>
       </div>
       <div class="form-group">
         <label class="form-label" for="ksKeys">Keys</label>
@@ -846,6 +853,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       <button class="btn" id="ksBackup" type="button">Restore Backup</button>
 
       <div class="tp-hint">Plasticity keeps your shortcuts in keymap.json. Only the ones you add or change are stored there; the rest are Plasticity's built-in shortcuts, listed here from Plasticity 26.1.3.</div>
+      <div class="tp-hint">To open one of your radial menus with a shortcut, choose it from the radial menu list under Command. It lists the menus in Plasticity's radials folder and the folder the Radial Menus tab saves to; Browse… picks any other radial file. Plasticity only loads menus from its radials folder, so save or copy a menu there for its shortcut to work.</div>
       <div class="tp-hint">Click the Keys box and press the keys. Mouse buttons work too: click the box, then press the middle or a side button. Tab and Escape can't be recorded, so type them instead (tab, escape).</div>
       <div class="tp-hint">Where sets when a shortcut works. Everywhere covers the whole window while no command is running. Plasticity's own viewport keys, and the keys inside commands (like X for the X axis while moving), still take priority in their own places.</div>
       <div class="tp-hint">Turn Off stops a built-in shortcut (it's saved as unset!). Reset and Remove take your shortcut out, so Plasticity's own comes back.</div>
@@ -4789,6 +4797,10 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
           add('info', `While some commands run, ${keys} does their own thing (${eg}${inCommands.length > 2 ? '; and more' : ''}). That's normal: this shortcut works the rest of the time.`);
         }
 
+        const radial = command && command.startsWith(RADIAL) && radials.find((r) => RADIAL + r.command === command);
+        if (radial && !radial.inPlasticity) {
+          add('warning', `${radial.name} isn't in Plasticity's radials folder, so Plasticity won't load it and this shortcut won't open anything. Save or copy it into the radials folder first.`);
+        }
         if (command && command !== OFF && !known.has(command)) {
           add('info', command.startsWith(RADIAL)
             ? `There's no radial menu called ${command.slice(RADIAL.length)} in your radials folder. Check the name.`
@@ -4903,6 +4915,44 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
         radials.forEach((r) => { const id = RADIAL + r.command; known.add(id); opts.push([id, `${r.name} (radial menu)`]); });
         [...ids].sort().forEach((id) => opts.push([id, cmdName(id)]));
         $('ksCmdList').replaceChildren(...opts.map(([id, label]) => { const o = el('option', null, label); o.value = id; return o; }));
+        fillRadials();
+      }
+
+      // The radial menu list under Command: Plasticity's radials folder first, then the
+      // Radial Menus tab's folder (Plasticity doesn't load those until they're copied over).
+      function fillRadials() {
+        const box = $('ksRadial');
+        const first = el('option', null, radials.length ? 'Or choose one of your radial menus…' : 'No radial menus found');
+        first.value = '';
+        const groups = [
+          ['In Plasticity\'s radials folder', radials.filter((r) => r.inPlasticity)],
+          ['Not in Plasticity\'s radials folder', radials.filter((r) => !r.inPlasticity)]
+        ].filter(([, list]) => list.length);
+        box.replaceChildren(first, ...groups.map(([label, list]) => {
+          const g = el('optgroup');
+          g.label = label;
+          list.forEach((r) => { const o = el('option', null, r.name); o.value = r.command; o.title = r.file; g.appendChild(o); });
+          return g;
+        }));
+        syncRadial($('ksCmd').value.trim());
+      }
+      function syncRadial(command) {
+        const box = $('ksRadial');
+        const want = command.startsWith(RADIAL) ? command.slice(RADIAL.length) : '';
+        box.value = [...box.options].some((o) => o.value === want) ? want : '';
+      }
+      function chooseRadial(command) {
+        $('ksCmd').value = RADIAL + command;
+        updateForm();
+      }
+      async function browseRadial() {
+        let r;
+        try { r = await invokeCommand('pick_radial_file'); }
+        catch (err) { note(`Could not use that file: ${err}`, 'error'); return; }
+        if (!r) return;
+        if (!radials.some((x) => x.command === r.command)) { radials.push(r); known.add(RADIAL + r.command); }
+        fillRadials();
+        chooseRadial(r.command);
       }
 
       function formValues() {
@@ -4919,6 +4969,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       function updateForm() {
         const v = formValues();
         $('ksCmdName').textContent = v.command ? cmdName(v.command) : '';
+        syncRadial(v.command);
         showKeys(v.keys);
         const warn = $('ksWarn');
         warn.replaceChildren();
@@ -5168,7 +5219,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
           note(`Could not load Plasticity's built-in shortcuts: ${err}`, 'error', true);
         }
         if (!tauriAvailable) {
-          ['ksSave', 'ksReload', 'ksChange', 'ksDefault', 'ksBackup'].forEach((id) => { $(id).disabled = true; });
+          ['ksSave', 'ksReload', 'ksChange', 'ksDefault', 'ksBackup', 'ksRadialBrowse'].forEach((id) => { $(id).disabled = true; });
           $('ksFile').textContent = 'Not available';
           fillPlaces(MAIN); fillCommands(); render(); updateForm();
           note('Saving shortcuts needs the desktop app: it reads and writes keymap.json in your Plasticity folder.', 'warning', true);
@@ -5206,6 +5257,8 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       $('ksKeysText').addEventListener('input', updateForm);
       $('ksCtx').addEventListener('change', updateForm);
       $('ksApply').addEventListener('click', applyForm);
+      $('ksRadial').addEventListener('change', (e) => { if (e.target.value) chooseRadial(e.target.value); });
+      $('ksRadialBrowse').addEventListener('click', browseRadial);
       $('ksCancel').addEventListener('click', () => { endEdit(); render(); });
       const keysBox = $('ksKeys');
       keysBox.addEventListener('focus', () => listen(true));
@@ -5215,7 +5268,16 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       keysBox.addEventListener('contextmenu', (e) => e.preventDefault());
       keysBox.addEventListener('auxclick', (e) => e.preventDefault());
 
-      document.addEventListener('app-tab', (e) => { if (e.detail === 'shortcuts') start(); });
+      async function refreshRadials() {
+        try { radials = await invokeCommand('list_plasticity_radials'); } catch (e) { return; }
+        fillCommands();
+        render();
+        updateForm();
+      }
+      document.addEventListener('app-tab', (e) => {
+        if (e.detail !== 'shortcuts') return;
+        if (started && tauriAvailable) refreshRadials(); else start();
+      });
       if (document.body.dataset.tab === 'shortcuts') start();
     })();
   </script>
