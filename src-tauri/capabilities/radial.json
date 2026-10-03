@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/v2/capabilities.json",
   "identifier": "radial",
-  "description": "Capabilities for Radial Menu Builder (dialog pickers + scoped FS access).",
+  "description": "Capabilities for Radial Menu Builder++ for Plasticity (dialog pickers + scoped FS access).",
   "windows": ["main"],
   "permissions": [
     "core:default",

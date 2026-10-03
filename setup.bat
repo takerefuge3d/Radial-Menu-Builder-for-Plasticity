@@ -1,5 +1,5 @@
 @echo off
-echo Setting up Radial Menu Builder...
+echo Setting up Radial Menu Builder++ for Plasticity...
 
 :: Check if Node.js is installed
 node --version >nul 2>&1

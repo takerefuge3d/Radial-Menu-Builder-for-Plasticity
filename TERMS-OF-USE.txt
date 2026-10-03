@@ -1,5 +1,6 @@
 TERMS OF USE
-Plasticity Radial Menu Builder
+Radial Menu Builder++ for Plasticity
+(formerly Plasticity Radial Menu Builder)
 
 This app changes files in your Plasticity folders. That's its job: it saves radial
 menus, writes themes and keyboard shortcuts, and adds, renames, moves and

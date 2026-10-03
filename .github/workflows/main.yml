@@ -49,9 +49,13 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: 'Plasticity Radial Menu Builder v__VERSION__'
+          releaseName: 'Radial Menu Builder++ for Plasticity v__VERSION__'
           releaseBody: |
             Download and install this version.
+
+            Radial Menu Builder++ for Plasticity is the new name for Plasticity Radial Menu Builder. On Windows the installer replaces the old version,
+            and your themes, matcap collections and settings are kept. On a Mac, drag the new app into
+            Applications, then you can delete "Plasticity Radial Menu Builder" from Applications.
             
             **macOS Users**: The app isn't notarized by Apple, so the first launch is blocked once.
             Open it, click "Done" on the warning, then go to System Settings > Privacy & Security,
@@ -75,7 +79,7 @@ jobs:
           4. **Important**: Don't double-click to open the app yet
           
           ## First Launch
-          1. Open "Plasticity Radial Menu Builder" from Applications
+          1. Open "Radial Menu Builder++ for Plasticity" from Applications
           2. macOS says it can't verify the developer. Click "Done"
           3. Open System Settings > Privacy & Security
           4. Scroll down to the message about the app and click "Open Anyway"
@@ -90,7 +94,7 @@ jobs:
           ## Terminal Fix (last resort)
           Only if macOS says the app "is damaged" and there is no "Open Anyway" button:
           ```bash
-          sudo xattr -r -d com.apple.quarantine "/Applications/Plasticity Radial Menu Builder.app"
+          sudo xattr -r -d com.apple.quarantine "/Applications/Radial Menu Builder++ for Plasticity.app"
           ```
           
           ## What This App Does
