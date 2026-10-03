@@ -162,6 +162,19 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
   color: var(--accent); font-size: 10px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; vertical-align: 1px;
 }
 .mc-empty { padding: 16px; text-align: center; color: var(--muted); font-size: 12px; }
+.mc-bar { display: flex; align-items: center; gap: 8px; }
+.mc-bar[hidden] { display: none; }
+.mc-acts { display: flex; gap: 6px; justify-content: flex-end; }
+.mc-acts .btn.mc-small { padding: 4px 9px; font-size: 12px; }
+.mc-off .mc-thumb, .mc-off .mc-title, .mc-off .mc-files { opacity: .5; }
+.mc-sub { padding: 8px 12px; border-bottom: 1px solid #222; background: #1c1c1c; color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.mc-sub span { text-transform: none; font-weight: 400; letter-spacing: 0; }
+.mc-row.mc-drag { cursor: grab; }
+.mc-row.mc-drag:active { cursor: grabbing; }
+.mc-row.dragging { opacity: .4; }
+.mc-row.drop-before { box-shadow: inset 0 2px 0 var(--accent); }
+.mc-row.drop-after { box-shadow: inset 0 -2px 0 var(--accent); }
+.mc-new { color: var(--accent); }
 
 /* ===== Theme Preview tab ===== */
 #tpApp { color-scheme: dark; }
@@ -654,8 +667,8 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
     <div class="center-panel">
       <div class="notification" id="mcNote"></div>
       <div class="mc-drop" id="mcDrop" tabindex="0" role="button" aria-label="Add matcap images">
-        <div class="mc-drop-title">Drop PNG, JPG or EXR matcaps here</div>
-        <div class="mc-drop-sub">or click to choose files</div>
+        <div class="mc-drop-title">Drop PNG, JPG, WebP or EXR matcaps here</div>
+        <div class="mc-drop-sub">from your files or straight from a browser, or click to choose files</div>
       </div>
       <div class="mc-head" id="mcStageHead" hidden>
         <div class="section-title">To Add <span id="mcStageCount"></span></div>
@@ -665,9 +678,17 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
       <div class="mc-list" id="mcStaged"></div>
       <div class="mc-head">
         <div class="section-title">Installed <span id="mcCount"></span></div>
-        <label class="mc-check"><input type="checkbox" id="mcOnlyBroken" /> Problems only</label>
-        <button class="btn mc-small" id="mcRefresh" type="button">Refresh</button>
-        <button class="btn mc-small" id="mcFixAll" type="button">Fix All</button>
+        <span class="mc-bar" id="mcListBar">
+          <label class="mc-check"><input type="checkbox" id="mcOnlyBroken" /> Problems only</label>
+          <button class="btn mc-small" id="mcRefresh" type="button">Refresh</button>
+          <button class="btn mc-small" id="mcFixAll" type="button">Fix All</button>
+          <button class="btn mc-small" id="mcOrder" type="button">Reorder…</button>
+        </span>
+        <span class="mc-bar" id="mcOrderBar" hidden>
+          <button class="btn mc-small" id="mcOrderCancel" type="button">Cancel</button>
+          <button class="btn mc-small" id="mcOrderStrip" type="button">Remove Numbers</button>
+          <button class="btn mc-small" id="mcOrderApply" type="button">Apply Order</button>
+        </span>
       </div>
       <div class="mc-list" id="mcInstalled"></div>
     </div>
@@ -689,9 +710,11 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
         <select class="form-input" id="mcExrSize"><option value="1024">1024 × 1024</option><option value="512">512 × 512</option></select>
       </div>
       <div class="tp-hint">Plasticity wants each matcap as a pair with the same name: an EXR for the texture and a PNG for the picker. Files you add are copied as they are under the clean name (spaces become _). Only the missing half of the pair is made, at the sizes above.</div>
-      <div class="tp-hint">A JPG has no transparency, so the files made from it are cut to a circle.</div>
-      <div class="tp-hint">Tinted (beta) also saves NAME.json containing { isTinted: true }, which makes the matcap tintable in Plasticity.</div>
-      <div class="tp-hint">Installed matcaps are only changed when you click Fix or Fix All. Fix renames the files to the clean name and makes a missing PNG or EXR.</div>
+      <div class="tp-hint">A JPG or WebP has no transparency, so the files made from it are cut to a circle.</div>
+      <div class="tp-hint">Tinted (beta) saves NAME.json containing { isTinted: true }, which lets Plasticity tint the matcap with the material colour. Tinting works best on neutral matcaps with low saturation (greys, silvers, clay); colourful matcaps don't tint well.</div>
+      <div class="tp-hint">Disable moves a matcap into a matcaps-disabled folder next to this one, where Plasticity doesn't look. Enable moves it back.</div>
+      <div class="tp-hint">Reorder… lets you drag matcaps into order, then renames them 01_Name, 02_Name and so on so they sort that way. Remove Numbers takes the numbers off again. Restart Plasticity to see changes.</div>
+      <div class="tp-hint">Installed matcaps are only changed when you click: Fix, Tinted, Disable, Enable or Apply Order.</div>
     </div>
   </div>
 
@@ -3173,7 +3196,7 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
 
       const $ = (id) => document.getElementById(id);
       const FOLDERKEY = 'plasticity-matcaps-folder', SIZEKEY = 'plasticity-matcaps-sizes';
-      const IMAGE_RE = /\.(png|jpe?g|exr)$/i;
+      const IMAGE_RE = /\.(png|jpe?g|webp|exr)$/i;
 
       let folder = null;
       let installed = [];   // from list_installed_matcaps
@@ -3268,18 +3291,20 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
       }
 
       // ---------- adding files ----------
+      // A PNG and an EXR are kept as they are; a JPG or WebP is only a source to make them from.
       function place(info) {
+        const slot = info.kind === 'png' || info.kind === 'exr' ? info.kind : 'src';
         const base = mcClean(info.stem) || 'matcap';
         let name = base;
         for (let n = 2; ; n++) {
           const g = groups.find((x) => lower(x.name) === lower(name));
           if (!g) {
-            const fresh = { key: nextKey++, name, png: null, exr: null, jpg: null, tinted: false, replace: false, saveError: '' };
-            fresh[info.kind] = info;
+            const fresh = { key: nextKey++, name, png: null, exr: null, src: null, tinted: false, replace: false, saveError: '' };
+            fresh[slot] = info;
             groups.push(fresh);
             return;
           }
-          if (!g[info.kind]) { g[info.kind] = info; return; }
+          if (!g[slot]) { g[slot] = info; return; }
           name = `${base}_${n}`;
         }
       }
@@ -3309,7 +3334,7 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
           busy = false;
         }
         render();
-        const extra = skipped.length ? ` Skipped ${skipped.join(', ')}: only PNG, JPG and EXR can be used.` : '';
+        const extra = skipped.length ? ` Skipped ${skipped.join(', ')}: only PNG, JPG, WebP and EXR can be used.` : '';
         if (failed.length) note(failed.join('  ') + extra, 'error', true);
         else if (skipped.length) note(`Added ${plural(added, 'file')}.${extra}`, 'warning', true);
         else if (added) note(`Added ${plural(added, 'file')}. Check the names, then click Save to Matcaps.`);
@@ -3331,7 +3356,7 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
 
       function unstage(list) {
         const ids = [];
-        list.forEach((g) => ['png', 'exr', 'jpg'].forEach((k) => { if (g[k]) ids.push(g[k].id); }));
+        list.forEach((g) => ['png', 'exr', 'src'].forEach((k) => { if (g[k]) ids.push(g[k].id); }));
         if (ids.length) invokeCommand('unstage_matcaps', { ids }).catch(() => {});
       }
 
@@ -3343,15 +3368,17 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
       function analyze(g, dupNames) {
         const a = { error: '', warnings: [], plan: [], canReplace: false };
         const P = pngSize(), E = exrSize();
-        const exrFrom = g.exr ? null : (g.png || g.jpg);
-        const pngFrom = g.png ? null : (g.exr || g.jpg);
-        const cut = (src) => (src && src.kind === 'jpg' ? ', cut to a circle' : '');
+        const exrFrom = g.exr ? null : (g.png || g.src);
+        const pngFrom = g.png ? null : (g.exr || g.src);
+        // matches convert() in matcaps.rs
+        const cut = (f) => (f && (f.kind === 'jpg' || (f.kind === 'webp' && !f.hasAlpha)) ? ', cut to a circle' : '');
+        const kindName = (f) => (f.kind === 'webp' ? 'WebP' : f.kind.toUpperCase());
 
-        a.plan.push(g.exr ? `${g.exr.fileName} → ${g.name}.exr` : `makes ${g.name}.exr (${E} px) from the ${exrFrom.kind.toUpperCase()}${cut(exrFrom)}`);
-        a.plan.push(g.png ? `${g.png.fileName} → ${g.name}.png` : `makes ${g.name}.png (${P} px) from the ${pngFrom.kind.toUpperCase()}${cut(pngFrom)}`);
+        a.plan.push(g.exr ? `${g.exr.fileName} → ${g.name}.exr` : `makes ${g.name}.exr (${E} px) from the ${kindName(exrFrom)}${cut(exrFrom)}`);
+        a.plan.push(g.png ? `${g.png.fileName} → ${g.name}.png` : `makes ${g.name}.png (${P} px) from the ${kindName(pngFrom)}${cut(pngFrom)}`);
         if (g.tinted) a.plan.push(`${g.name}.json`);
 
-        if (g.jpg && exrFrom !== g.jpg && pngFrom !== g.jpg) a.warnings.push(`${g.jpg.fileName} isn't needed and won't be saved.`);
+        if (g.src && exrFrom !== g.src && pngFrom !== g.src) a.warnings.push(`${g.src.fileName} isn't needed and won't be saved.`);
         if (exrFrom && Math.min(exrFrom.width, exrFrom.height) < E) {
           a.warnings.push(`${exrFrom.fileName} is only ${Math.min(exrFrom.width, exrFrom.height)} px, so the EXR is enlarged and may look soft.`);
         }
@@ -3362,7 +3389,9 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
         else if (dupNames.has(lower(g.name))) a.error = 'Another row has the same name.';
         else {
           const inst = installedMatch(g.name);
-          if (inst) {
+          if (inst && inst.disabled) {
+            a.error = `A disabled matcap is called ${inst.name}. Pick another name, or enable and replace that one.`;
+          } else if (inst) {
             // Replace deletes the old NAME.png/.exr/.json, so it is only offered when those are the
             // installed matcap's only files; otherwise leftovers would clash with the new pair.
             const files = [inst.png, inst.exr, inst.json].filter(Boolean);
@@ -3391,7 +3420,7 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
         const dup = dupSet();
         const ready = groups.filter((g) => !analyze(g, dup).error);
         if (!ready.length) { note('Nothing is ready to save. Check the message under each name.', 'warning'); return; }
-        const replacing = ready.filter((g) => installedMatch(g.name));
+        const replacing = ready.filter((g) => { const m = installedMatch(g.name); return m && !m.disabled; });
         if (replacing.length) {
           const names = replacing.map((g) => g.name).join(', ');
           const ok = await confirmBox('Replace installed matcaps?', [
@@ -3408,11 +3437,11 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
           try {
             await invokeCommand('save_matcap', { req: {
               folder, name: g.name,
-              pngId: g.png ? g.png.id : null, exrId: g.exr ? g.exr.id : null, jpgId: g.jpg ? g.jpg.id : null,
+              pngId: g.png ? g.png.id : null, exrId: g.exr ? g.exr.id : null, srcId: g.src ? g.src.id : null,
               pngSize: pngSize(), exrSize: exrSize(), tinted: g.tinted, replace: g.replace
             } });
             saved++;
-            unstage([g]); // the backend drops what it used; this clears an unused JPG too
+            unstage([g]); // the backend drops what it used; this clears an unused JPG or WebP too
             groups = groups.filter((x) => x !== g);
           } catch (err) {
             g.saveError = String(err);
@@ -3435,6 +3464,7 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
 
       // ---------- installed ----------
       async function refreshInstalled(keepPreviews) {
+        ordering = null;
         if (!folder) { installed = []; render(); return; }
         if (!keepPreviews) previews.clear();
         try {
@@ -3447,8 +3477,75 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
       }
 
       async function fixOne(g) {
-        const done = await invokeCommand('fix_installed_matcap', { folder, name: g.name, pngSize: pngSize(), exrSize: exrSize() });
-        return done;
+        return invokeCommand('fix_installed_matcap', { folder, name: g.name, disabled: g.disabled, pngSize: pngSize(), exrSize: exrSize() });
+      }
+
+      // Tint, Disable and Enable each change one installed matcap, straight from a click.
+      async function act(label, cmd, args, done) {
+        if (busy) return;
+        busy = true;
+        try {
+          await invokeCommand(cmd, args);
+          if (done) note(done);
+        } catch (err) {
+          note(`Could not ${label}: ${err}`, 'error', true);
+        }
+        busy = false;
+        await refreshInstalled(true);
+      }
+      const setTint = (g, tinted) => act(`change the tint of ${g.name}`, 'set_matcap_tinted',
+        { folder, name: g.name, disabled: g.disabled, tinted },
+        `${g.name} is ${tinted ? 'now tinted' : 'no longer tinted'}. Restart Plasticity to see it.`);
+      const setEnabled = (g, enabled) => act(`${enabled ? 'enable' : 'disable'} ${g.name}`, 'set_matcap_enabled',
+        { folder, name: g.name, enabled },
+        enabled ? `${g.name} is back in Plasticity's matcaps.` : `${g.name} moved to the matcaps-disabled folder, so Plasticity won't load it.`);
+
+      // ---------- order ----------
+      // While ordering, `ordering` holds the enabled matcap names in their new order.
+      let ordering = null;
+      const orderable = () => installed.filter((g) => !g.disabled && (g.png || g.exr || g.jpg));
+      // Same as strip_number and the numbering in order_matcaps (matcaps.rs).
+      const stripNumber = (n) => { const m = /^(\d+)_(.+)$/.exec(n); return m ? m[2] : n; };
+      const numbered = (i, n, count) => `${String(i + 1).padStart(Math.max(2, String(count).length), '0')}_${stripNumber(n)}`;
+
+      function startOrder() {
+        if (busy) return;
+        ordering = orderable().map((g) => g.name);
+        if (!ordering.length) { ordering = null; return; }
+        note('Drag the matcaps into order (or use the arrows), then click Apply Order.', 'success', true);
+        render();
+      }
+      function endOrder() { ordering = null; note(''); render(); }
+
+      async function applyOrder(withNumbers) {
+        if (busy || !ordering) return;
+        const names = withNumbers ? ordering : orderable().map((g) => g.name);
+        const changes = names.filter((n, i) => (withNumbers ? numbered(i, n, names.length) : stripNumber(n)) !== n).length;
+        if (!changes) { note(withNumbers ? 'Already in this order.' : 'No numbers to remove.', 'warning'); return; }
+        const ok = await confirmBox(withNumbers ? `Rename ${plural(changes, 'matcap')} to set the order?` : `Remove the numbers from ${plural(changes, 'matcap')}?`, [
+          withNumbers
+            ? 'Each matcap is renamed with a number in front (01_Name, 02_Name…), including its .json. Plasticity shows the number as part of the name.'
+            : 'Each numbered matcap goes back to its name without the number.',
+          'Restart Plasticity afterwards to see the new order.'
+        ], withNumbers ? 'Apply Order' : 'Remove Numbers');
+        if (!ok) return;
+        busy = true;
+        try {
+          await invokeCommand('order_matcaps', { folder, names, numbered: withNumbers });
+          ordering = null;
+          note(withNumbers ? `Renamed ${plural(changes, 'matcap')} into the new order.` : `Removed the numbers from ${plural(changes, 'matcap')}.`);
+        } catch (err) {
+          note(`Could not rename: ${err}`, 'error', true);
+        }
+        busy = false;
+        await refreshInstalled();
+      }
+
+      function moveOrder(from, to) {
+        if (to < 0 || to >= ordering.length || from === to) return;
+        const [n] = ordering.splice(from, 1);
+        ordering.splice(to, 0, n);
+        render();
       }
 
       async function fix(g) {
@@ -3486,6 +3583,7 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
       }
 
       // Thumbnails load as rows scroll into view, a few at a time.
+      const previewKey = (disabled, file) => `${folder}|${disabled ? 'off' : 'on'}|${file}`;
       const waiting = [];
       let running = 0;
       const io = new IntersectionObserver((entries) => {
@@ -3497,10 +3595,11 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
         while (running < 3 && waiting.length) {
           const img = waiting.shift();
           if (!img.isConnected) continue;
-          const file = img.dataset.file, key = `${folder}|${file}`;
+          const file = img.dataset.file, disabled = img.dataset.disabled === '1';
+          const key = previewKey(disabled, file);
           if (previews.has(key)) { img.src = previews.get(key); continue; }
           running++;
-          invokeCommand('installed_matcap_preview', { folder, fileName: file })
+          invokeCommand('installed_matcap_preview', { folder, fileName: file, disabled })
             .then((url) => { previews.set(key, url); img.src = url; })
             .catch((err) => {
               img.classList.add('bad');
@@ -3523,7 +3622,7 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
       function stagedRow(g, dup) {
         const a = analyze(g, dup);
         const row = el('div', 'mc-row');
-        const first = g.exr || g.png || g.jpg;
+        const first = g.exr || g.png || g.src;
         row.appendChild(thumb(first.preview));
 
         const main = el('div');
@@ -3553,6 +3652,7 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
         const tbox = el('input'); tbox.type = 'checkbox'; tbox.checked = g.tinted;
         tbox.addEventListener('change', () => { g.tinted = tbox.checked; render(); });
         tint.append(tbox, 'Tinted (beta)');
+        tint.title = TINT_TIP;
         row.appendChild(tint);
 
         const remove = el('button', 'close-btn', '×');
@@ -3566,37 +3666,108 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
         clash: 'Fix can\'t choose between these, so rename or remove the extra file by hand.',
         orphan: 'Add the matcap with this name, or delete the .json by hand.'
       };
+      const TINT_TIP = 'Lets Plasticity tint this matcap with the material colour. Works best on neutral, low-saturation matcaps.';
+
+      function smallButton(label, title, onClick) {
+        const b = el('button', 'btn mc-small', label);
+        b.type = 'button';
+        if (title) b.title = title;
+        b.addEventListener('click', onClick);
+        return b;
+      }
+
+      function installedThumb(g) {
+        const file = g.png || g.exr || g.jpg;
+        const img = thumb(file ? previews.get(previewKey(g.disabled, file)) : null);
+        if (file && !img.src) { img.dataset.file = file; img.dataset.disabled = g.disabled ? '1' : ''; io.observe(img); }
+        return img;
+      }
 
       function installedRow(g) {
-        const row = el('div', 'mc-row');
-        const file = g.png || g.exr || g.jpg;
-        const img = thumb(file ? previews.get(`${folder}|${file}`) : null);
-        if (file && !img.src) { img.dataset.file = file; io.observe(img); }
-        row.appendChild(img);
+        const row = el('div', `mc-row${g.disabled ? ' mc-off' : ''}`);
+        row.appendChild(installedThumb(g));
+        const hasImage = !!(g.png || g.exr || g.jpg);
 
         const main = el('div');
-        const title = el('div', 'mc-title', g.name || '(no name)');
-        if (g.tinted) title.appendChild(el('span', 'mc-tag', 'Tinted'));
-        main.appendChild(title);
+        main.appendChild(el('div', 'mc-title', g.name || '(no name)'));
         main.appendChild(el('div', 'mc-files', [g.exr, g.png, g.json, g.jpg, ...g.extra].filter(Boolean).join(' · ')));
         if (g.issues.length) {
           main.appendChild(el('div', 'mc-status warning', g.issues.join(' · ')));
           if (g.fixable) main.appendChild(el('div', 'mc-files', `Fix will: ${g.fix.join('. ')}.`));
-          else main.appendChild(el('div', 'mc-files', g.extra.length ? HAND.clash : (!g.png && !g.exr && !g.jpg ? HAND.orphan : '')));
+          else main.appendChild(el('div', 'mc-files', g.extra.length ? HAND.clash : (!hasImage ? HAND.orphan : '')));
         } else {
           main.appendChild(el('div', 'mc-status', ''));
         }
         row.appendChild(main);
-        row.appendChild(el('span'));
 
-        if (g.fixable) {
-          const b = el('button', 'btn mc-small', 'Fix');
-          b.type = 'button'; b.title = g.fix.join('\n');
-          b.addEventListener('click', () => fix(g));
-          row.appendChild(b);
+        if (hasImage) {
+          const tint = el('label', 'mc-check');
+          const box = el('input'); box.type = 'checkbox'; box.checked = g.tinted;
+          box.addEventListener('change', () => setTint(g, box.checked));
+          tint.append(box, 'Tinted (beta)');
+          tint.title = TINT_TIP;
+          row.appendChild(tint);
         } else {
           row.appendChild(el('span'));
         }
+
+        const acts = el('div', 'mc-acts');
+        if (g.fixable) acts.appendChild(smallButton('Fix', g.fix.join('\n'), () => fix(g)));
+        if (hasImage) {
+          acts.appendChild(g.disabled
+            ? smallButton('Enable', 'Move it back so Plasticity loads it', () => setEnabled(g, true))
+            : smallButton('Disable', "Move it to the matcaps-disabled folder so Plasticity doesn't load it", () => setEnabled(g, false)));
+        }
+        row.appendChild(acts);
+        return row;
+      }
+
+      // A row while reordering: drag it, or use the arrows. Shows the name it will get.
+      let dragFrom = -1;
+      function orderRow(name, i) {
+        const g = installed.find((x) => !x.disabled && x.name === name);
+        const row = el('div', 'mc-row mc-drag');
+        row.draggable = true;
+        row.appendChild(installedThumb(g));
+        const main = el('div');
+        main.appendChild(el('div', 'mc-title', name));
+        const to = numbered(i, name, ordering.length);
+        main.appendChild(el('div', 'mc-files', to === name ? 'keeps its name' : ''));
+        if (to !== name) main.lastChild.append('becomes ', el('span', 'mc-new', to));
+        row.appendChild(main);
+        row.appendChild(el('span'));
+        const acts = el('div', 'mc-acts');
+        const up = smallButton('↑', 'Move up', () => moveOrder(i, i - 1)); up.disabled = i === 0;
+        const down = smallButton('↓', 'Move down', () => moveOrder(i, i + 1)); down.disabled = i === ordering.length - 1;
+        up.setAttribute('aria-label', `Move ${name} up`); down.setAttribute('aria-label', `Move ${name} down`);
+        acts.append(up, down);
+        row.appendChild(acts);
+
+        row.addEventListener('dragstart', (e) => {
+          dragFrom = i;
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/x-matcap', name);
+          row.classList.add('dragging');
+        });
+        row.addEventListener('dragend', () => { dragFrom = -1; row.classList.remove('dragging'); });
+        const after = (e) => { const r = row.getBoundingClientRect(); return e.clientY > r.top + r.height / 2; };
+        row.addEventListener('dragover', (e) => {
+          if (dragFrom < 0) return;
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          row.classList.toggle('drop-after', after(e));
+          row.classList.toggle('drop-before', !after(e));
+        });
+        row.addEventListener('dragleave', () => row.classList.remove('drop-before', 'drop-after'));
+        row.addEventListener('drop', (e) => {
+          if (dragFrom < 0) return;
+          e.preventDefault();
+          let to = i + (after(e) ? 1 : 0);
+          if (dragFrom < to) to--;
+          const from = dragFrom;
+          dragFrom = -1;
+          moveOrder(from, to);
+        });
         return row;
       }
 
@@ -3609,18 +3780,34 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
         $('mcStageCount').textContent = groups.length ? `· ${ready} of ${groups.length} ready` : '';
         $('mcSave').disabled = !ready || busy;
 
+        const on = installed.filter((g) => !g.disabled), off = installed.filter((g) => g.disabled);
         const broken = installed.filter((g) => g.issues.length);
-        const real = installed.filter((g) => g.png || g.exr || g.jpg).length;
+        const real = on.filter((g) => g.png || g.exr || g.jpg).length;
         $('mcCount').textContent = installed.length
-          ? `· ${plural(real, 'matcap')}${broken.length ? `, ${broken.length} with problems` : ''}`
+          ? `· ${plural(real, 'matcap')}${off.length ? `, ${off.length} disabled` : ''}${broken.length ? `, ${broken.length} with problems` : ''}`
           : '';
         $('mcFixAll').disabled = !installed.some((g) => g.fixable);
+        $('mcOrder').disabled = !orderable().length;
+        $('mcListBar').hidden = !!ordering;
+        $('mcOrderBar').hidden = !ordering;
+
         const list = $('mcInstalled');
-        const shown = $('mcOnlyBroken').checked ? broken : installed;
+        if (ordering) { list.replaceChildren(...ordering.map(orderRow)); return; }
+        const only = $('mcOnlyBroken').checked;
+        const shownOn = only ? on.filter((g) => g.issues.length) : on;
+        const shownOff = only ? off.filter((g) => g.issues.length) : off;
         if (!folder) list.replaceChildren(el('div', 'mc-empty', 'Choose the matcaps folder on the right.'));
         else if (!installed.length) list.replaceChildren(el('div', 'mc-empty', 'No matcaps in this folder yet.'));
-        else if (!shown.length) list.replaceChildren(el('div', 'mc-empty', 'No problems found.'));
-        else list.replaceChildren(...shown.map(installedRow));
+        else if (!shownOn.length && !shownOff.length) list.replaceChildren(el('div', 'mc-empty', 'No problems found.'));
+        else {
+          const rows = shownOn.map(installedRow);
+          if (shownOff.length) {
+            const sub = el('div', 'mc-sub', 'Disabled ');
+            sub.appendChild(el('span', null, "· in matcaps-disabled, so Plasticity doesn't load them"));
+            rows.push(sub, ...shownOff.map(installedRow));
+          }
+          list.replaceChildren(...rows);
+        }
       }
 
       // ---------- start ----------
@@ -3650,6 +3837,10 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
       $('mcRefresh').addEventListener('click', () => refreshInstalled());
       $('mcFixAll').addEventListener('click', fixAll);
       $('mcOnlyBroken').addEventListener('change', render);
+      $('mcOrder').addEventListener('click', startOrder);
+      $('mcOrderCancel').addEventListener('click', endOrder);
+      $('mcOrderApply').addEventListener('click', () => applyOrder(true));
+      $('mcOrderStrip').addEventListener('click', () => applyOrder(false));
       $('mcChange').addEventListener('click', changeFolder);
       $('mcDefault').addEventListener('click', useDefaultFolder);
       $('mcPngSize').addEventListener('change', sizesChanged);
@@ -3661,7 +3852,7 @@ body:not([data-tab="matcaps"]) > #mcApp { display: none; }
         started = true;
         if (!initTauriAPI()) {
           drop.classList.add('off');
-          ['mcChange', 'mcDefault', 'mcRefresh', 'mcFixAll'].forEach((id) => { $(id).disabled = true; });
+          ['mcChange', 'mcDefault', 'mcRefresh', 'mcFixAll', 'mcOrder'].forEach((id) => { $(id).disabled = true; });
           $('mcFolder').textContent = 'Not available';
           note('The Matcaps tab needs the desktop app: it reads and writes your Plasticity folder.', 'warning', true);
           return;

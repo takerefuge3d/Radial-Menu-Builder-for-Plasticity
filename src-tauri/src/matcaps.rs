@@ -2,12 +2,13 @@
 // Plasticity keeps each matcap in ~/.plasticity/matcaps as a pair with the same name:
 // NAME.exr (the texture, linear colour) and NAME.png (the picker thumbnail, sRGB).
 // An optional NAME.json holding `{ isTinted: true }` makes the matcap tintable.
+// Disabled matcaps live in a sibling folder (matcaps-disabled) that Plasticity never reads.
 //
 // Images are handled as premultiplied linear RGBA (EXR's own convention). The EXRs we
 // write match the ones Plasticity ships: RGBA half floats, ZIP16, scan lines, top to bottom.
 // PNGs are written as 8-bit sRGB with straight alpha.
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, HashMap, HashSet},
     fs,
     io::Cursor,
     path::{Path, PathBuf},
@@ -30,6 +31,7 @@ const TINT_JSON: &str = "{\n  isTinted: true\n}\n";
 enum Kind {
     Png,
     Jpg,
+    Webp,
     Exr,
 }
 
@@ -38,6 +40,7 @@ impl Kind {
         match ext.to_ascii_lowercase().as_str() {
             "png" => Some(Kind::Png),
             "jpg" | "jpeg" => Some(Kind::Jpg),
+            "webp" => Some(Kind::Webp),
             "exr" => Some(Kind::Exr),
             _ => None,
         }
@@ -46,6 +49,7 @@ impl Kind {
         match self {
             Kind::Png => "png",
             Kind::Jpg => "jpg",
+            Kind::Webp => "webp",
             Kind::Exr => "exr",
         }
     }
@@ -88,8 +92,12 @@ struct Decoded {
 
 fn decode(kind: Kind, bytes: &[u8]) -> Result<Decoded, String> {
     match kind {
-        Kind::Png | Kind::Jpg => {
-            let format = if kind == Kind::Png { ImageFormat::Png } else { ImageFormat::Jpeg };
+        Kind::Png | Kind::Jpg | Kind::Webp => {
+            let format = match kind {
+                Kind::Png => ImageFormat::Png,
+                Kind::Jpg => ImageFormat::Jpeg,
+                _ => ImageFormat::WebP,
+            };
             let dynamic = image::load_from_memory_with_format(bytes, format)
                 .map_err(|e| format!("can't read this {}: {e}", kind.label().to_uppercase()))?;
             let has_alpha = dynamic.color().has_alpha();
@@ -161,6 +169,14 @@ fn square(src: &Rgba32FImage, size: u32, cut_circle: bool) -> Rgba32FImage {
         }
     }
     out
+}
+
+// Decode a source and fit it to `size`. A source with no transparency other than a PNG
+// (a JPG, or a WebP dragged from a browser) is cut to a circle.
+fn convert(kind: Kind, bytes: &[u8], size: u32) -> Result<Rgba32FImage, String> {
+    let d = decode(kind, bytes)?;
+    let cut = matches!(kind, Kind::Jpg | Kind::Webp) && !d.has_alpha;
+    Ok(square(&d.img, size, cut))
 }
 
 fn encode_png(img: &Rgba32FImage) -> Result<Vec<u8>, String> {
@@ -246,7 +262,7 @@ pub struct StagedInfo {
 
 fn stage(state: &StagingState, file_name: String, bytes: Vec<u8>) -> Result<StagedInfo, String> {
     let (stem, kind, _) = split_name(&file_name)
-        .ok_or_else(|| format!("{file_name}: only PNG, JPG and EXR files can be used"))?;
+        .ok_or_else(|| format!("{file_name}: only PNG, JPG, WebP and EXR files can be used"))?;
     let decoded = decode(kind, &bytes).map_err(|e| format!("{file_name}: {e}"))?;
     let preview = data_url(&decoded.img)?;
     let (width, height) = decoded.img.dimensions();
@@ -335,7 +351,7 @@ pub struct SaveRequest {
     name: String,
     png_id: Option<u64>,
     exr_id: Option<u64>,
-    jpg_id: Option<u64>,
+    src_id: Option<u64>, // a JPG or WebP, used when the PNG or EXR is missing
     png_size: u32,
     exr_size: u32,
     tinted: bool,
@@ -371,30 +387,22 @@ pub async fn save_matcap(req: SaveRequest, state: tauri::State<'_, StagingState>
     };
     let png = take(req.png_id)?;
     let exr = take(req.exr_id)?;
-    let jpg = take(req.jpg_id)?;
+    let other = take(req.src_id)?;
 
     // Files given are copied as they are; only the missing half of the pair is made.
     // The EXR is the better source for a PNG (more range); a PNG beats a JPG for an EXR.
     let png_bytes = match &png {
         Some(f) => f.bytes.clone(),
         None => {
-            let (src, cut) = match (&exr, &jpg) {
-                (Some(f), _) => (f, false),
-                (None, Some(f)) => (f, true),
-                _ => return Err("nothing to make the PNG from".into()),
-            };
-            encode_png(&square(&decode(src.kind, &src.bytes)?.img, png_size, cut))?
+            let src = exr.as_ref().or(other.as_ref()).ok_or("nothing to make the PNG from")?;
+            encode_png(&convert(src.kind, &src.bytes, png_size)?)?
         }
     };
     let exr_bytes = match &exr {
         Some(f) => f.bytes.clone(),
         None => {
-            let (src, cut) = match (&png, &jpg) {
-                (Some(f), _) => (f, false),
-                (None, Some(f)) => (f, true),
-                _ => return Err("nothing to make the EXR from".into()),
-            };
-            encode_exr(&square(&decode(src.kind, &src.bytes)?.img, exr_size, cut))?
+            let src = png.as_ref().or(other.as_ref()).ok_or("nothing to make the EXR from")?;
+            encode_exr(&convert(src.kind, &src.bytes, exr_size)?)?
         }
     };
 
@@ -419,7 +427,7 @@ pub async fn save_matcap(req: SaveRequest, state: tauri::State<'_, StagingState>
     }
 
     let mut staging = state.lock().map_err(|e| e.to_string())?;
-    for id in [req.png_id, req.exr_id, req.jpg_id].into_iter().flatten() {
+    for id in [req.png_id, req.exr_id, req.src_id].into_iter().flatten() {
         staging.files.remove(&id);
     }
     Ok(written)
@@ -436,6 +444,7 @@ pub struct Installed {
     json: Option<String>,
     extra: Vec<String>,        // further files that clean to the same name
     tinted: bool,
+    disabled: bool,            // in the matcaps-disabled folder
     issues: Vec<String>,
     fixable: bool,
     fix: Vec<String>,          // what Fix would do, in plain words
@@ -547,61 +556,78 @@ fn scan(folder: &Path) -> Result<Vec<Installed>, String> {
     Ok(list)
 }
 
+// The folder disabled matcaps are moved to: a sibling of the matcaps folder, so Plasticity
+// never sees them whether or not it looks inside subfolders.
+fn disabled_dir(folder: &Path) -> Result<PathBuf, String> {
+    let name = folder.file_name().and_then(|n| n.to_str()).ok_or("bad matcaps folder")?;
+    Ok(folder.with_file_name(format!("{name}-disabled")))
+}
+
+fn dir_for(folder: &str, disabled: bool) -> Result<PathBuf, String> {
+    let folder = PathBuf::from(folder);
+    if disabled { disabled_dir(&folder) } else { Ok(folder) }
+}
+
+fn find(dir: &Path, name: &str) -> Result<Installed, String> {
+    scan(dir)?
+        .into_iter()
+        .find(|g| g.name == name)
+        .ok_or_else(|| format!("{name} is no longer in the folder"))
+}
+
+fn group_files(g: &Installed) -> Vec<String> {
+    [&g.exr, &g.png, &g.json, &g.jpg].into_iter().flatten().cloned().chain(g.extra.iter().cloned()).collect()
+}
+
 #[tauri::command]
 pub async fn list_installed_matcaps(folder: String) -> Result<Vec<Installed>, String> {
-    scan(Path::new(&folder))
+    let mut list = scan(Path::new(&folder))?;
+    let mut off = scan(&disabled_dir(Path::new(&folder))?)?;
+    off.iter_mut().for_each(|g| g.disabled = true);
+    list.append(&mut off);
+    Ok(list)
 }
 
 // Thumbnail for the installed list: the PNG if there is one, else the EXR or JPG.
 #[tauri::command]
-pub async fn installed_matcap_preview(folder: String, file_name: String) -> Result<String, String> {
+pub async fn installed_matcap_preview(folder: String, file_name: String, disabled: bool) -> Result<String, String> {
     let (_, kind, _) = split_name(&file_name).ok_or("not an image")?;
-    let bytes = fs::read(Path::new(&folder).join(&file_name)).map_err(|e| e.to_string())?;
+    let bytes = fs::read(dir_for(&folder, disabled)?.join(&file_name)).map_err(|e| e.to_string())?;
     data_url(&decode(kind, &bytes)?.img)
 }
 
 // Only runs on a click. Re-reads the folder rather than trusting the list the tab shows.
 #[tauri::command]
-pub async fn fix_installed_matcap(folder: String, name: String, png_size: u32, exr_size: u32) -> Result<Vec<String>, String> {
+pub async fn fix_installed_matcap(
+    folder: String,
+    name: String,
+    disabled: bool,
+    png_size: u32,
+    exr_size: u32,
+) -> Result<Vec<String>, String> {
     let png_size = check_size(png_size, &PNG_SIZES, "PNG")?;
     let exr_size = check_size(exr_size, &EXR_SIZES, "EXR")?;
-    let folder = PathBuf::from(folder);
-    let g = scan(&folder)?
-        .into_iter()
-        .find(|g| g.name == name)
-        .ok_or_else(|| format!("{name} is no longer in the folder"))?;
+    let folder = dir_for(&folder, disabled)?;
+    let g = find(&folder, &name)?;
     if !g.fixable {
         return Err(format!("{name} can't be fixed automatically"));
     }
 
-    // Read the sources before renaming anything, so a bad file stops the fix early.
-    let read = |f: &String| -> Result<(Kind, Vec<u8>), String> {
-        let (_, kind, _) = split_name(f).unwrap();
-        Ok((kind, fs::read(folder.join(f)).map_err(|e| format!("read {f} failed: {e}"))?))
+    // Make the missing files before renaming anything, so a bad source stops the fix early.
+    let make = |src: Option<&String>, size: u32, png: bool| -> Result<Vec<u8>, String> {
+        let src = src.ok_or("nothing to make it from")?;
+        let (_, kind, _) = split_name(src).unwrap();
+        let bytes = fs::read(folder.join(src)).map_err(|e| format!("read {src} failed: {e}"))?;
+        let img = convert(kind, &bytes, size)?;
+        if png { encode_png(&img) } else { encode_exr(&img) }
     };
     let new_exr = match &g.exr {
         Some(_) => None,
-        None => {
-            let (src, cut) = match (&g.png, &g.jpg) {
-                (Some(f), _) => (f, false),
-                (None, Some(f)) => (f, true),
-                _ => unreachable!(),
-            };
-            let (kind, bytes) = read(src)?;
-            Some(encode_exr(&square(&decode(kind, &bytes)?.img, exr_size, cut))?)
-        }
+        None => Some(make(g.png.as_ref().or(g.jpg.as_ref()), exr_size, false)?),
     };
     let new_png = match &g.png {
         Some(_) => None,
-        None => {
-            let (src, cut) = match (&g.exr, &g.jpg) {
-                (Some(f), _) => (f, false),
-                (None, Some(f)) => (f, true),
-                _ => unreachable!(),
-            };
-            let (kind, bytes) = read(src)?;
-            Some(encode_png(&square(&decode(kind, &bytes)?.img, png_size, cut))?)
-        }
+        None => Some(make(g.exr.as_ref().or(g.jpg.as_ref()), png_size, true)?),
     };
 
     let mut done = vec![];
@@ -623,6 +649,155 @@ pub async fn fix_installed_matcap(folder: String, name: String, png_size: u32, e
     Ok(done)
 }
 
+// ---------- Tint ----------
+// Sets isTinted in a .json's text without disturbing anything else in it. Plasticity's
+// files are JSON5-style (`{ isTinted: true }`, no quotes), so the text is edited rather
+// than parsed and rewritten. None means the file holds nothing else and can be deleted.
+fn set_tint_text(text: &str, tinted: bool) -> Option<String> {
+    let flat: String = text.chars().filter(|c| !c.is_whitespace() && *c != '"' && *c != '\'').collect();
+    if flat.is_empty() || flat == "{}" {
+        return if tinted { Some(TINT_JSON.to_string()) } else { None };
+    }
+    if !tinted && (flat == "{isTinted:true}" || flat == "{isTinted:true,}") {
+        return None;
+    }
+    if let Some(i) = text.find("isTinted") {
+        let after = i + "isTinted".len();
+        let rest = &text[after..];
+        let skip = rest.len()
+            - rest.trim_start_matches(|c: char| c == '"' || c == '\'' || c == ':' || c.is_whitespace()).len();
+        let at = after + skip;
+        let old = if text[at..].starts_with("true") {
+            4
+        } else if text[at..].starts_with("false") {
+            5
+        } else {
+            0
+        };
+        if old > 0 {
+            return Some(format!("{}{tinted}{}", &text[..at], &text[at + old..]));
+        }
+    }
+    if !tinted {
+        return Some(text.to_string());
+    }
+    // No isTinted yet: add it as the first entry.
+    match text.find('{') {
+        Some(b) => Some(format!("{}\n  isTinted: true,{}", &text[..=b], &text[b + 1..])),
+        None => Some(TINT_JSON.to_string()),
+    }
+}
+
+#[tauri::command]
+pub async fn set_matcap_tinted(folder: String, name: String, disabled: bool, tinted: bool) -> Result<(), String> {
+    let dir = dir_for(&folder, disabled)?;
+    let g = find(&dir, &name)?;
+    let json = match &g.json {
+        Some(j) => j.clone(),
+        None => {
+            if !tinted {
+                return Ok(());
+            }
+            // Name it after the EXR, which is the file Plasticity pairs it with.
+            let stem = [&g.exr, &g.png].into_iter().flatten().next().map(|f| f.rsplit_once('.').unwrap().0.to_string());
+            format!("{}.json", stem.unwrap_or(g.name.clone()))
+        }
+    };
+    let path = dir.join(&json);
+    let text = fs::read_to_string(&path).unwrap_or_default();
+    match set_tint_text(&text, tinted) {
+        Some(new) => fs::write(&path, new).map_err(|e| format!("write {json} failed: {e}")),
+        None => fs::remove_file(&path).map_err(|e| format!("remove {json} failed: {e}")),
+    }
+}
+
+// ---------- Enable / disable ----------
+#[tauri::command]
+pub async fn set_matcap_enabled(folder: String, name: String, enabled: bool) -> Result<(), String> {
+    let on = PathBuf::from(&folder);
+    let off = disabled_dir(&on)?;
+    let (from, to) = if enabled { (&off, &on) } else { (&on, &off) };
+    let g = find(from, &name)?;
+    if scan(to)?.iter().any(|x| x.name.to_lowercase() == name.to_lowercase()) {
+        let other = if enabled { "an enabled" } else { "a disabled" };
+        return Err(format!("there is already {other} matcap called {name}"));
+    }
+    fs::create_dir_all(to).map_err(|e| format!("create {} failed: {e}", to.display()))?;
+    for f in group_files(&g) {
+        fs::rename(from.join(&f), to.join(&f)).map_err(|e| format!("move {f} failed: {e}"))?;
+    }
+    if enabled {
+        let _ = fs::remove_dir(&off); // only goes if it is now empty
+    }
+    Ok(())
+}
+
+// ---------- Order ----------
+// "03_Peach" -> "Peach". Leaves names that are only digits, or have no underscore, alone.
+fn strip_number(name: &str) -> &str {
+    let digits = name.len() - name.trim_start_matches(|c: char| c.is_ascii_digit()).len();
+    if digits > 0 && name[digits..].starts_with('_') && name.len() > digits + 1 {
+        &name[digits + 1..]
+    } else {
+        name
+    }
+}
+
+// Renames the given matcaps to 01_Name, 02_Name… in that order, or (numbered = false)
+// takes the numbers off again. Files go through temporary names first, so swapping two
+// numbers can't collide part-way through.
+#[tauri::command]
+pub async fn order_matcaps(folder: String, names: Vec<String>, numbered: bool) -> Result<usize, String> {
+    let folder = PathBuf::from(folder);
+    let groups = scan(&folder)?;
+    let width = names.len().to_string().len().max(2);
+    let mut moves: Vec<(String, String)> = vec![];
+    for (i, n) in names.iter().enumerate() {
+        let g = groups.iter().find(|g| &g.name == n).ok_or_else(|| format!("{n} is no longer in the folder"))?;
+        if !g.extra.is_empty() {
+            return Err(format!("{n} clashes with other files; sort that out first"));
+        }
+        let base = strip_number(&g.name);
+        let target = if numbered { format!("{:0width$}_{base}", i + 1) } else { base.to_string() };
+        for f in [&g.exr, &g.png, &g.json, &g.jpg].into_iter().flatten() {
+            let to = format!("{target}.{}", f.rsplit_once('.').unwrap().1.to_ascii_lowercase());
+            if *f != to {
+                moves.push((f.clone(), to));
+            }
+        }
+    }
+    let moving: HashSet<String> = moves.iter().map(|(f, _)| f.to_lowercase()).collect();
+    let mut seen = HashSet::new();
+    for (_, to) in &moves {
+        let key = to.to_lowercase();
+        if !seen.insert(key.clone()) {
+            return Err(format!("two matcaps would both be called {to}"));
+        }
+        if folder.join(to).exists() && !moving.contains(&key) {
+            return Err(format!("{to} already exists"));
+        }
+    }
+
+    let tmp = |i: usize| folder.join(format!(".reorder-{i}.tmp"));
+    for (i, (from, _)) in moves.iter().enumerate() {
+        if let Err(e) = fs::rename(folder.join(from), tmp(i)) {
+            for (j, (back, _)) in moves.iter().enumerate().take(i) {
+                let _ = fs::rename(tmp(j), folder.join(back));
+            }
+            return Err(format!("rename {from} failed: {e}"));
+        }
+    }
+    for (i, (from, to)) in moves.iter().enumerate() {
+        if let Err(e) = fs::rename(tmp(i), folder.join(to)) {
+            for (j, (back, _)) in moves.iter().enumerate().skip(i) {
+                let _ = fs::rename(tmp(j), folder.join(back));
+            }
+            return Err(format!("rename {from} to {to} failed: {e}"));
+        }
+    }
+    Ok(moves.len())
+}
+
 // ---------- Folder and file pickers ----------
 fn matcaps_dir(app: &tauri::AppHandle) -> Option<PathBuf> {
     Some(app.path().home_dir().ok()?.join(".plasticity").join("matcaps"))
@@ -638,7 +813,7 @@ pub async fn pick_matcap_files(app: tauri::AppHandle) -> Result<Vec<String>, Str
     let picked = app
         .dialog()
         .file()
-        .add_filter("Matcap images", &["png", "jpg", "jpeg", "exr"])
+        .add_filter("Matcap images", &["png", "jpg", "jpeg", "webp", "exr"])
         .set_title("Add matcap images")
         .blocking_pick_files();
     Ok(picked.unwrap_or_default().into_iter().map(|p| p.to_string()).collect())
@@ -664,12 +839,76 @@ mod tests {
         assert_eq!(clean_name("a.b-c"), "a_b-c");
         assert_eq!(clean_name("__x__"), "x");
         assert_eq!(clean_name("TRChromeTR"), "TRChromeTR");
+        assert_eq!(strip_number("03_Peach"), "Peach");
+        assert_eq!(strip_number("Peach_03"), "Peach_03");
+        assert_eq!(strip_number("2024"), "2024");
+        assert_eq!(strip_number("3D_Clay"), "3D_Clay");
     }
 
     #[test]
     fn percent() {
         assert_eq!(percent_decode("My%20Cap%C3%A9.png"), "My Capé.png");
         assert_eq!(percent_decode("100%"), "100%");
+    }
+
+    #[test]
+    fn tint_text() {
+        assert_eq!(set_tint_text("", true).unwrap(), TINT_JSON);
+        assert_eq!(set_tint_text(TINT_JSON, false), None);
+        assert_eq!(set_tint_text("{ \"isTinted\": true }", false), None);
+        assert_eq!(set_tint_text("{\n  isTinted: false\n}", true).unwrap(), "{\n  isTinted: true\n}");
+        let more = "{\n  isTinted: true,\n  roughness: 0.4\n}";
+        assert_eq!(set_tint_text(more, false).unwrap(), "{\n  isTinted: false,\n  roughness: 0.4\n}");
+        assert_eq!(set_tint_text("{ roughness: 0.4 }", true).unwrap(), "{\n  isTinted: true, roughness: 0.4 }");
+        assert_eq!(set_tint_text("{ roughness: 0.4 }", false).unwrap(), "{ roughness: 0.4 }");
+    }
+
+    fn temp_folder(tag: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("mc-test-{tag}-{}", std::process::id())).join("matcaps");
+        let _ = fs::remove_dir_all(dir.parent().unwrap());
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+    fn files(dir: &Path) -> Vec<String> {
+        let mut v: Vec<String> = fs::read_dir(dir).unwrap().flatten().map(|e| e.file_name().to_string_lossy().into_owned()).collect();
+        v.sort();
+        v
+    }
+    fn run<F: std::future::Future>(f: F) -> F::Output {
+        tauri::async_runtime::block_on(f)
+    }
+
+    #[test]
+    fn order_and_disable() {
+        let dir = temp_folder("order");
+        for f in ["Apple.exr", "Apple.png", "02_Pear.exr", "02_Pear.png", "02_Pear.json", "01_Fig.exr", "01_Fig.png"] {
+            fs::write(dir.join(f), f).unwrap();
+        }
+        let folder = dir.to_string_lossy().into_owned();
+        // Pear first, then Apple, then Fig: Pear and Fig swap numbers
+        let names = vec!["02_Pear".to_string(), "Apple".to_string(), "01_Fig".to_string()];
+        run(order_matcaps(folder.clone(), names, true)).unwrap();
+        assert_eq!(files(&dir), ["01_Pear.exr", "01_Pear.json", "01_Pear.png", "02_Apple.exr", "02_Apple.png", "03_Fig.exr", "03_Fig.png"]);
+        assert_eq!(fs::read_to_string(dir.join("01_Pear.json")).unwrap(), "02_Pear.json");
+
+        let names = vec!["01_Pear".to_string(), "02_Apple".to_string(), "03_Fig".to_string()];
+        run(order_matcaps(folder.clone(), names, false)).unwrap();
+        assert_eq!(files(&dir), ["Apple.exr", "Apple.png", "Fig.exr", "Fig.png", "Pear.exr", "Pear.json", "Pear.png"]);
+
+        run(set_matcap_enabled(folder.clone(), "Pear".into(), false)).unwrap();
+        let off = disabled_dir(&dir).unwrap();
+        assert_eq!(files(&off), ["Pear.exr", "Pear.json", "Pear.png"]);
+        let listed = run(list_installed_matcaps(folder.clone())).unwrap();
+        assert!(listed.iter().any(|g| g.name == "Pear" && g.disabled && g.tinted == false));
+        run(set_matcap_tinted(folder.clone(), "Pear".into(), true, true)).unwrap();
+        assert_eq!(fs::read_to_string(off.join("Pear.json")).unwrap(), TINT_JSON);
+        run(set_matcap_enabled(folder.clone(), "Pear".into(), true)).unwrap();
+        assert!(!off.exists());
+        run(set_matcap_tinted(folder.clone(), "Fig".into(), false, true)).unwrap();
+        assert!(dir.join("Fig.json").exists());
+        run(set_matcap_tinted(folder.clone(), "Fig".into(), false, false)).unwrap();
+        assert!(!dir.join("Fig.json").exists());
+        let _ = fs::remove_dir_all(dir.parent().unwrap());
     }
 
     #[test]

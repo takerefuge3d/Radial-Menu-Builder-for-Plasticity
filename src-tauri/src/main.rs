@@ -298,6 +298,9 @@ fn main() {
             matcaps::list_installed_matcaps,
             matcaps::installed_matcap_preview,
             matcaps::fix_installed_matcap,
+            matcaps::set_matcap_tinted,
+            matcaps::set_matcap_enabled,
+            matcaps::order_matcaps,
             matcaps::default_matcaps_folder,
             matcaps::pick_matcap_files,
             matcaps::pick_matcaps_folder
