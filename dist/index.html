@@ -816,8 +816,8 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       <div class="tp-row"><label for="tpSeT">Regular edges</label><input type="color" class="tp-color" id="tpSeC" aria-label="Pick regular edge colour" /><input type="text" class="form-input tp-hex" id="tpSeT" spellcheck="false" placeholder="default" /></div>
       <div class="tp-row"><label for="tpIeT">Instance edges</label><input type="color" class="tp-color" id="tpIeC" aria-label="Pick instance edge colour" /><input type="text" class="form-input tp-hex" id="tpIeT" spellcheck="false" placeholder="default" /></div>
       <div class="tp-row"><label for="tpMeT">Measurements</label><input type="color" class="tp-color" id="tpMeC" aria-label="Pick measurement colour" /><input type="text" class="form-input tp-hex" id="tpMeT" spellcheck="false" placeholder="default" /></div>
-      <div class="tp-row"><label for="tpReT">Reticle</label><input type="color" class="tp-color" id="tpReC" aria-label="Pick reticle colour" /><input type="text" class="form-input tp-hex" id="tpReT" spellcheck="false" placeholder="default" /></div>
-      <div class="tp-hint">These need Plasticity 26.2 or later, and match the colour settings in Plasticity's Preferences &gt; Appearance. Clear a box to go back to Plasticity's default. Setting the reticle saves Supporting as a single colour, the same way Plasticity does, and also colours the Scene folder icon.</div>
+      <div class="tp-row"><label for="tpReT">Supporting colour</label><input type="color" class="tp-color" id="tpReC" aria-label="Pick supporting colour" /><input type="text" class="form-input tp-hex" id="tpReT" spellcheck="false" placeholder="default" /></div>
+      <div class="tp-hint">These need Plasticity 26.2 or later, and match the colour settings in Plasticity's Preferences &gt; Appearance. Clear a box to go back to Plasticity's default. Supporting colour saves Supporting as a single colour, the same way Plasticity does. It colours the reticle (the dot under the cursor) and the Scene folder icon.</div>
       <div class="tp-hint">A few colours are built into Plasticity and no theme can change them: the yellow selection outline, blue curves and the faint lines between control points. Plasticity also draws the grid a little darker than the colour you pick, and the preview does the same. Settings that showed no effect (the old edge values, edge sizes, matcap tint, dialog and white) stay in the file; turn on Advanced to see and change them.</div>
 
       <div id="tpExtra" hidden>
@@ -2904,7 +2904,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
           '900': 'A faint border around the waiting step, and the icon of a hidden curve.'
         },
         supporting: {
-          '50': 'With a full range, the reticle and the Scene folder icon stay near-white, probably from this shade. To colour them, use the Reticle row.'
+          '50': 'With a full range, the reticle and the Scene folder icon stay near-white, probably from this shade. To colour them, use the Supporting colour row.'
         }
       };
 
@@ -3109,7 +3109,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
 
       // ---------- simple and advanced ----------
       // Simple shows only the shades we've seen Plasticity use (the USE list above), and hides
-      // the Supporting range, whose only known effect is the Reticle row. Advanced shows every
+      // the Supporting range, whose only known effect is the Supporting colour row. Advanced shows every
       // shade and every other colour and size in the file, in case a future Plasticity uses
       // them or we've missed one.
       const ADVKEY = 'plasticity-theme-advanced';
@@ -3286,7 +3286,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
         'sheet-edge': "Set by Regular edges, the same as Regular edge colour in Plasticity's Preferences.",
         'instance-edge': "Set by Instance edges, the same as Instance edge colour in Plasticity's Preferences.",
         measurement: "Set by Measurements, the same as Measurement colour in Plasticity's Preferences.",
-        reticle: 'Set by Reticle, which colours the reticle and the Scene folder icon. Left empty, both stay near-white.'
+        reticle: 'Set by Supporting colour, which colours the reticle and the Scene folder icon. Left empty, both stay near-white.'
       };
       const lowerFirst = (t) => t.charAt(0).toLowerCase() + t.slice(1);
       function describe(el) {
