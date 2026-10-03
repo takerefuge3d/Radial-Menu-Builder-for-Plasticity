@@ -329,6 +329,12 @@ fn encode_png(img: &Rgba32FImage, alpha: bool) -> Result<Vec<u8>, String> {
     Ok(bytes)
 }
 
+// Half floats top out at 65504; anything brighter (an unclipped sun in an HDR can be) would
+// become infinity, so it's capped there instead.
+fn half(v: f32) -> f16 {
+    f16::from_f32(v.min(65504.0))
+}
+
 fn encode_exr(img: &Rgba32FImage, alpha: bool) -> Result<Vec<u8>, String> {
     let (w, h) = img.dimensions();
     let size = (w as usize, h as usize);
@@ -336,14 +342,14 @@ fn encode_exr(img: &Rgba32FImage, alpha: bool) -> Result<Vec<u8>, String> {
     let result = if alpha {
         let channels = exr::image::SpecificChannels::rgba(|pos: exr::math::Vec2<usize>| {
             let p = img.get_pixel(pos.x() as u32, pos.y() as u32);
-            (f16::from_f32(p[0]), f16::from_f32(p[1]), f16::from_f32(p[2]), f16::from_f32(p[3]))
+            (half(p[0]), half(p[1]), half(p[2]), half(p[3]))
         });
         let image = exr::image::Image::from_encoded_channels(size, exr::image::Encoding::SMALL_LOSSLESS, channels);
         exr::image::write::WritableImage::write(&image).to_buffered(Cursor::new(&mut bytes))
     } else {
         let channels = exr::image::SpecificChannels::rgb(|pos: exr::math::Vec2<usize>| {
             let p = img.get_pixel(pos.x() as u32, pos.y() as u32);
-            (f16::from_f32(p[0]), f16::from_f32(p[1]), f16::from_f32(p[2]))
+            (half(p[0]), half(p[1]), half(p[2]))
         });
         let image = exr::image::Image::from_encoded_channels(size, exr::image::Encoding::SMALL_LOSSLESS, channels);
         exr::image::write::WritableImage::write(&image).to_buffered(Cursor::new(&mut bytes))
@@ -1374,6 +1380,14 @@ mod tests {
         assert!(!back.has_alpha);
         assert!((back.img.get_pixel(10, 10)[2] - 1.0).abs() < 0.01);
         assert!(back.img.pixels().any(|p| p[0] > 1.0), "the sun keeps its brightness");
+
+        // a sun brighter than a half float can hold is capped, not written as infinity
+        let mut hot = Rgba32FImage::from_pixel(4, 2, Rgba([0.5, 0.5, 0.5, 1.0]));
+        hot.put_pixel(1, 1, Rgba([200000.0, 90000.0, 1000.0, 1.0]));
+        let back = decode(Kind::Exr, &exr_file(lib, &hot).unwrap()).unwrap().img;
+        assert_eq!(back.get_pixel(1, 1)[0], 65504.0);
+        assert_eq!(back.get_pixel(1, 1)[1], 65504.0);
+        assert!(back.pixels().all(|p| p[0].is_finite() && p[1].is_finite() && p[2].is_finite()));
 
         // PNG thumbnail 128 x 64, RGB
         let png = png_file(lib, &convert(lib, Kind::Exr, &exr, 64).unwrap()).unwrap();
