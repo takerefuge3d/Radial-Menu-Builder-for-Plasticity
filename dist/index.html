@@ -196,11 +196,11 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
 #evStaged { flex: none; max-height: 42%; margin-bottom: 12px; }
 #evStaged:empty { display: none; }
 #evInstalled { flex: 1; min-height: 120px; }
-#evApp .mc-row { grid-template-columns: 150px minmax(0, 1fr) auto auto; }
+#evApp .mc-row { grid-template-columns: 204px minmax(0, 1fr) auto auto; }
 #evApp .mc-thumb { width: 96px; height: 48px; }
 .ev-views { display: flex; align-items: center; gap: 6px; }
 .ev-sphere { width: 48px; height: 48px; flex: none; cursor: grab; touch-action: none; }
-.ev-sphere.spinning { cursor: grabbing; }
+.ev-views.spinning .ev-sphere { cursor: grabbing; }
 
 /* ===== Keyboard Shortcuts tab ===== */
 #ksApp { color-scheme: dark; }
@@ -3821,7 +3821,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       async function refreshInstalled(keepPreviews) {
         ordering = null;
         if (!folder) { installed = []; render(); return; }
-        if (!keepPreviews) previews.clear();
+        if (!keepPreviews) { previews.clear(); lightingCache.clear(); }
         try {
           installed = await invokeCommand('list_installed_matcaps', { folder, ...LIB });
         } catch (err) {
@@ -4150,7 +4150,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
         const row = el('div', 'mc-row');
         const first = g.exr || g.png || g.src;
         const img = thumb(first.preview);
-        row.appendChild(views(img));
+        row.appendChild(views(img, () => stagedLighting(g)));
 
         const main = el('div');
         const name = el('input', 'form-input mc-name');
@@ -4253,32 +4253,57 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
         return cell;
       }
 
-      // ---------- sphere view (environments) ----------
-      // The panorama thumbnail wrapped onto a mirror ball, as a quick feel for the reflections.
-      // The camera looks along -z; the ball's middle reflects what's behind the camera and its
-      // rim what's behind the ball (the panorama's centre). Drag to spin it round and tilt it;
-      // double-click to put it back. Drawn from the 8-bit thumbnail, so bright lights show as white.
+      // ---------- look-dev spheres (environments) ----------
+      // Two balls beside each environment's thumbnail, like Blender's LookDev: a matte grey one
+      // lit by the environment, and a mirror one reflecting it. Drag either to spin both round
+      // and tilt them; double-click to put them back.
+      // Directions: the camera looks along -z, +y is up, and the panorama's centre (u = 0.5)
+      // lies along -z, the same as diffuse_lighting in matcaps.rs.
+      //  - The mirror ball is drawn from the 8-bit thumbnail, so bright lights show as white.
+      //  - The matte ball uses the lighting worked out from the full EXR or HDR (nine spherical-
+      //    harmonic numbers per channel), with the exposure set from the environment's average
+      //    light so every environment shows readable shading.
       const SPHERE_SIZE = 48;            // CSS px, matches .ev-sphere
-      const TURN_PX = 160;               // dragging this far sideways spins it all the way round
+      const TURN_PX = 160;               // dragging this far sideways spins them all the way round
       const TILT_MAX = Math.PI / 3;      // up to 60° up or down
-      function sphereView(img) {
-        const c = el('canvas', 'ev-sphere');
-        c.title = 'On a mirror ball. Drag to spin it; double-click to reset.';
-        c.setAttribute('role', 'img'); c.setAttribute('aria-label', 'The environment reflected on a mirror ball');
-        let src = null, sw = 0, sh = 0;
-        let yaw = 0, tilt = 0;
+      const ALBEDO = 0.8;                // the matte ball's grey
+      const MID = 0.35;                  // its average brightness before the tone curve
+      const LINEAR_TO_8 = (l) => 255 * (l <= 0.0031308 ? l * 12.92 : 1.055 * Math.pow(l, 1 / 2.4) - 0.055);
+      const ACES = (x) => Math.min(1, Math.max(0, (x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14)));
+      const lightingCache = new Map(); // previewKey -> Promise of 27 numbers
 
-        const load = () => {
-          if (!img.naturalWidth) return false;
-          sw = img.naturalWidth; sh = img.naturalHeight;
-          const srcCanvas = document.createElement('canvas');
-          srcCanvas.width = sw; srcCanvas.height = sh;
-          const sctx = srcCanvas.getContext('2d');
-          sctx.drawImage(img, 0, 0);
-          src = sctx.getImageData(0, 0, sw, sh).data;
-          return true;
-        };
-        // bilinear sample, wrapping round the panorama sideways
+      // For each pixel of a ball: the surface normal, turned by the current spin and tilt into
+      // the panorama's directions. Calls fn(o, x, y, z, nx, ny, nz, cover).
+      function eachPixel(px, yaw, tilt, fn) {
+        const ct = Math.cos(tilt), st = Math.sin(tilt), r = px / 2;
+        for (let j = 0; j < px; j++) {
+          for (let i = 0; i < px; i++) {
+            const nx = (i + 0.5 - r) / r, ny = (r - j - 0.5) / r, d2 = nx * nx + ny * ny;
+            const cover = Math.min(Math.max((1 - Math.sqrt(d2)) * r + 0.5, 0), 1); // soft 1px edge
+            if (cover <= 0) continue;
+            fn((j * px + i) * 4, nx, ny, Math.sqrt(Math.max(0, 1 - d2)), ct, st, cover);
+          }
+        }
+      }
+      // A camera-space direction turned by the tilt (about x) and spin (about y), as a panorama u, v.
+      function toPanorama(x, y, z, ct, st, yaw) {
+        const ry = y * ct - z * st, rz = y * st + z * ct;
+        return [0.5 + Math.atan2(x, -rz) / (2 * Math.PI) + yaw / (2 * Math.PI), Math.max(-1, Math.min(1, ry)), rz];
+      }
+
+      function lookDev(img, getLighting) {
+        const box = el('div', 'ev-views');
+        const matte = el('canvas', 'ev-sphere'), mirror = el('canvas', 'ev-sphere');
+        matte.title = 'A matte grey ball lit by this environment. Drag to spin; double-click to reset.';
+        mirror.title = 'A mirror ball reflecting this environment. Drag to spin; double-click to reset.';
+        matte.setAttribute('role', 'img'); matte.setAttribute('aria-label', 'A matte grey ball lit by the environment');
+        mirror.setAttribute('role', 'img'); mirror.setAttribute('aria-label', 'A mirror ball reflecting the environment');
+        box.append(img, matte, mirror);
+        let src = null, sw = 0, sh = 0, sh9 = null, exposure = 1;
+        let yaw = 0, tilt = 0;
+        const size = () => Math.round(SPHERE_SIZE * (window.devicePixelRatio || 1));
+
+        // mirror: sample the thumbnail along the reflected view ray
         const sample = (u, v, k) => {
           const x = u * sw - 0.5, y = Math.min(Math.max(v * sh - 0.5, 0), sh - 1);
           const x0 = Math.floor(x), y0 = Math.floor(y), fx = x - x0, fy = y - y0;
@@ -4286,75 +4311,133 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
           const at = (xx, yy) => src[(yy * sw + (((xx % sw) + sw) % sw)) * 4 + k];
           return (at(x0, y0) * (1 - fx) + at(x0 + 1, y0) * fx) * (1 - fy) + (at(x0, y1) * (1 - fx) + at(x0 + 1, y1) * fx) * fy;
         };
-        const draw = () => {
+        const drawMirror = () => {
           if (!src) return;
-          const px = Math.round(SPHERE_SIZE * (window.devicePixelRatio || 1));
-          if (c.width !== px) c.width = c.height = px;
-          const ctx = c.getContext('2d');
-          const out = ctx.createImageData(px, px);
-          const ct = Math.cos(tilt), st = Math.sin(tilt), turn = yaw / (2 * Math.PI);
-          const r = px / 2;
-          for (let j = 0; j < px; j++) {
-            for (let i = 0; i < px; i++) {
-              const nx = (i + 0.5 - r) / r, ny = (r - j - 0.5) / r, d2 = nx * nx + ny * ny;
-              const cover = Math.min(Math.max((1 - Math.sqrt(d2)) * r + 0.5, 0), 1); // soft 1px edge
-              if (cover <= 0) continue;
-              const nz = Math.sqrt(Math.max(0, 1 - d2));
-              // reflect the view ray (0, 0, -1) about the normal, then tilt about x
-              const rx = 2 * nz * nx, ry0 = 2 * nz * ny, rz0 = 2 * nz * nz - 1;
-              const ry = ry0 * ct - rz0 * st, rz = ry0 * st + rz0 * ct;
-              const u = 0.5 + Math.atan2(rx, -rz) / (2 * Math.PI) + turn;
-              const v = 0.5 - Math.asin(Math.max(-1, Math.min(1, ry))) / Math.PI;
-              const o = (j * px + i) * 4;
-              out.data[o] = sample(u, v, 0);
-              out.data[o + 1] = sample(u, v, 1);
-              out.data[o + 2] = sample(u, v, 2);
-              out.data[o + 3] = 255 * cover;
-            }
-          }
+          const px = size();
+          if (mirror.width !== px) mirror.width = mirror.height = px;
+          const ctx = mirror.getContext('2d'), out = ctx.createImageData(px, px);
+          eachPixel(px, yaw, tilt, (o, nx, ny, nz, ct, st, cover) => {
+            // reflect the view ray (0, 0, -1) about the normal
+            const [u, ry] = toPanorama(2 * nz * nx, 2 * nz * ny, 2 * nz * nz - 1, ct, st, yaw);
+            const v = 0.5 - Math.asin(ry) / Math.PI;
+            out.data[o] = sample(u, v, 0); out.data[o + 1] = sample(u, v, 1); out.data[o + 2] = sample(u, v, 2);
+            out.data[o + 3] = 255 * cover;
+          });
           ctx.putImageData(out, 0, 0);
         };
-        if (img.complete && load()) draw();
-        else img.addEventListener('load', () => { if (load()) draw(); }, { once: true });
-
-        // Spin and tilt by dragging. A row being reordered is itself draggable, so that's
-        // switched off while the ball is held.
-        let held = null, frame = 0;
-        const redraw = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; draw(); }); };
-        c.addEventListener('pointerdown', (e) => {
-          if (e.button !== 0 || !src) return;
-          e.preventDefault();
-          e.stopPropagation();
-          const host = c.closest('[draggable="true"]');
-          if (host) host.draggable = false;
-          held = { x: e.clientX, y: e.clientY, yaw, tilt, host };
-          try { c.setPointerCapture(e.pointerId); } catch (err) {} // keeps the drag going outside the ball
-          c.classList.add('spinning');
-        });
-        c.addEventListener('pointermove', (e) => {
-          if (!held) return;
-          yaw = held.yaw + ((e.clientX - held.x) / TURN_PX) * 2 * Math.PI;
-          tilt = Math.max(-TILT_MAX, Math.min(TILT_MAX, held.tilt + ((e.clientY - held.y) / TURN_PX) * 2 * Math.PI));
-          redraw();
-        });
-        const release = () => {
-          if (!held) return;
-          if (held.host) held.host.draggable = true;
-          held = null;
-          c.classList.remove('spinning');
+        // matte: the environment's diffuse light in the direction the surface faces
+        const drawMatte = () => {
+          const px = size();
+          if (matte.width !== px) matte.width = matte.height = px;
+          const ctx = matte.getContext('2d'), out = ctx.createImageData(px, px);
+          eachPixel(px, yaw, tilt, (o, nx, ny, nz, ct, st, cover) => {
+            if (!sh9) { out.data[o] = out.data[o + 1] = out.data[o + 2] = 60; out.data[o + 3] = 120 * cover; return; } // waiting
+            const [u, y] = toPanorama(nx, ny, nz, ct, st, yaw);
+            const lon = (u - 0.5) * 2 * Math.PI, c = Math.sqrt(1 - y * y);
+            const x = c * Math.sin(lon), z = -c * Math.cos(lon);
+            const basis = [0.282095, 0.488603 * y, 0.488603 * z, 0.488603 * x, 1.092548 * x * y, 1.092548 * y * z,
+              0.315392 * (3 * z * z - 1), 1.092548 * x * z, 0.546274 * (x * x - y * y)];
+            for (let ch = 0; ch < 3; ch++) {
+              let e = 0;
+              for (let k = 0; k < 9; k++) e += sh9[ch * 9 + k] * basis[k];
+              out.data[o + ch] = LINEAR_TO_8(ACES(Math.max(0, e) * ALBEDO * exposure));
+            }
+            out.data[o + 3] = 255 * cover;
+          });
+          ctx.putImageData(out, 0, 0);
         };
-        c.addEventListener('pointerup', release);
-        c.addEventListener('pointercancel', release);
-        c.addEventListener('dblclick', () => { yaw = 0; tilt = 0; redraw(); });
-        return c;
-      }
-      // What a row shows on the left: the thumbnail, and for environments the sphere beside it.
-      function views(img) {
-        if (!L.wide) return img;
-        const box = el('div', 'ev-views');
-        box.append(img, sphereView(img));
+        const drawAll = () => { drawMatte(); drawMirror(); };
+
+        const load = () => {
+          if (!img.naturalWidth) return;
+          sw = img.naturalWidth; sh = img.naturalHeight;
+          const c = document.createElement('canvas');
+          c.width = sw; c.height = sh;
+          const cctx = c.getContext('2d');
+          cctx.drawImage(img, 0, 0);
+          src = cctx.getImageData(0, 0, sw, sh).data;
+          drawMirror();
+        };
+        if (img.complete && img.naturalWidth) load();
+        else img.addEventListener('load', load, { once: true });
+        drawMatte();
+
+        // The lighting is read from the EXR or HDR, so it's only asked for once the row is in view.
+        const io2 = new IntersectionObserver((entries) => {
+          if (!entries.some((en) => en.isIntersecting)) return;
+          io2.disconnect();
+          Promise.resolve(getLighting()).then((c) => {
+            if (!c || c.length !== 27) return;
+            sh9 = c;
+            const mean = 0.282095 * (0.2126 * c[0] + 0.7152 * c[9] + 0.0722 * c[18]) * ALBEDO;
+            exposure = mean > 1e-6 ? MID / mean : 1;
+            drawMatte();
+          }).catch(() => { matte.title = "Couldn't work out this environment's lighting."; });
+        });
+        io2.observe(matte);
+
+        // Spin and tilt by dragging either ball. A row being reordered is itself draggable, so
+        // that's switched off while a ball is held.
+        let held = null, frame = 0;
+        const redraw = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; drawAll(); }); };
+        [matte, mirror].forEach((c) => {
+          c.addEventListener('pointerdown', (e) => {
+            if (e.button !== 0) return;
+            e.preventDefault();
+            e.stopPropagation();
+            const host = c.closest('[draggable="true"]');
+            if (host) host.draggable = false;
+            held = { x: e.clientX, y: e.clientY, yaw, tilt, host, c };
+            try { c.setPointerCapture(e.pointerId); } catch (err) {} // keeps the drag going outside the ball
+            box.classList.add('spinning');
+          });
+          c.addEventListener('pointermove', (e) => {
+            if (!held || held.c !== c) return;
+            yaw = held.yaw + ((e.clientX - held.x) / TURN_PX) * 2 * Math.PI;
+            tilt = Math.max(-TILT_MAX, Math.min(TILT_MAX, held.tilt + ((e.clientY - held.y) / TURN_PX) * 2 * Math.PI));
+            redraw();
+          });
+          const release = () => {
+            if (!held) return;
+            if (held.host) held.host.draggable = true;
+            held = null;
+            box.classList.remove('spinning');
+          };
+          c.addEventListener('pointerup', release);
+          c.addEventListener('pointercancel', release);
+          c.addEventListener('dblclick', () => { yaw = 0; tilt = 0; redraw(); });
+        });
         return box;
       }
+
+      // An installed environment's lighting, from its EXR (or the HDR it came from), a couple at a time.
+      const lightingQueue = [];
+      let lightingRunning = 0;
+      function lightingFor(g) {
+        const file = g.exr || g.src;
+        if (!file) return Promise.resolve(null);
+        const key = previewKey(g.disabled, file);
+        if (!lightingCache.has(key)) {
+          lightingCache.set(key, new Promise((resolve, reject) => { lightingQueue.push({ file, disabled: g.disabled, resolve, reject }); pumpLighting(); }));
+          lightingCache.get(key).catch(() => lightingCache.delete(key));
+        }
+        return lightingCache.get(key);
+      }
+      function pumpLighting() {
+        while (lightingRunning < 2 && lightingQueue.length) {
+          const job = lightingQueue.shift();
+          lightingRunning++;
+          invokeCommand('installed_environment_lighting', { folder, fileName: job.file, disabled: job.disabled })
+            .then(job.resolve, job.reject)
+            .finally(() => { lightingRunning--; pumpLighting(); });
+        }
+      }
+
+      // What a row shows on the left: the thumbnail, and for environments the two balls beside it.
+      function views(img, getLighting) {
+        return L.wide ? lookDev(img, getLighting) : img;
+      }
+      const stagedLighting = (g) => (g.exr && g.exr.lighting) || (g.src && g.src.lighting) || null;
 
       function smallButton(label, title, onClick) {
         const b = el('button', 'btn mc-small', label);
@@ -4374,7 +4457,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       function installedRow(g) {
         const row = el('div', `mc-row${g.disabled ? ' mc-off' : ''}`);
         const img = installedThumb(g);
-        row.appendChild(views(img));
+        row.appendChild(views(img, () => lightingFor(g)));
         const hasImage = !!(g.png || g.exr || g.src);
 
         const main = el('div');
@@ -4418,7 +4501,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
         const g = installed.find((x) => !x.disabled && x.name === name);
         const row = el('div', 'mc-row mc-drag');
         row.draggable = true;
-        row.appendChild(views(installedThumb(g)));
+        row.appendChild(views(installedThumb(g), () => lightingFor(g)));
         const main = el('div');
         main.appendChild(el('div', 'mc-title', name));
         const to = numbered(i, name, ordering.length);

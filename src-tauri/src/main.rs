@@ -319,6 +319,7 @@ fn main() {
             matcaps::default_matcaps_folder,
             matcaps::pick_matcap_files,
             matcaps::pick_matcaps_folder,
+            matcaps::installed_environment_lighting,
             shortcuts::load_default_shortcuts,
             shortcuts::read_text_if_exists,
             shortcuts::list_plasticity_radials,

@@ -401,6 +401,7 @@ pub struct StagedInfo {
     height: u32,
     has_alpha: bool,
     preview: String,
+    lighting: Option<Vec<f32>>, // environments only: see diffuse_lighting
 }
 
 fn stage(state: &StagingState, lib: Lib, file_name: String, bytes: Vec<u8>) -> Result<StagedInfo, String> {
@@ -423,6 +424,7 @@ fn stage(state: &StagingState, lib: Lib, file_name: String, bytes: Vec<u8>) -> R
         height,
         has_alpha: decoded.has_alpha,
         preview,
+        lighting: (lib == Lib::Environments).then(|| diffuse_lighting(&decoded.img)),
     })
 }
 
@@ -491,6 +493,62 @@ fn percent_decode(s: &str) -> String {
         i += 1;
     }
     String::from_utf8_lossy(&out).into_owned()
+}
+
+// ---------- Diffuse lighting (environments) ----------
+// How an environment lights a matte ball, for the look-dev sphere in the Environments tab.
+// The panorama is shrunk to 128 x 64 (keeping values above 1.0) and projected onto the nine
+// order-2 spherical harmonics, which is all the detail diffuse light carries. The result is
+// 27 numbers, nine per channel (R then G then B), already scaled so that
+//   sum(c[k] * Y_k(n))
+// is the light a white matte surface facing direction n sends back (irradiance / pi).
+// Directions match the page's mirror ball: +y up, and the panorama's centre (u = 0.5) lies
+// along -z.
+fn sh_basis(x: f32, y: f32, z: f32) -> [f32; 9] {
+    [
+        0.282_095,
+        0.488_603 * y,
+        0.488_603 * z,
+        0.488_603 * x,
+        1.092_548 * x * y,
+        1.092_548 * y * z,
+        0.315_392 * (3.0 * z * z - 1.0),
+        1.092_548 * x * z,
+        0.546_274 * (x * x - y * y),
+    ]
+}
+
+fn diffuse_lighting(img: &Rgba32FImage) -> Vec<f32> {
+    let small = panorama(img, 64);
+    let (w, h) = small.dimensions();
+    let mut l = [[0f32; 9]; 3];
+    let cell = (2.0 * std::f32::consts::PI / w as f32) * (std::f32::consts::PI / h as f32);
+    for (px, py, p) in small.enumerate_pixels() {
+        let lat = (0.5 - (py as f32 + 0.5) / h as f32) * std::f32::consts::PI;
+        let lon = ((px as f32 + 0.5) / w as f32 - 0.5) * 2.0 * std::f32::consts::PI;
+        let (x, y, z) = (lat.cos() * lon.sin(), lat.sin(), -lat.cos() * lon.cos());
+        let d_omega = lat.cos() * cell;
+        let basis = sh_basis(x, y, z);
+        for ch in 0..3 {
+            for k in 0..9 {
+                l[ch][k] += p[ch] * basis[k] * d_omega;
+            }
+        }
+    }
+    // convolve with the cosine lobe (pi, 2pi/3, pi/4 per band) and divide by pi
+    let band = [1.0, 2.0 / 3.0, 2.0 / 3.0, 2.0 / 3.0, 0.25, 0.25, 0.25, 0.25, 0.25];
+    l.iter().flat_map(|c| c.iter().zip(band).map(|(v, a)| v * a)).collect()
+}
+
+// Diffuse lighting for an installed environment, from its EXR (or the HDR it came from).
+#[tauri::command]
+pub async fn installed_environment_lighting(folder: String, file_name: String, disabled: bool) -> Result<Vec<f32>, String> {
+    let (_, kind, _) = split_name(&file_name).ok_or("not an image")?;
+    if !matches!(kind, Kind::Exr | Kind::Hdr) {
+        return Err("needs an EXR or HDR".into());
+    }
+    let bytes = fs::read(dir_for(&folder, disabled)?.join(&file_name)).map_err(|e| e.to_string())?;
+    Ok(diffuse_lighting(&decode(kind, &bytes)?.img))
 }
 
 // ---------- Saving a new matcap ----------
@@ -1262,6 +1320,39 @@ mod tests {
         assert!((e.get_pixel(256, 256)[0] - 0.5).abs() < 0.01);
         assert!((p.get_pixel(32, 32)[0] - 0.5).abs() < 0.01);
         assert_eq!(p.get_pixel(0, 0)[3], 0.0);
+    }
+
+    #[test]
+    fn lighting() {
+        let shade = |c: &[f32], n: (f32, f32, f32)| -> f32 {
+            sh_basis(n.0, n.1, n.2).iter().zip(&c[..9]).map(|(y, k)| y * k).sum()
+        };
+        // a uniform white sky lights a white matte ball evenly at 1.0
+        let mut even = Rgba32FImage::new(256, 128);
+        even.pixels_mut().for_each(|p| *p = Rgba([1.0, 1.0, 1.0, 1.0]));
+        let c = diffuse_lighting(&even);
+        assert_eq!(c.len(), 27);
+        for n in [(0.0, 1.0, 0.0), (0.0, -1.0, 0.0), (1.0, 0.0, 0.0), (0.0, 0.0, 1.0)] {
+            assert!((shade(&c, n) - 1.0).abs() < 0.02, "{n:?} {}", shade(&c, n));
+        }
+        // light from above only: the top is lit, the bottom dark, the sides in between
+        let mut top = Rgba32FImage::new(256, 128);
+        for (_, y, p) in top.enumerate_pixels_mut() {
+            *p = if y < 64 { Rgba([2.0, 2.0, 2.0, 1.0]) } else { Rgba([0.0, 0.0, 0.0, 1.0]) };
+        }
+        let c = diffuse_lighting(&top);
+        let (up, side, down) = (shade(&c, (0.0, 1.0, 0.0)), shade(&c, (1.0, 0.0, 0.0)), shade(&c, (0.0, -1.0, 0.0)));
+        assert!(up > 1.8 && (side - 1.0).abs() < 0.1 && down < 0.2, "{up} {side} {down}");
+        // a bright sun keeps its strength (no clipping to 1.0 on the way)
+        let mut sun = Rgba32FImage::new(512, 256);
+        sun.pixels_mut().for_each(|p| *p = Rgba([0.0, 0.0, 0.0, 1.0])); // opaque, like a real environment
+        sun.put_pixel(256, 128, Rgba([5000.0, 5000.0, 5000.0, 1.0]));
+        let c = diffuse_lighting(&sun);
+        // the sun sits at the panorama's centre, along -z. Its light: 5000 x the pixel's
+        // solid angle, over pi
+        let expected = 5000.0 * (2.0 * std::f32::consts::PI / 512.0) * (std::f32::consts::PI / 256.0) / std::f32::consts::PI;
+        let (facing, away) = (shade(&c, (0.0, 0.0, -1.0)), shade(&c, (0.0, 0.0, 1.0)));
+        assert!((facing / expected - 1.0).abs() < 0.25 && away.abs() < 0.15 * expected, "{facing} {away} {expected}");
     }
 
     #[test]
