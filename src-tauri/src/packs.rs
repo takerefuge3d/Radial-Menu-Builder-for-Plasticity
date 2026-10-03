@@ -118,8 +118,13 @@ pub fn reveal_file(path: String) -> Result<(), String> {
     if !Path::new(&path).exists() {
         return Err(format!("{path} isn't there any more"));
     }
+    // Explorer splits its arguments at commas, so the path is quoted by hand: passed as an
+    // ordinary argument, a folder like "Cars, Trucks" would open the wrong place.
     #[cfg(windows)]
-    let result = Command::new("explorer").arg(format!("/select,{path}")).spawn();
+    let result = {
+        use std::os::windows::process::CommandExt;
+        Command::new("explorer").raw_arg(format!("/select,\"{path}\"")).spawn()
+    };
     #[cfg(target_os = "macos")]
     let result = Command::new("open").args(["-R", &path]).spawn();
     #[cfg(all(not(windows), not(target_os = "macos")))]

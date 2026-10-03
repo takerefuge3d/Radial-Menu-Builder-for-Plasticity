@@ -152,7 +152,35 @@ struct Decoded {
     has_alpha: bool,
 }
 
+// The biggest image read: 8K square, or an 8K panorama with room to spare. Each pixel takes
+// 16 bytes once decoded, so this is about 1 GB; a 16K HDRI would be over 2 GB, and the
+// resizing needs more on top, enough to bring a smaller machine down.
+const MAX_PIXELS: u64 = 8192 * 8192;
+
+// An image's size from its header, without decoding it.
+fn dimensions(kind: Kind, bytes: &[u8]) -> Option<(u32, u32)> {
+    let format = match kind {
+        Kind::Exr => {
+            let meta = exr::meta::MetaData::read_from_buffered(Cursor::new(bytes), false).ok()?;
+            let size = meta.headers.iter().map(|h| h.layer_size).max_by_key(|s| s.area())?;
+            return Some((size.width() as u32, size.height() as u32));
+        }
+        Kind::Png => ImageFormat::Png,
+        Kind::Jpg => ImageFormat::Jpeg,
+        Kind::Webp => ImageFormat::WebP,
+        Kind::Hdr => ImageFormat::Hdr,
+    };
+    image::ImageReader::with_format(Cursor::new(bytes), format).into_dimensions().ok()
+}
+
 fn decode(kind: Kind, bytes: &[u8]) -> Result<Decoded, String> {
+    if let Some((w, h)) = dimensions(kind, bytes) {
+        if w as u64 * h as u64 > MAX_PIXELS {
+            return Err(format!(
+                "it's {w} × {h}, too big to use here (the most is 8K: 8192 × 4096 for an environment). Use a smaller version of it"
+            ));
+        }
+    }
     match kind {
         Kind::Png | Kind::Jpg | Kind::Webp => {
             let format = match kind {
@@ -214,6 +242,14 @@ fn decode(kind: Kind, bytes: &[u8]) -> Result<Decoded, String> {
 // image's resize clips every value to 0..1, which would flatten an HDR's sun and lights
 // to white. The filters are linear, so scaling into range first and back after is exact.
 fn resize(src: &Rgba32FImage, w: u32, h: u32, filter: imageops::FilterType) -> Rgba32FImage {
+    // Shrinking a lot (an 8K HDRI to a thumbnail) starts with a quick block average, so the
+    // filtered resize, and the copy below, work on a much smaller image. It stops at twice
+    // the target size, so the filter still has the detail to work with.
+    let (sw, sh) = src.dimensions();
+    let f = (sw / w.max(1)).min(sh / h.max(1)) / 2;
+    if f >= 2 {
+        return resize(&shrink_box(src, f), w, h, filter);
+    }
     let peak = src.pixels().flat_map(|p| p.0[..3].iter().copied()).fold(1.0f32, f32::max);
     if peak <= 1.0 {
         return imageops::resize(src, w, h, filter);
@@ -229,6 +265,26 @@ fn resize(src: &Rgba32FImage, w: u32, h: u32, filter: imageops::FilterType) -> R
         for i in 0..3 {
             p[i] *= peak;
         }
+    }
+    out
+}
+
+// Each f × f block averaged into one pixel. Keeps values above 1.0.
+fn shrink_box(src: &Rgba32FImage, f: u32) -> Rgba32FImage {
+    let (w, h) = src.dimensions();
+    let mut out = Rgba32FImage::new((w / f).max(1), (h / f).max(1));
+    let n = (f * f) as f32;
+    for (x, y, p) in out.enumerate_pixels_mut() {
+        let mut sum = [0f32; 4];
+        for sy in (y * f..y * f + f).map(|v| v.min(h - 1)) {
+            for sx in (x * f..x * f + f).map(|v| v.min(w - 1)) {
+                let q = src.get_pixel(sx, sy);
+                for i in 0..4 {
+                    sum[i] += q[i];
+                }
+            }
+        }
+        *p = Rgba(sum.map(|v| v / n));
     }
     out
 }
@@ -581,6 +637,41 @@ fn existing_files(folder: &Path, name: &str) -> Vec<PathBuf> {
         .collect()
 }
 
+// Writes NAME.ext for each file, replacing `old`. The new files are written under temporary
+// names first, so a failed write leaves the installed one untouched. Only then do the old
+// files go (to the Recycle Bin, or deleted where the drive has none), and the new files take
+// their names.
+fn install_files(folder: &Path, name: &str, files: &[(&str, Vec<u8>)], old: &[PathBuf]) -> Result<Vec<String>, String> {
+    let tmp = |ext: &str| folder.join(format!(".{name}.{ext}.new"));
+    let clean_up = || {
+        for (ext, _) in files {
+            let _ = fs::remove_file(tmp(ext));
+        }
+    };
+    for (ext, bytes) in files {
+        if let Err(e) = fs::write(tmp(ext), bytes) {
+            clean_up();
+            return Err(format!("write {name}.{ext} failed: {e}"));
+        }
+    }
+    // (tests delete instead, rather than fill the real Recycle Bin)
+    if !old.is_empty() && (cfg!(test) || trash::delete_all(old).is_err()) {
+        for p in old.iter().filter(|p| p.exists()) {
+            if let Err(e) = fs::remove_file(p) {
+                clean_up();
+                return Err(format!("remove {} failed: {e}", p.display()));
+            }
+        }
+    }
+    let mut written = vec![];
+    for (ext, _) in files {
+        let file = format!("{name}.{ext}");
+        fs::rename(tmp(ext), folder.join(&file)).map_err(|e| format!("write {file} failed: {e}"))?;
+        written.push(file);
+    }
+    Ok(written)
+}
+
 #[tauri::command]
 pub async fn save_matcap(req: SaveRequest, state: tauri::State<'_, StagingState>) -> Result<Vec<String>, String> {
     let lib = Lib::from(&req.library);
@@ -593,6 +684,15 @@ pub async fn save_matcap(req: SaveRequest, state: tauri::State<'_, StagingState>
     let taken = existing_files(&folder, &req.name);
     if !taken.is_empty() && !req.replace {
         return Err(format!("{} is already installed", req.name));
+    }
+    // A turned-off one with the same name couldn't be turned back on afterwards.
+    let off = disabled_dir(&folder)?;
+    if scan(lib, &off).unwrap_or_default().iter().any(|g| g.name.to_lowercase() == req.name.to_lowercase()) {
+        return Err(format!(
+            "a turned-off {} is already called {}; turn it on and replace it, or pick another name",
+            lib.one(),
+            req.name
+        ));
     }
 
     let take = |id: Option<u64>| -> Result<Option<StagedFile>, String> {
@@ -616,6 +716,11 @@ pub async fn save_matcap(req: SaveRequest, state: tauri::State<'_, StagingState>
         }
     };
     let exr_bytes = match &exr {
+        // An environment's EXR bigger than the size chosen is shrunk to it; smaller ones, and
+        // every EXR when the size is 0 (keep the original size), are copied as they are.
+        Some(f) if lib == Lib::Environments && exr_size != 0 && dimensions(f.kind, &f.bytes).is_some_and(|(_, h)| h > exr_size) => {
+            exr_file(lib, &convert(lib, f.kind, &f.bytes, exr_size)?)?
+        }
         Some(f) => f.bytes.clone(),
         None => {
             let src = match lib {
@@ -628,24 +733,12 @@ pub async fn save_matcap(req: SaveRequest, state: tauri::State<'_, StagingState>
     };
 
     fs::create_dir_all(&folder).map_err(|e| format!("create {} failed: {e}", folder.display()))?;
-    if req.replace {
-        // Replacing means the old matcap goes entirely, including its tint setting.
-        for p in &taken {
-            fs::remove_file(p).map_err(|e| format!("remove {} failed: {e}", p.display()))?;
-        }
-    }
-    let mut written = vec![];
-    let mut write = |ext: &str, bytes: &[u8]| -> Result<(), String> {
-        let path = folder.join(format!("{}.{ext}", req.name));
-        fs::write(&path, bytes).map_err(|e| format!("write {} failed: {e}", path.display()))?;
-        written.push(format!("{}.{ext}", req.name));
-        Ok(())
-    };
-    write("exr", &exr_bytes)?;
-    write("png", &png_bytes)?;
+    let mut files: Vec<(&str, Vec<u8>)> = vec![("exr", exr_bytes), ("png", png_bytes)];
     if req.tinted && lib == Lib::Matcaps {
-        write("json", TINT_JSON.as_bytes())?;
+        files.push(("json", TINT_JSON.as_bytes().to_vec()));
     }
+    // Replacing means the old one goes entirely, including its tint setting.
+    let written = install_files(&folder, &req.name, &files, if req.replace { &taken } else { &[] })?;
 
     let mut staging = state.lock().map_err(|e| e.to_string())?;
     for id in [req.png_id, req.exr_id, req.src_id].into_iter().flatten() {
@@ -956,10 +1049,21 @@ pub async fn set_matcap_tinted(folder: String, name: String, disabled: bool, tin
 }
 
 // ---------- Enable / disable ----------
+// All of a group's files move, or none do: a failure part-way puts back the ones already
+// moved, so a PNG and its EXR never end up in different folders.
 fn move_group(g: &Installed, from: &Path, to: &Path) -> Result<(), String> {
+    let files = group_files(g);
+    if let Some(f) = files.iter().find(|f| to.join(f).exists()) {
+        return Err(format!("{f} is already in {}", to.display()));
+    }
     fs::create_dir_all(to).map_err(|e| format!("create {} failed: {e}", to.display()))?;
-    for f in group_files(g) {
-        fs::rename(from.join(&f), to.join(&f)).map_err(|e| format!("move {f} failed: {e}"))?;
+    for (i, f) in files.iter().enumerate() {
+        if let Err(e) = fs::rename(from.join(f), to.join(f)) {
+            for back in &files[..i] {
+                let _ = fs::rename(to.join(back), from.join(back));
+            }
+            return Err(format!("move {f} failed: {e}"));
+        }
     }
     Ok(())
 }
@@ -1413,6 +1517,83 @@ mod tests {
         assert_eq!(made.img.dimensions(), (300, 100));
         // the matcaps rules don't see the HDR at all
         assert!(scan(Lib::Matcaps, &dir).unwrap().iter().all(|g| g.src.is_none()));
+        let _ = fs::remove_dir_all(dir.parent().unwrap());
+    }
+
+    // A PNG claiming the given size, with no pixels: enough for dimensions().
+    fn png_header(w: u32, h: u32) -> Vec<u8> {
+        fn crc32(data: &[u8]) -> u32 {
+            let mut c = 0xffff_ffffu32;
+            for &b in data {
+                c ^= b as u32;
+                for _ in 0..8 {
+                    c = if c & 1 != 0 { 0xedb8_8320 ^ (c >> 1) } else { c >> 1 };
+                }
+            }
+            !c
+        }
+        let mut chunk = b"IHDR".to_vec();
+        chunk.extend(w.to_be_bytes());
+        chunk.extend(h.to_be_bytes());
+        chunk.extend([8, 6, 0, 0, 0]);
+        let mut out = b"\x89PNG\r\n\x1a\n".to_vec();
+        out.extend(13u32.to_be_bytes());
+        out.extend(&chunk);
+        out.extend(crc32(&chunk).to_be_bytes());
+        // an empty IDAT, which is where the PNG reader stops reading the header
+        out.extend(0u32.to_be_bytes());
+        out.extend(b"IDAT");
+        out.extend(crc32(b"IDAT").to_be_bytes());
+        out
+    }
+
+    #[test]
+    fn big_images() {
+        // too big is refused before anything is decoded
+        assert_eq!(dimensions(Kind::Png, &png_header(16384, 8192)), Some((16384, 8192)));
+        let err = decode(Kind::Png, &png_header(16384, 8192)).err().unwrap();
+        assert!(err.contains("16384 × 8192") && err.contains("too big"), "{err}");
+        // a real EXR's size comes from its header
+        let exr = encode_exr(&Rgba32FImage::from_pixel(40, 20, Rgba([0.5, 0.5, 0.5, 1.0])), false).unwrap();
+        assert_eq!(dimensions(Kind::Exr, &exr), Some((40, 20)));
+
+        // the block average keeps bright values, and a big shrink still lands on the size asked for
+        let mut img = Rgba32FImage::from_pixel(4, 2, Rgba([1.0, 1.0, 1.0, 1.0]));
+        img.put_pixel(0, 0, Rgba([9.0, 1.0, 1.0, 1.0]));
+        let small = shrink_box(&img, 2);
+        assert_eq!(small.dimensions(), (2, 1));
+        assert_eq!(small.get_pixel(0, 0)[0], 3.0);
+        let mut pano = Rgba32FImage::from_pixel(1024, 512, Rgba([0.2, 0.2, 0.2, 1.0]));
+        for y in 200..216 {
+            for x in 500..516 {
+                pano.put_pixel(x, y, Rgba([5000.0, 5000.0, 5000.0, 1.0]));
+            }
+        }
+        let thumb = panorama(&pano, 32);
+        assert_eq!(thumb.dimensions(), (64, 32));
+        assert!(thumb.pixels().any(|p| p[0] > 100.0), "the sun survives the shrink");
+    }
+
+    #[test]
+    fn replace_and_move_safely() {
+        let dir = temp_folder("replace");
+        for f in ["Cap.exr", "Cap.png", "Cap.json"] {
+            fs::write(dir.join(f), "old").unwrap();
+        }
+        let old = existing_files(&dir, "Cap");
+        let new: Vec<(&str, Vec<u8>)> = vec![("exr", b"new exr".to_vec()), ("png", b"new png".to_vec())];
+        assert_eq!(install_files(&dir, "Cap", &new, &old).unwrap(), ["Cap.exr", "Cap.png"]);
+        assert_eq!(files(&dir), ["Cap.exr", "Cap.png"]);
+        assert_eq!(fs::read_to_string(dir.join("Cap.exr")).unwrap(), "new exr");
+
+        // a clash in the target folder stops the move before anything moves
+        let off = disabled_dir(&dir).unwrap();
+        fs::create_dir_all(&off).unwrap();
+        fs::write(off.join("Cap.png"), "other").unwrap();
+        let g = find(Lib::Matcaps, &dir, "Cap").unwrap();
+        assert!(move_group(&g, &dir, &off).is_err());
+        assert_eq!(files(&dir), ["Cap.exr", "Cap.png"]);
+        assert_eq!(files(&off), ["Cap.png"]);
         let _ = fs::remove_dir_all(dir.parent().unwrap());
     }
 }

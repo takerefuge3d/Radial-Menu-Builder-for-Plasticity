@@ -115,6 +115,7 @@ pub struct FontInfo {
     missing: String,           // basic letters and digits the font doesn't have
     restricted: bool,          // the font's licence flags say it mustn't be embedded
     cubic: bool,               // had cubic curves, now quadratics
+    bytes: usize,              // size of the .typeface-json; Plasticity loads every font at start-up
     sample: Value,             // { resolution, ascender, descender, glyphs: { char: { ha, o } } } for the page
 }
 
@@ -171,6 +172,10 @@ pub fn convert(bytes: &[u8]) -> Result<Converted, String> {
     if glyphs.is_empty() {
         return Err("the font has no characters Plasticity could use".into());
     }
+    // Bitmap-only fonts (and some colour emoji fonts) have characters but no outlines.
+    if !glyphs.values().any(|g| g["o"].as_str().is_some_and(|o| !o.is_empty())) {
+        return Err("the font has no outlines (it may be a bitmap-only font), so Plasticity would draw nothing".into());
+    }
 
     let family = name(&face, name_id::TYPOGRAPHIC_FAMILY).or_else(|| name(&face, name_id::FAMILY)).unwrap_or_else(|| "Font".into());
     let style = name(&face, name_id::TYPOGRAPHIC_SUBFAMILY).or_else(|| name(&face, name_id::SUBFAMILY)).unwrap_or_else(|| "Regular".into());
@@ -212,9 +217,11 @@ pub fn convert(bytes: &[u8]) -> Result<Converted, String> {
     let file_name = format!("{}-{}.{EXT}", clean(&family), clean(&style));
     let sample = sample_of(&glyphs, 1000.0, ascender as f64, descender as f64);
     let glyph_count = glyphs.len();
+    let json = serde_json::to_string(&doc).map_err(|e| e.to_string())?;
+    let bytes = json.len();
     Ok(Converted {
-        json: serde_json::to_string(&doc).map_err(|e| e.to_string())?,
-        info: FontInfo { family, style, full_name, file_name, glyphs: glyph_count, missing, restricted, cubic, sample },
+        json,
+        info: FontInfo { family, style, full_name, file_name, glyphs: glyph_count, missing, restricted, cubic, bytes, sample },
     })
 }
 
@@ -312,7 +319,7 @@ pub async fn install_font(
         s.fonts.get(&id).ok_or("the font has gone missing; add it again")?.json.clone()
     };
     fs::create_dir_all(&folder).map_err(|e| format!("create {} failed: {e}", folder.display()))?;
-    fs::write(&path, json).map_err(|e| format!("write {file_name} failed: {e}"))?;
+    crate::write_atomic(&path, json.as_bytes()).map_err(|e| format!("write {file_name} failed: {e}"))?;
     state.lock().map_err(|e| e.to_string())?.fonts.remove(&id);
     Ok(file_name)
 }
@@ -432,6 +439,8 @@ mod tests {
         let c = convert(&bytes).unwrap();
         assert!(c.info.glyphs > 100);
         assert_eq!(c.info.missing, "");
+        assert_eq!(c.info.bytes, c.json.len());
+        eprintln!("{} glyphs, {} bytes", c.info.glyphs, c.info.bytes);
         let doc: Value = serde_json::from_str(&c.json).unwrap();
         assert_eq!(doc["resolution"], 1000);
         // every outline is m/l/q/z with the right number of whole numbers after each

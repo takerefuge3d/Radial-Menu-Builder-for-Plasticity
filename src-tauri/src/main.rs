@@ -40,6 +40,37 @@ fn radials_dir_marker_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(dir.join("radials_dir.txt"))
 }
 
+// ---------- Writing files safely ----------
+// Writes a temporary file next to the target and renames it over the target, so a crash or
+// power cut part-way through never leaves a half-written file. Falls back to a plain write
+// when that isn't allowed (a folder we can't create files in, or a target another program
+// has locked against renames).
+pub(crate) fn write_atomic(path: &Path, bytes: &[u8]) -> io::Result<()> {
+    let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    let tmp = path.with_file_name(format!(".{name}.{}.tmp", std::process::id()));
+    if fs::write(&tmp, bytes).and_then(|_| fs::rename(&tmp, path)).is_ok() {
+        return Ok(());
+    }
+    let _ = fs::remove_file(&tmp);
+    fs::write(path, bytes)
+}
+
+// For Plasticity's own files (keymap.json, theme.json, asset-packs.json): the file being
+// replaced is copied to NAME.bak first, and the very first time, to NAME.original as well,
+// so the file as it was before this app ever changed it can always be got back.
+fn backup_and_write(path: &Path, contents: &str) -> Result<(), String> {
+    if path.is_file() {
+        let with = |ext: &str| PathBuf::from(format!("{}.{ext}", path.display()));
+        let original = with("original");
+        if !original.exists() {
+            fs::copy(path, &original).map_err(|e| format!("backup to {} failed: {e}", fmt_path(&original)))?;
+        }
+        let bak = with("bak");
+        fs::copy(path, &bak).map_err(|e| format!("backup to {} failed: {e}", fmt_path(&bak)))?;
+    }
+    write_atomic(path, contents.as_bytes()).map_err(|e| format!("write {} failed: {e}", fmt_path(path)))
+}
+
 // ---------- JSON file helpers ----------
 fn read_json_file(path: &Path) -> Result<serde_json::Value, String> {
     let data = fs::read_to_string(path)
@@ -57,7 +88,7 @@ fn write_json_file(path: &Path, value: &serde_json::Value) -> Result<(), String>
                 .map_err(|e| io_err(format!("create dir {} failed: {e}", fmt_path(parent))))?;
         }
     }
-    fs::write(path, pretty)
+    write_atomic(path, pretty.as_bytes())
         .map_err(|e| io_err(format!("write {} failed: {e}", fmt_path(path))))
 }
 
@@ -149,9 +180,17 @@ async fn pick_json_file(app: tauri::AppHandle) -> Result<Option<String>, String>
     Ok(picked.map(|p| p.to_string()))
 }
 
+// `directory`: where the dialog opens (the opened menu's folder, or the radials folder).
 #[tauri::command]
-async fn pick_save_json_path(app: tauri::AppHandle, suggested_name: Option<String>) -> Result<Option<String>, String> {
+async fn pick_save_json_path(
+    app: tauri::AppHandle,
+    suggested_name: Option<String>,
+    directory: Option<String>,
+) -> Result<Option<String>, String> {
     let mut builder = app.dialog().file().add_filter("JSON", &["json"]);
+    if let Some(dir) = directory.map(PathBuf::from).filter(|d| d.is_dir()) {
+        builder = builder.set_directory(dir);
+    }
     if let Some(name) = suggested_name {
         builder = builder.set_file_name(&name);
     }
@@ -247,7 +286,7 @@ fn load_user_themes(app: tauri::AppHandle) -> Result<Option<String>, String> {
 #[tauri::command]
 fn save_user_themes(app: tauri::AppHandle, contents: String) -> Result<(), String> {
     let path = user_themes_path(&app)?;
-    fs::write(&path, contents).map_err(|e| io_err(format!("write {} failed: {e}", fmt_path(&path))))
+    write_atomic(&path, contents.as_bytes()).map_err(|e| io_err(format!("write {} failed: {e}", fmt_path(&path))))
 }
 
 // The folder Plasticity reads theme.json from, whether or not it exists yet.
@@ -276,7 +315,13 @@ fn read_text_file(path: String) -> Result<String, String> {
 
 #[tauri::command]
 fn write_text_file(path: String, contents: String) -> Result<(), String> {
-    fs::write(&path, contents).map_err(|e| io_err(format!("write {} failed: {e}", path)))
+    write_atomic(Path::new(&path), contents.as_bytes()).map_err(|e| io_err(format!("write {} failed: {e}", path)))
+}
+
+// Replaces one of Plasticity's own files, keeping NAME.bak and NAME.original (see above).
+#[tauri::command]
+fn write_plasticity_file(path: String, contents: String) -> Result<(), String> {
+    backup_and_write(Path::new(&path), &contents)
 }
 
 fn main() {
@@ -306,6 +351,7 @@ fn main() {
             quit_app,
             read_text_file,
             write_text_file,
+            write_plasticity_file,
             matcaps::stage_matcap_bytes,
             matcaps::stage_matcap_path,
             matcaps::unstage_matcaps,
@@ -352,4 +398,30 @@ fn main() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn backups() {
+        let dir = std::env::temp_dir().join(format!("backup-test-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("keymap.json");
+        let read = |name: &str| fs::read_to_string(dir.join(name)).unwrap();
+        // no file yet: no backups
+        backup_and_write(&path, "one").unwrap();
+        assert!(!dir.join("keymap.json.bak").exists() && !dir.join("keymap.json.original").exists());
+        backup_and_write(&path, "two").unwrap();
+        backup_and_write(&path, "three").unwrap();
+        assert_eq!(read("keymap.json"), "three");
+        assert_eq!(read("keymap.json.bak"), "two");
+        assert_eq!(read("keymap.json.original"), "one");
+        // nothing left over from the temporary files
+        let mut names: Vec<String> = fs::read_dir(&dir).unwrap().flatten().map(|e| e.file_name().to_string_lossy().into_owned()).collect();
+        names.sort();
+        assert_eq!(names, ["keymap.json", "keymap.json.bak", "keymap.json.original"]);
+        let _ = fs::remove_dir_all(&dir);
+    }
 }

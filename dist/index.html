@@ -138,6 +138,9 @@ body[data-tab="fonts"] > .app-container:not(#ftApp), body[data-tab="fonts"] > .j
 body:not([data-tab="fonts"]) > #ftApp { display: none; }
 body[data-tab="packs"] > .app-container:not(#apApp), body[data-tab="packs"] > .json-preview { display: none !important; }
 body:not([data-tab="packs"]) > #apApp { display: none; }
+#menuEditing[hidden] { display: none; }
+#menuEditing { margin-top: 6px; }
+#menuEditing .btn { display: block; margin-top: 6px; }
 /* Radial Menus has two sub-tabs, Create (the builder) and Manage */
 .sub-tabs { display: none; gap: 4px; align-items: center; height: 37px; padding: 0 12px; background: var(--bg); border-bottom: 1px solid var(--border); }
 body[data-tab="radial"] > .sub-tabs { display: flex; }
@@ -481,6 +484,10 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       <div class="form-group">
         <label class="form-label" for="menuNameInput">Menu Name:</label>
         <input type="text" class="form-input" id="menuNameInput" placeholder="Enter menu name" />
+        <div class="tp-hint" id="menuEditing" hidden>
+          <span id="menuEditingText"></span>
+          <button class="btn mc-small" type="button" id="menuDetach">Make It a New Menu</button>
+        </div>
       </div>
 
       <div class="form-group">
@@ -945,11 +952,11 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
         <select class="form-input" id="evPngSize"><option value="128">256 × 128</option><option value="64">128 × 64</option></select>
       </div>
       <div class="form-group">
-        <label class="form-label" for="evExrSize">EXR from an HDR (16-bit)</label>
-        <select class="form-input" id="evExrSize"><option value="1024">2048 × 1024 (2K)</option><option value="512">1024 × 512 (1K)</option><option value="0">Same size as the HDR</option></select>
+        <label class="form-label" for="evExrSize">EXR (16-bit)</label>
+        <select class="form-input" id="evExrSize"><option value="1024">2048 × 1024 (2K)</option><option value="512">1024 × 512 (1K)</option><option value="0">Keep the original size</option></select>
       </div>
       <div class="tp-hint">Plasticity wants each environment as a pair with the same name: an EXR for the lighting and a PNG thumbnail for the picker. Both are 2:1 panoramas (equirectangular).</div>
-      <div class="tp-hint">An EXR you add is copied as it is, under the clean name (spaces become _), and a small PNG thumbnail is made from it.</div>
+      <div class="tp-hint">An EXR you add is shrunk to the size above if it's bigger, and otherwise copied as it is, under the clean name (spaces become _). Choose Keep the original size to copy every EXR as it is. A small PNG thumbnail is made from it. The most this can read is 8K (8192 × 4096).</div>
       <div class="tp-hint">An HDR (.hdr or .hdri) is converted: it's made into a 16-bit EXR at the size above, plus the thumbnail. The HDR itself isn't copied.</div>
       <div class="tp-hint">Disable moves an environment into an environments-disabled folder next to this one, where Plasticity doesn't look. Enable moves it back. A disabled environment can be deleted, which moves its files to the Recycle Bin (Trash on a Mac).</div>
       <div class="tp-hint">Reorder… renames them 01_Name, 02_Name and so on so they sort that way. Restart Plasticity to see changes.</div>
@@ -1021,7 +1028,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       <div class="tp-path" id="apFile">Finding asset-packs.json…</div>
       <button class="btn" id="apBackup" type="button">Restore Backup</button>
       <div class="tp-hint">A pack is on when it's in Plasticity's list of asset packs (asset-packs.json), which is what the Assets panel shows. Turning one off only takes it out of that list; the pack file stays where it is.</div>
-      <div class="tp-hint">Close Plasticity before making changes, then open it to see them: it reads the list when it starts and saves it again itself. Each change keeps the previous list as asset-packs.json.bak, and Restore Backup puts it back.</div>
+      <div class="tp-hint">Close Plasticity before making changes, then open it to see them: it reads the list when it starts and saves it again itself. Each change keeps the previous list as asset-packs.json.bak, and Restore Backup puts it back. The list you had before this app first changed it stays in asset-packs.json.original.</div>
       <div class="tp-hint">Packs you opened in Plasticity from somewhere else are listed at the bottom, with any whose file has been moved or deleted.</div>
     </div>
   </div>
@@ -1095,7 +1102,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       <div class="tp-hint">Click the Keys box and press the keys. Mouse buttons work too: click the box, then press the middle or a side button. Tab and Escape can't be recorded, so type them instead (tab, escape).</div>
       <div class="tp-hint">Where sets when a shortcut works. Everywhere covers the whole window while no command is running. Plasticity's own viewport keys, and the keys inside commands (like X for the X axis while moving), still take priority in their own places.</div>
       <div class="tp-hint">Turn Off stops a built-in shortcut (it's saved as unset!). Reset and Remove take your shortcut out, so Plasticity's own comes back.</div>
-      <div class="tp-hint">Nothing changes until you click Save to Plasticity. The file you had is kept as keymap.json.bak, and Restore Backup brings it back. Restart Plasticity if new shortcuts don't work straight away.</div>
+      <div class="tp-hint">Nothing changes until you click Save to Plasticity. The file you had is kept as keymap.json.bak, and Restore Backup brings it back. The one from before this app first changed it stays in keymap.json.original. Restart Plasticity if new shortcuts don't work straight away.</div>
     </div>
   </div>
 
@@ -1377,22 +1384,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
           reader.onerror = reject;
           reader.readAsText(file);
         });
-        const menuData = JSON.parse(text);
-        appState.menuData = menuData;
-        document.getElementById('menuNameInput').value = menuData.name;
-        appState.radialItems = menuData.items.map((item) => ({
-          command: item.command || '', label: item.label || '',
-          icon: item.icon || 'default-icon', x: 0, y: 0
-        }));
-        const requiredSockets = Math.max(3, Math.min(12, appState.radialItems.length));
-        appState.numSockets = requiredSockets;
-        document.getElementById('socketsInput').value = appState.numSockets;
-        calculateSockets(); reassignItemsToSockets();
-        appState.menuData.items = appState.radialItems;
-        refreshPreview(); updateItemCounter();
-        const missing = missingCommands(appState.radialItems);
-        if (missing.length) warnMissing(missing, `Loaded '${menuData.name}'. `);
-        else showNotification(`Radial menu '${menuData.name}' loaded successfully!`);
+        applyLoadedMenu(JSON.parse(text), file.name, null);
       } catch (error) {
         showNotification(`Failed to load JSON file: ${error}`, 'error');
       }
@@ -2197,6 +2189,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
 
     function resetMenu() {
       appState.menuData = { name: '', command: 'default-menu', items: [] };
+      appState.loadedMenu = null; showEditing();
       appState.radialItems = []; appState.selectedItem = null;
       refreshPreview();
       document.getElementById('menuNameInput').value = '';
@@ -2250,23 +2243,100 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
     async function loadMenuFromPath(filePath) {
       try {
         const menuData = await invokeCommand('load_radial_menu', { path: filePath });
-        appState.menuData = menuData;
-        document.getElementById('menuNameInput').value = menuData.name;
-        appState.radialItems = menuData.items.map((item) => ({
-          command: item.command, label: item.label, icon: item.icon, x: 0, y: 0
-        }));
-        const requiredSockets = Math.max(3, Math.min(12, appState.radialItems.length));
-        appState.numSockets = requiredSockets;
-        document.getElementById('socketsInput').value = appState.numSockets;
-        calculateSockets(); reassignItemsToSockets();
-        appState.menuData.items = appState.radialItems;
-        refreshPreview(); updateItemCounter();
-        const missing = missingCommands(appState.radialItems);
-        if (missing.length) warnMissing(missing, `Loaded '${menuData.name}'. `);
-        else showNotification(`Radial menu '${menuData.name}' loaded successfully!`);
+        applyLoadedMenu(menuData, filePath.split(/[\\/]/).pop(), filePath);
       } catch (error) {
-        showNotification(`Failed to load JSON file: ${error}`, 'error');
+        showNotification(`Failed to load JSON file: ${error.message || error}`, 'error');
       }
+    }
+
+    // Puts a radial menu file into the builder. A menu that was opened keeps its own command
+    // when it's saved again (even if it's renamed), so shortcuts and other menus that open it
+    // keep working. The builder has 12 places: items past the 12th are kept aside and saved
+    // back after the others, unchanged.
+    const MAX_PLACES = 12;
+    function applyLoadedMenu(menuData, fileName, filePath) {
+      if (!menuData || typeof menuData !== 'object' || Array.isArray(menuData)) throw new Error(`${fileName} isn't a radial menu`);
+      const command = typeof menuData.command === 'string' ? menuData.command.trim() : '';
+      if (!command) throw new Error(`${fileName} has no "command", so it isn't a radial menu Plasticity can open`);
+      const items = (Array.isArray(menuData.items) ? menuData.items : []).filter((it) => it && typeof it === 'object');
+      const name = typeof menuData.name === 'string' && menuData.name.trim() ? menuData.name : command.replace(/^.*:/, '');
+      const extra = items.slice(MAX_PLACES);
+      appState.loadedMenu = { command, fileName, path: filePath || null, extra };
+      appState.menuData = { name, command, items: [] };
+      document.getElementById('menuNameInput').value = name;
+      appState.radialItems = items.slice(0, MAX_PLACES).map((item) => ({
+        command: item.command || '', label: item.label || '', icon: item.icon || 'default-icon', x: 0, y: 0
+      }));
+      appState.selectedItem = null;
+      appState.numSockets = Math.max(3, Math.min(MAX_PLACES, appState.radialItems.length));
+      document.getElementById('socketsInput').value = appState.numSockets;
+      calculateSockets(); reassignItemsToSockets();
+      appState.menuData.items = appState.radialItems;
+      refreshPreview(); updateItemCounter(); showEditing();
+      const more = extra.length
+        ? ` It has ${items.length} items: the first ${MAX_PLACES} are shown, and the other ${extra.length} are saved back after them, unchanged.`
+        : '';
+      const missing = missingCommands(appState.radialItems);
+      if (missing.length) warnMissing(missing, `Loaded '${name}'.${more} `);
+      else showNotification(`Radial menu '${name}' loaded.${more}`, more ? 'warning' : 'success');
+    }
+
+    // Under the name: which file is open, and that its command is kept.
+    function showEditing() {
+      const m = appState.loadedMenu;
+      document.getElementById('menuEditing').hidden = !m;
+      if (m) {
+        document.getElementById('menuEditingText').textContent =
+          `Editing ${m.fileName}. Saving keeps its command (${m.command}), so shortcuts and menus that open it keep working.`;
+      }
+    }
+
+    // The command a new menu gets from its name: "Modeling Tools (v2)" -> default-menu:modeling-tools-v2.
+    function newMenuCommand(name) {
+      const slug = name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, '');
+      return `default-menu:${slug || 'menu'}`;
+    }
+
+    // A file name Windows and macOS both accept.
+    function menuFileName(name) {
+      return `${name.replace(/[<>:"/\\|?*\u0000-\u001f]+/g, ' ').trim().replace(/\s+/g, '-') || 'menu'}.json`;
+    }
+
+    const normPath = (p) => String(p || '').replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+
+    // Other enabled menus in the folder being saved to that use the same command: Plasticity
+    // would open only one of them.
+    async function menusWithCommand(command, filePath) {
+      const folder = filePath.replace(/[\\/][^\\/]*$/, '');
+      try {
+        const list = await invokeCommand('list_radial_files', { folder });
+        return list.filter((r) => !r.disabled && !r.error && r.command === command && normPath(r.path) !== normPath(filePath));
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function radialConfirm(title, lines, okLabel) {
+      return new Promise((resolve) => {
+        const wrap = document.createElement('div'); wrap.className = 'tp-modal';
+        const box = document.createElement('div'); box.className = 'tp-modal-box';
+        box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true');
+        const h = document.createElement('h3'); h.textContent = title; box.appendChild(h);
+        lines.forEach((t) => { const para = document.createElement('p'); para.textContent = t; box.appendChild(para); });
+        const btns = document.createElement('div'); btns.className = 'tp-modal-btns';
+        const cancel = document.createElement('button'); cancel.className = 'btn'; cancel.type = 'button'; cancel.textContent = 'Cancel';
+        const ok = document.createElement('button'); ok.className = 'btn'; ok.type = 'button'; ok.textContent = okLabel;
+        btns.append(cancel, ok); box.appendChild(btns); wrap.appendChild(box);
+        document.body.appendChild(wrap);
+        const done = (yes) => { document.removeEventListener('keydown', onKey, true); wrap.remove(); resolve(yes); };
+        const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); done(false); } };
+        document.addEventListener('keydown', onKey, true);
+        cancel.addEventListener('click', () => done(false));
+        ok.addEventListener('click', () => done(true));
+        wrap.addEventListener('click', (e) => { if (e.target === wrap) done(false); });
+        cancel.focus();
+      });
     }
 
     window.openRadialInCreate = loadMenuFromPath;
@@ -2319,17 +2389,18 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
         showNotification('Please provide a name for the radial menu.', 'error');
         return;
       }
-      const menuNameCommand = menuName.toLowerCase().replace(/\s+/g, '-');
+      const loaded = appState.loadedMenu;
       appState.menuData.name = menuName;
-      appState.menuData.command = `default-menu:${menuNameCommand}`;
+      appState.menuData.command = loaded ? loaded.command : newMenuCommand(menuName);
       const orderedItems = getItemsOrderedBySocket();
       const exportData = {
         name: appState.menuData.name,
         command: appState.menuData.command,
         items: orderedItems.map((item) => ({
           command: item.command, icon: item.icon, label: item.label
-        }))
+        })).concat(loaded ? loaded.extra : [])
       };
+      const suggested = loaded ? loaded.fileName : menuFileName(menuName);
       // Reported after resetMenu(), which posts its own message. Items the chosen Plasticity
       // version doesn't have are still saved, but called out.
       const missing = missingCommands(orderedItems);
@@ -2343,7 +2414,6 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       initTauriAPI();
       if (!tauriAvailable) {
         try {
-          const suggested = `${menuName.replace(/\s+/g, '-')}.json`;
           await saveJsonFileWeb(exportData, suggested);
           resetMenu();
           reportSaved();
@@ -2352,11 +2422,19 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
         }
       } else {
         try {
-          const suggested = `${menuName.replace(/\s+/g, '-')}.json`;
-          const filePath = await invokeCommand('pick_save_json_path', { suggestedName: suggested });
+          const directory = loaded && loaded.path ? loaded.path.replace(/[\\/][^\\/]*$/, '') : appState.savedRadialsDirectory || null;
+          const filePath = await invokeCommand('pick_save_json_path', { suggestedName: suggested, directory });
           if (!filePath) {
             showNotification('Save cancelled.', 'warning');
             return;
+          }
+          const clash = await menusWithCommand(exportData.command, filePath);
+          if (clash.length) {
+            const ok = await radialConfirm('Another menu has the same command', [
+              `${clash.map((r) => `${r.name} (${r.file})`).join(', ')} already ${clash.length === 1 ? 'uses' : 'use'} ${exportData.command}. Plasticity would open only one of them.`,
+              loaded ? 'To keep both, cancel, click Make It a New Menu under the name, and save again.' : 'To keep both, cancel and give this menu another name.'
+            ], 'Save Anyway');
+            if (!ok) { showNotification('Save cancelled.', 'warning'); return; }
           }
           await invokeCommand('save_radial_menu', { menu: exportData, path: filePath });
           resetMenu();
@@ -2566,6 +2644,12 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       if (exportBtn) exportBtn.addEventListener('click', exportJSON);
       const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
       if (deleteSelectedBtn) deleteSelectedBtn.addEventListener('click', deleteSelectedItem);
+      document.getElementById('menuDetach').addEventListener('click', () => {
+        appState.loadedMenu = null; showEditing();
+        appState.menuData.command = newMenuCommand(document.getElementById('menuNameInput').value.trim());
+        updateJsonPreview();
+        showNotification('This is now a new menu: saving gives it its own command, from its name.');
+      });
       const clearAllBtn = document.getElementById('clearAllBtn');
       if (clearAllBtn) clearAllBtn.addEventListener('click', clearAllItems);
       const selectDirBtn = document.getElementById('selectDirBtn');
@@ -3332,9 +3416,11 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
             if (existing && existing.colors) inheritEdges(theme, existing.colors);
           } catch (e) {} // no file yet, or unreadable: nothing to keep
         }
-        await invokeCommand('write_text_file', { path, contents: themeJson() + '\n' });
+        // Plasticity's own theme.json is backed up first (see write_plasticity_file in main.rs).
+        const plasticity = isPlasticityFile(path);
+        await invokeCommand(plasticity ? 'write_plasticity_file' : 'write_text_file', { path, contents: themeJson() + '\n' });
         filePath = path; fileLabel = path; dirty = false; refresh();
-        note('Theme saved. Restart Plasticity to see it.');
+        note(plasticity ? 'Theme saved (the old one is kept as theme.json.bak). Restart Plasticity to see it.' : 'Theme saved. Restart Plasticity to see it.');
       }
       async function saveThemeAs() {
         if (useNative()) {
@@ -3463,16 +3549,16 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
         const r = await modal({
           title: 'Reset Plasticity to default?',
           lines: [
-            "This replaces Plasticity's theme file with the default colours:",
+            "This replaces Plasticity's theme file with the default colours (the old one is kept as theme.json.bak):",
             'Your edits here in the editor are kept. Restart Plasticity to see the change.'
           ],
           path, okLabel: 'Reset'
         });
         if (!r.ok) return;
         try {
-          await invokeCommand('write_text_file', { path, contents: JSON.stringify(defaults(), null, 4) + '\n' });
+          await invokeCommand('write_plasticity_file', { path, contents: JSON.stringify(defaults(), null, 4) + '\n' });
           if (filePath && samePath(filePath, path)) { dirty = true; refresh(); }
-          note('Plasticity reset to the default theme. Restart Plasticity to see it.');
+          note('Plasticity reset to the default theme (the old one is kept as theme.json.bak). Restart Plasticity to see it.');
         } catch (err) { note(`Failed to reset theme: ${err}`, 'error'); }
       }
 
@@ -3780,7 +3866,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
         accept: /\.(png|jpe?g|webp|exr)$/i, acceptText: 'PNG, JPG, WebP and EXR',
         pngSizes: ['64', '128'], exrSizes: ['512', '1024'], tint: true, wide: false
       },
-      // 2:1 panoramas: sizes are heights, and EXR size 0 keeps an HDR's own size
+      // 2:1 panoramas: sizes are heights, and EXR size 0 keeps the original size
       environments: {
         tab: 'environments', p: 'ev', library: 'environments', one: 'environment', many: 'environments', Title: 'Environments',
         folderKey: 'plasticity-environments-folder', sizeKey: 'plasticity-environments-sizes',
@@ -3994,7 +4080,10 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
         // matcaps are square; environments are 2:1, sized by height (0 = the HDR's own size)
         const dims = (h, from) => (!L.wide ? `${h} px` : h ? `${h * 2} × ${h}` : `${from.width} × ${from.height}`);
 
+        // matches save_matcap: an environment EXR taller than the size chosen is shrunk to it
+        const shrinkExr = L.wide && g.exr && E && g.exr.height > E;
         if (!g.exr && !exrFrom) a.error = L.wide ? 'Needs an EXR or an HDR to make the EXR from.' : 'Needs a PNG, JPG or WebP to make the EXR from.';
+        else if (shrinkExr) a.plan.push(`${g.exr.fileName} → ${g.name}.exr, shrunk to ${dims(E, g.exr)}`);
         else a.plan.push(g.exr ? `${g.exr.fileName} → ${g.name}.exr` : `makes ${g.name}.exr (${dims(E, exrFrom)}) from the ${kindName(exrFrom)}${cut(exrFrom)}`);
         a.plan.push(g.png ? `${g.png.fileName} → ${g.name}.png` : `makes ${g.name}.png (${dims(P, pngFrom)}) from the ${kindName(pngFrom)}${cut(pngFrom)}`);
         if (g.tinted && L.tint) a.plan.push(`${g.name}.json`);
@@ -4054,7 +4143,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
         if (replacing.length) {
           const names = replacing.map((g) => g.name).join(', ');
           const ok = await confirmBox(`Replace installed ${L.many}?`, [
-            `This deletes the installed ${names} (the PNG, the EXR and any .json) and saves the new ${replacing.length === 1 ? 'one' : 'ones'} in ${replacing.length === 1 ? 'its' : 'their'} place.`
+            `This moves the installed ${names} (the PNG, the EXR and any .json) to the ${BIN} and saves the new ${replacing.length === 1 ? 'one' : 'ones'} in ${replacing.length === 1 ? 'its' : 'their'} place.`
           ], 'Replace');
           if (!ok) return;
         }
@@ -5749,12 +5838,13 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
           const shown = lines.slice(0, 8).concat(lines.length > 8 ? [`…and ${lines.length - 8} more.`] : []);
           const ok = await confirmBox(`Save ${plural(lines.length, 'change')} to Plasticity?`, [
             ...shown,
-            now != null ? 'Your current keymap.json is kept as keymap.json.bak.' : 'This makes a new keymap.json.'
+            now != null
+              ? 'Your current keymap.json is kept as keymap.json.bak. The one you had before this app first changed it stays in keymap.json.original.'
+              : 'This makes a new keymap.json.'
           ], 'Save');
           if (!ok) return;
-          if (now != null) await invokeCommand('write_text_file', { path: path + '.bak', contents: now });
           const text = writeLoose(doc);
-          await invokeCommand('write_text_file', { path, contents: text });
+          await invokeCommand('write_plasticity_file', { path, contents: text });
           fileText = text; savedText = text;
           $('ksFile').textContent = path;
           render();
@@ -6059,6 +6149,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       const installedFile = (fileName) => installed.find((x) => lower(x.fileName) === lower(fileName)) || null;
       function analyze(f, dupNames) {
         const a = { error: '', warnings: [], canReplace: false };
+        if (f.bytes > 8e6) a.warnings.push(`Makes a ${Math.round(f.bytes / 1e6)} MB font file. Plasticity reads every font when it starts, so a font this big slows its start-up.`);
         if (f.restricted) a.warnings.push("This font's own settings say it mustn't be embedded in other files. Check its licence allows this before installing.");
         if (f.missing) a.warnings.push(f.missing.length > 20 ? `Has no ${f.missing.length} of the basic letters and digits, so it may be a symbol font.` : `Has no ${[...f.missing].join(' ')}.`);
         const s = stem(f.fileName);
@@ -6331,7 +6422,8 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       }
 
       // Every change re-reads the list first, so anything Plasticity saved meanwhile is kept,
-      // copies the current file to asset-packs.json.bak, then writes the change.
+      // then writes the change; the file it replaces is kept as asset-packs.json.bak (and,
+      // the first time, asset-packs.json.original).
       async function change(describe, edit) {
         if (busy) return false;
         busy = true; // also while asking, so a second click can't start another change
@@ -6347,11 +6439,9 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
           }
           await readList();
           if (readError) throw new Error(`asset-packs.json can't be read (${readError}), so it isn't safe to change`);
-          const before = fileText;
           const next = edit(entries.slice());
           const text = Loose.write(next);
-          if (before != null) await invokeCommand('write_text_file', { path: listPath + '.bak', contents: before });
-          await invokeCommand('write_text_file', { path: listPath, contents: text });
+          await invokeCommand('write_plasticity_file', { path: listPath, contents: text });
           fileText = text; entries = next;
           note(`${describe} Restart Plasticity to see the change in the Assets panel.`);
           return true;
