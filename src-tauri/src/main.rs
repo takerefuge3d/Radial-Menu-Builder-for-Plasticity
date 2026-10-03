@@ -11,6 +11,7 @@ use tauri_plugin_dialog::DialogExt;
 mod fonts;
 mod matcaps;
 mod packs;
+mod radials;
 mod shortcuts;
 
 // ---------- Error helpers ----------
@@ -340,6 +341,10 @@ fn main() {
             packs::pick_pack_folder,
             packs::load_pack_folders,
             packs::save_pack_folders,
+            radials::list_radial_files,
+            radials::set_radial_enabled,
+            radials::trash_disabled_radial,
+            radials::default_radials_folder,
             shortcuts::load_default_shortcuts,
             shortcuts::read_text_if_exists,
             shortcuts::list_plasticity_radials,

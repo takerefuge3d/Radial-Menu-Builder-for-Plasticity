@@ -138,6 +138,21 @@ body[data-tab="fonts"] > .app-container:not(#ftApp), body[data-tab="fonts"] > .j
 body:not([data-tab="fonts"]) > #ftApp { display: none; }
 body[data-tab="packs"] > .app-container:not(#apApp), body[data-tab="packs"] > .json-preview { display: none !important; }
 body:not([data-tab="packs"]) > #apApp { display: none; }
+/* Radial Menus has two sub-tabs, Create (the builder) and Manage */
+.sub-tabs { display: none; gap: 4px; align-items: center; height: 37px; padding: 0 12px; background: var(--bg); border-bottom: 1px solid var(--border); }
+body[data-tab="radial"] > .sub-tabs { display: flex; }
+.sub-tab {
+  background: none; border: 1px solid transparent; border-radius: 4px; color: var(--muted); cursor: pointer;
+  font-family: inherit; font-size: 12px; font-weight: 600; padding: 4px 12px;
+}
+.sub-tab:hover { color: var(--text); }
+.sub-tab.active { color: var(--text); border-color: var(--border); background: #1f1f1f; }
+.sub-tab:focus-visible { outline: 1px solid var(--accent); }
+body[data-tab="radial"] > .app-container { height: calc(100vh - 41px - 37px); }
+body[data-tab="radial"][data-sub="manage"] > .app-container:not(#rmApp), body[data-tab="radial"][data-sub="manage"] > .json-preview { display: none !important; }
+body:not([data-tab="radial"]) > #rmApp, body[data-tab="radial"]:not([data-sub="manage"]) > #rmApp { display: none; }
+#rmApp { color-scheme: dark; }
+#rmList { flex: 1; min-height: 120px; }
 body[data-tab="shortcuts"] > .app-container:not(#ksApp), body[data-tab="shortcuts"] > .json-preview { display: none !important; }
 body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
 
@@ -412,6 +427,11 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
     </div>
     <button class="app-terms" type="button" id="termsLink">Terms of use</button>
   </div>
+  <div class="sub-tabs" id="radialSubTabs" role="tablist" aria-label="Radial menus">
+    <button class="sub-tab active" type="button" role="tab" data-sub="create" aria-selected="true">Create</button>
+    <button class="sub-tab" type="button" role="tab" data-sub="manage" aria-selected="false">Manage</button>
+  </div>
+
   <div class="app-container">
     <!-- Left Sidebar - Commands -->
     <div class="sidebar">
@@ -483,6 +503,34 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
 
       <button class="btn" id="loadCustomDictBtn">Load Commands Dictionary</button>
       <button class="btn" id="toggleJsonPreviewBtn">Toggle JSON Preview</button>
+    </div>
+  </div>
+
+  <div class="app-container" id="rmApp">
+    <div class="center-panel">
+      <div class="notification" id="rmNote"></div>
+      <div class="ks-tools">
+        <input class="search-input" id="rmSearch" type="search" placeholder="Search menus by name, file or command" aria-label="Search radial menus" spellcheck="false" />
+      </div>
+      <div class="mc-head">
+        <div class="section-title">Radial Menus <span id="rmCount"></span></div>
+        <span class="mc-bar">
+          <label class="mc-check"><input type="checkbox" id="rmOnlyIssues" /> Problems only</label>
+          <button class="btn mc-small" id="rmRefresh" type="button">Refresh</button>
+        </span>
+      </div>
+      <div class="mc-list" id="rmList"></div>
+    </div>
+
+    <div class="properties-panel">
+      <div class="section-title">Radials Folder</div>
+      <div class="tp-path" id="rmFolder">Finding Plasticity's radials folder…</div>
+      <button class="btn" id="rmChange" type="button">Change Folder…</button>
+      <button class="btn" id="rmDefault" type="button">Use Plasticity's Folder</button>
+      <div class="tp-hint">Plasticity loads every radial menu in .plasticity/radials when it starts. Turning one off moves its file to a radials-disabled folder next to it, where Plasticity doesn't look; turning it on moves it back. Restart Plasticity to see changes.</div>
+      <div class="tp-hint">A disabled menu can be deleted, which moves its file to the Recycle Bin (Trash on a Mac).</div>
+      <div class="tp-hint">Each menu is checked against your keyboard shortcuts and your other menus: you're told which shortcut or menu opens it, and warned when one you turn off is still used, when a menu opens one that isn't there, or when two menus share the same command name (Plasticity can only open one of them).</div>
+      <div class="tp-hint">Open in Create loads a menu into the builder so you can change it.</div>
     </div>
   </div>
 
@@ -2178,8 +2226,12 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
 
     async function loadSelectedMenu(index) {
       if (index < 0 || index >= appState.loadedFiles.length) return;
+      await loadMenuFromPath(appState.loadedFiles[index]);
+    }
+
+    // Also used by Radial Menus > Manage (Open in Create).
+    async function loadMenuFromPath(filePath) {
       try {
-        const filePath = appState.loadedFiles[index];
         const menuData = await invokeCommand('load_radial_menu', { path: filePath });
         appState.menuData = menuData;
         document.getElementById('menuNameInput').value = menuData.name;
@@ -2199,6 +2251,12 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
         showNotification(`Failed to load JSON file: ${error}`, 'error');
       }
     }
+
+    window.openRadialInCreate = loadMenuFromPath;
+    // Manage calls this after turning menus on or off, so Load Existing Radial stays current.
+    window.refreshRadialCreateList = async () => {
+      if (tauriAvailable && appState.savedRadialsDirectory) await loadRadialJsonFiles(appState.savedRadialsDirectory);
+    };
 
     function toggleJsonPreview() {
       const jsonPreview = document.getElementById('jsonPreview');
@@ -2506,6 +2564,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       });
       document.addEventListener('keydown', (e) => {
         if (document.body.dataset.tab && document.body.dataset.tab !== 'radial') return; // another tab is showing
+        if (document.body.dataset.sub === 'manage') return; // Radial Menus > Manage is showing
         const activeElement = document.activeElement;
         const isTyping = activeElement && (
           activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA' || activeElement.isContentEditable
@@ -6337,6 +6396,270 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       }
       document.addEventListener('app-tab', (e) => { if (e.detail === 'packs') start(); });
       if (document.body.dataset.tab === 'packs') start();
+    })();
+  </script>
+
+  <!-- ===== Radial Menus > Manage script ===== -->
+  <script>
+    // Radial Menus has two sub-tabs: Create (the builder) and Manage. Manage lists the menus in
+    // Plasticity's radials folder, turns them on or off (by moving the file to radials-disabled
+    // and back, in src-tauri/src/radials.rs), deletes disabled ones to the bin, and checks them
+    // against the keyboard shortcuts and each other.
+    (function () {
+      'use strict';
+
+      const $ = (id) => document.getElementById(id);
+      const SUBKEY = 'plasticity-radial-subtab', FOLDERKEY = 'plasticity-manage-radials-folder';
+      const RADIAL = 'view:radial:';
+      const BIN = isMacOS ? 'Trash' : 'Recycle Bin';
+      let folder = null;
+      let menus = [];      // from list_radial_files
+      let keys = new Map(); // view:radial:… command -> [keys], from keymap.json
+      let busy = false, started = false;
+
+      function el(tag, className, text) {
+        const e = document.createElement(tag);
+        if (className) e.className = className;
+        if (text != null) e.textContent = text;
+        return e;
+      }
+      const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+      function note(message, type = 'success', sticky) {
+        const box = $('rmNote');
+        box.textContent = message;
+        box.className = `notification ${type}`;
+        clearTimeout(note._t);
+        if (!sticky) note._t = setTimeout(() => { box.textContent = ''; box.className = 'notification'; }, 6000);
+      }
+      function confirmBox(title, lines, okLabel) {
+        return new Promise((resolve) => {
+          const wrap = el('div', 'tp-modal');
+          const box = el('div', 'tp-modal-box');
+          box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true');
+          box.appendChild(el('h3', null, title));
+          lines.forEach((t) => box.appendChild(el('p', null, t)));
+          const btns = el('div', 'tp-modal-btns');
+          const cancel = el('button', 'btn', 'Cancel'); cancel.type = 'button';
+          const ok = el('button', 'btn', okLabel); ok.type = 'button';
+          btns.append(cancel, ok); box.appendChild(btns); wrap.appendChild(box);
+          document.body.appendChild(wrap);
+          const done = (yes) => { document.removeEventListener('keydown', onKey, true); wrap.remove(); resolve(yes); };
+          const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); done(false); } };
+          document.addEventListener('keydown', onKey, true);
+          cancel.addEventListener('click', () => done(false));
+          ok.addEventListener('click', () => done(true));
+          wrap.addEventListener('click', (e) => { if (e.target === wrap) done(false); });
+          cancel.focus();
+        });
+      }
+
+      // ---------- sub-tabs ----------
+      const subButtons = document.querySelectorAll('#radialSubTabs .sub-tab');
+      function showSub(name) {
+        document.body.dataset.sub = name;
+        subButtons.forEach((b) => { const on = b.dataset.sub === name; b.classList.toggle('active', on); b.setAttribute('aria-selected', String(on)); });
+        try { localStorage.setItem(SUBKEY, name); } catch (e) {}
+        if (name === 'create') { if (typeof resizeCanvas === 'function') { try { resizeCanvas(); } catch (e) {} } }
+        else if (document.body.dataset.tab === 'radial') start();
+      }
+      subButtons.forEach((b) => b.addEventListener('click', () => showSub(b.dataset.sub)));
+      let startSub = 'create';
+      try { if (localStorage.getItem(SUBKEY) === 'manage') startSub = 'manage'; } catch (e) {}
+      document.body.dataset.sub = startSub;
+      subButtons.forEach((b) => { const on = b.dataset.sub === startSub; b.classList.toggle('active', on); b.setAttribute('aria-selected', String(on)); });
+
+      // ---------- keyboard shortcuts that open radial menus ----------
+      const MODS = { ctrl: 'Ctrl', alt: isMacOS ? 'Option' : 'Alt', shift: 'Shift', cmd: isMacOS ? 'Cmd' : 'Win' };
+      const keyText = (k) => k.split(' ').map((stroke) => stroke.split(/-(?!$)/).map((p) => MODS[p] || (p.length === 1 ? p.toUpperCase() : p.charAt(0).toUpperCase() + p.slice(1))).join(' + ')).join(', then ');
+      async function readShortcuts() {
+        keys = new Map();
+        try {
+          let dir = null;
+          try { dir = localStorage.getItem('plasticity-keymap-folder'); } catch (e) {}
+          if (!dir) dir = await invokeCommand('default_plasticity_folder');
+          if (!dir) return;
+          const sep = dir.includes('\\') ? '\\' : '/';
+          const text = await invokeCommand('read_text_if_exists', { path: dir.replace(/[\\/]+$/, '') + sep + 'keymap.json' });
+          if (text == null) return;
+          const doc = Loose.parse(text);
+          if (!(doc instanceof Map)) return;
+          for (const m of doc.values()) {
+            if (!(m instanceof Map)) continue;
+            for (const [k, v] of m) {
+              if (typeof v === 'string' && v.startsWith(RADIAL)) {
+                if (!keys.has(v)) keys.set(v, []);
+                keys.get(v).push(keyText(k));
+              }
+            }
+          }
+        } catch (e) { /* no shortcuts to show; the list still works */ }
+      }
+
+      // ---------- checks ----------
+      function checks(m) {
+        const out = { errors: [], warnings: [], info: [] };
+        if (m.error) { out.errors.push(`Can't be read: ${m.error}.`); return out; }
+        const cmd = RADIAL + m.command;
+        const on = menus.filter((x) => !x.disabled && !x.error);
+        const twins = on.filter((x) => x !== m && x.command === m.command);
+        if (!m.disabled && twins.length) out.errors.push(`Has the same command as ${twins.map((x) => x.file).join(', ')}, so Plasticity can only open one of them.`);
+        const byKeys = keys.get(cmd) || [];
+        const byMenus = on.filter((x) => x !== m && x.items.includes(cmd)).map((x) => x.name);
+        if (m.disabled) {
+          if (byKeys.length) out.warnings.push(`Turned off, but ${byKeys.join(' and ')} ${byKeys.length === 1 ? 'is' : 'are'} still set to open it, so ${byKeys.length === 1 ? 'that shortcut does' : 'those shortcuts do'} nothing.`);
+          if (byMenus.length) out.warnings.push(`Turned off, but ${byMenus.join(', ')} still ${byMenus.length === 1 ? 'has a button' : 'have buttons'} that open${byMenus.length === 1 ? 's' : ''} it, which won't work.`);
+        } else {
+          const by = [...byKeys, ...byMenus];
+          if (by.length) out.info.push(`Opened by ${by.join(', ')}.`);
+          else out.info.push('No shortcut or other menu opens it yet.');
+        }
+        const enabledCmds = new Set(on.map((x) => RADIAL + x.command));
+        const broken = [...new Set(m.items.filter((c) => c.startsWith(RADIAL) && !enabledCmds.has(c)))];
+        if (broken.length) out.warnings.push(`Opens ${broken.map((c) => c.slice(RADIAL.length)).join(', ')}, which ${broken.length === 1 ? "isn't" : "aren't"} installed or ${broken.length === 1 ? 'is' : 'are'} turned off.`);
+        const set = (typeof appState !== 'undefined' && appState.commandSets && appState.commandSets[appState.plasticityVersion]) || null;
+        if (set && Object.keys(set).length) {
+          const outside = m.items.filter((c) => c && !c.startsWith(RADIAL) && !(c in set));
+          if (outside.length) {
+            const label = typeof versionInfo === 'function' ? versionInfo(appState.plasticityVersion).label : appState.plasticityVersion;
+            out.warnings.push(`${plural(outside.length, 'item')} ${outside.length === 1 ? "isn't" : "aren't"} in Plasticity ${label}'s command list: ${outside.slice(0, 4).map((c) => c.split(':').pop()).join(', ')}${outside.length > 4 ? '…' : ''}.`);
+          }
+        }
+        return out;
+      }
+
+      // ---------- actions ----------
+      async function act(label, cmd, args, done) {
+        if (busy) return;
+        busy = true;
+        try { await invokeCommand(cmd, args); if (done) note(done); }
+        catch (err) { note(`Could not ${label}: ${err}`, 'error', true); }
+        busy = false;
+        await refresh();
+        if (typeof window.refreshRadialCreateList === 'function') window.refreshRadialCreateList();
+      }
+      async function setEnabled(m, enabled) {
+        if (!enabled) {
+          const c = checks({ ...m, disabled: true });
+          if (c.warnings.some((w) => w.startsWith('Turned off'))) {
+            // the same warnings, said before rather than after: "W is still set to open it, so that shortcut will do nothing."
+            const ahead = c.warnings.filter((w) => w.startsWith('Turned off, but ')).map((w) => {
+              const t = w.slice('Turned off, but '.length).replace(/ (?:does|do) nothing\.$/, ' will do nothing.');
+              return t.charAt(0).toUpperCase() + t.slice(1);
+            });
+            const ok = await confirmBox(`Turn off ${m.name}?`, [...ahead, 'You can turn it back on at any time.'], 'Turn Off');
+            if (!ok) { render(); return; }
+          }
+        }
+        act(`turn ${enabled ? 'on' : 'off'} ${m.name}`, 'set_radial_enabled', { folder, file: m.file, enabled },
+          enabled ? `${m.name} is on. Restart Plasticity to use it.` : `${m.name} is off: moved to radials-disabled. Restart Plasticity to see the change.`);
+      }
+      async function remove(m) {
+        if (busy) return;
+        const ok = await confirmBox(`Delete ${m.name}?`, [`${m.file} will be moved to the ${BIN}. You can restore it from there until you empty it.`], 'Delete');
+        if (ok) act(`delete ${m.name}`, 'trash_disabled_radial', { folder, file: m.file }, `${m.file} moved to the ${BIN}.`);
+      }
+      async function openInCreate(m) {
+        if (typeof window.openRadialInCreate !== 'function') { note('The builder isn\'t ready yet. Try again in a moment.', 'warning'); return; }
+        showSub('create');
+        await window.openRadialInCreate(m.path);
+      }
+
+      // ---------- drawing ----------
+      function smallButton(label, title, onClick) {
+        const b = el('button', 'btn mc-small', label);
+        b.type = 'button';
+        if (title) b.title = title;
+        b.addEventListener('click', onClick);
+        return b;
+      }
+      function row(m) {
+        const c = checks(m);
+        const r = el('div', `mc-row ap-row${m.disabled ? ' mc-off' : ''}`);
+        const sw = el('label', 'mc-check ap-switch');
+        const box = el('input'); box.type = 'checkbox'; box.checked = !m.disabled; box.disabled = busy || !!m.error && m.disabled;
+        box.setAttribute('aria-label', `${m.name || m.file} on in Plasticity`);
+        box.addEventListener('change', () => setEnabled(m, box.checked));
+        sw.append(box, m.disabled ? 'Off' : 'On');
+        r.appendChild(sw);
+        const main = el('div');
+        main.appendChild(el('div', 'mc-title', m.name || m.file));
+        main.appendChild(el('div', 'mc-files', [m.file, m.command ? RADIAL + m.command : '', m.error ? '' : plural(m.items.length, 'item')].filter(Boolean).join(' · ')));
+        c.errors.forEach((t) => main.appendChild(el('div', 'mc-status error', t)));
+        c.warnings.forEach((t) => main.appendChild(el('div', 'mc-status warning', t)));
+        c.info.forEach((t) => main.appendChild(el('div', 'mc-files', t)));
+        r.appendChild(main);
+        const acts = el('div', 'mc-acts');
+        if (!m.error) acts.appendChild(smallButton('Open in Create', 'Load it into the builder', () => openInCreate(m)));
+        acts.appendChild(smallButton(isMacOS ? 'Show in Finder' : 'Show in Explorer', null, () => invokeCommand('reveal_file', { path: m.path }).catch((err) => note(String(err), 'error'))));
+        if (m.disabled) acts.appendChild(smallButton('Delete…', `Move its file to the ${BIN}`, () => remove(m)));
+        r.appendChild(acts);
+        return r;
+      }
+      function render() {
+        const q = $('rmSearch').value.trim().toLowerCase();
+        const only = $('rmOnlyIssues').checked;
+        const shown = menus.filter((m) => (!q || [m.name, m.file, m.command].join(' ').toLowerCase().includes(q))
+          && (!only || (() => { const c = checks(m); return c.errors.length || c.warnings.length; })()));
+        const on = shown.filter((m) => !m.disabled), off = shown.filter((m) => m.disabled);
+        const rows = on.map(row);
+        if (off.length) {
+          const sub = el('div', 'mc-sub', 'Turned off ');
+          sub.appendChild(el('span', null, "· in radials-disabled, so Plasticity doesn't load them"));
+          rows.push(sub, ...off.map(row));
+        }
+        const list = $('rmList');
+        if (!folder) list.replaceChildren(el('div', 'mc-empty', 'Choose the radials folder on the right.'));
+        else if (!menus.length) list.replaceChildren(el('div', 'mc-empty', 'No radial menus in this folder yet. Make one in Create.'));
+        else if (!rows.length) list.replaceChildren(el('div', 'mc-empty', only ? 'No problems found.' : 'No menus match.'));
+        else list.replaceChildren(...rows);
+        const total = menus.filter((m) => !m.disabled).length, offAll = menus.length - total;
+        const problems = menus.filter((m) => { const c = checks(m); return c.errors.length || c.warnings.length; }).length;
+        $('rmCount').textContent = menus.length ? `· ${total} on${offAll ? `, ${offAll} off` : ''}${problems ? `, ${problems} with problems` : ''}` : '';
+        $('rmFolder').textContent = folder || 'No folder set. Click Change Folder.';
+      }
+
+      // ---------- loading ----------
+      async function refresh() {
+        if (!folder) { menus = []; render(); return; }
+        try { menus = await invokeCommand('list_radial_files', { folder }); }
+        catch (err) { menus = []; note(`Could not read ${folder}: ${err}`, 'error', true); }
+        await readShortcuts();
+        render();
+      }
+      async function changeFolder() {
+        let dir;
+        try { dir = await invokeCommand('pick_directory'); } catch (err) { note(`Could not open the folder picker: ${err}`, 'error'); return; }
+        if (!dir) return;
+        folder = dir;
+        try { localStorage.setItem(FOLDERKEY, dir); } catch (e) {}
+        await refresh();
+      }
+      async function useDefaultFolder() {
+        try { localStorage.removeItem(FOLDERKEY); } catch (e) {}
+        folder = await invokeCommand('default_radials_folder');
+        await refresh();
+      }
+
+      $('rmSearch').addEventListener('input', render);
+      $('rmOnlyIssues').addEventListener('change', render);
+      $('rmRefresh').addEventListener('click', refresh);
+      $('rmChange').addEventListener('click', changeFolder);
+      $('rmDefault').addEventListener('click', useDefaultFolder);
+
+      async function start() {
+        if (started) { refresh(); return; }
+        started = true;
+        if (!initTauriAPI()) {
+          ['rmChange', 'rmDefault', 'rmRefresh'].forEach((id) => { $(id).disabled = true; });
+          note('Managing radial menus needs the desktop app: it moves files in your Plasticity folder.', 'warning', true);
+          return;
+        }
+        try { folder = localStorage.getItem(FOLDERKEY) || null; } catch (e) {}
+        if (!folder) { try { folder = await invokeCommand('default_radials_folder'); } catch (e) { folder = null; } }
+        await refresh();
+      }
+      document.addEventListener('app-tab', (e) => { if (e.detail === 'radial' && document.body.dataset.sub === 'manage') start(); });
+      if (document.body.dataset.tab === 'radial' && document.body.dataset.sub === 'manage') start();
     })();
   </script>
 </body>
