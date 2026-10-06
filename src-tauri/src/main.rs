@@ -289,6 +289,27 @@ fn save_user_themes(app: tauri::AppHandle, contents: String) -> Result<(), Strin
     write_atomic(&path, contents.as_bytes()).map_err(|e| io_err(format!("write {} failed: {e}", fmt_path(&path))))
 }
 
+// The Profiles tab's saved setups, kept as plain text in the app data folder too.
+fn profiles_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    Ok(app_data_dir(app)?.join("profiles.json"))
+}
+
+#[tauri::command]
+fn load_profiles(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    let path = profiles_path(&app)?;
+    match fs::read_to_string(&path) {
+        Ok(s) => Ok(Some(s)),
+        Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(io_err(format!("read {} failed: {e}", fmt_path(&path)))),
+    }
+}
+
+#[tauri::command]
+fn save_profiles(app: tauri::AppHandle, contents: String) -> Result<(), String> {
+    let path = profiles_path(&app)?;
+    write_atomic(&path, contents.as_bytes()).map_err(|e| io_err(format!("write {} failed: {e}", fmt_path(&path))))
+}
+
 // The folder Plasticity reads theme.json from, whether or not it exists yet.
 #[tauri::command]
 fn default_plasticity_folder(app: tauri::AppHandle) -> Result<Option<String>, String> {
@@ -347,6 +368,8 @@ fn main() {
             pick_plasticity_folder,
             load_user_themes,
             save_user_themes,
+            load_profiles,
+            save_profiles,
             toggle_fullscreen,
             quit_app,
             read_text_file,

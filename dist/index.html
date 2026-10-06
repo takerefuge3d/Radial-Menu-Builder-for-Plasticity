@@ -158,6 +158,8 @@ body:not([data-tab="radial"]) > #rmApp, body[data-tab="radial"]:not([data-sub="m
 #rmList { flex: 1; min-height: 120px; }
 body[data-tab="shortcuts"] > .app-container:not(#ksApp), body[data-tab="shortcuts"] > .json-preview { display: none !important; }
 body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
+body[data-tab="profiles"] > .app-container:not(#pfApp), body[data-tab="profiles"] > .json-preview { display: none !important; }
+body:not([data-tab="profiles"]) > #pfApp { display: none; }
 
 /* ===== Matcaps tab ===== */
 #mcApp { color-scheme: dark; }
@@ -239,6 +241,14 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
 .ap-head .btn.mc-small { width: auto; margin: 0; padding: 3px 8px; font-size: 11px; }
 .ap-folder { display: flex; align-items: center; gap: 6px; padding: 6px 8px; margin-bottom: 4px; background: #121212; border: 1px solid var(--border); border-radius: 4px; font-size: 12px; }
 .ap-folder-path { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+/* Profiles tab */
+#pfApp { color-scheme: dark; }
+#pfList { flex: 1; min-height: 120px; }
+#pfRunning[hidden] { display: none; }
+.pf-row { grid-template-columns: minmax(0, 1fr) auto; }
+.pf-parts { display: flex; flex-direction: column; gap: 6px; margin: 8px 0 10px; }
+.pf-now { font-size: 12px; line-height: 1.6; margin-bottom: 8px; }
+.pf-now b { font-weight: 600; }
 .ev-sphere { width: 48px; height: 48px; flex: none; cursor: grab; touch-action: none; }
 .ev-views.spinning .ev-sphere { cursor: grabbing; }
 
@@ -434,6 +444,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       <button class="app-tab" type="button" role="tab" data-tab="fonts" aria-selected="false">Fonts</button>
       <button class="app-tab" type="button" role="tab" data-tab="packs" aria-selected="false">Asset Packs</button>
       <button class="app-tab" type="button" role="tab" data-tab="shortcuts" aria-selected="false">Keyboard Shortcuts</button>
+      <button class="app-tab" type="button" role="tab" data-tab="profiles" aria-selected="false">Profiles</button>
     </div>
     <button class="app-terms" type="button" id="termsLink">Terms of use</button>
   </div>
@@ -1103,6 +1114,41 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       <div class="tp-hint">Where sets when a shortcut works. Everywhere covers the whole window while no command is running. Plasticity's own viewport keys, and the keys inside commands (like X for the X axis while moving), still take priority in their own places.</div>
       <div class="tp-hint">Turn Off stops a built-in shortcut (it's saved as unset!). Reset and Remove take your shortcut out, so Plasticity's own comes back.</div>
       <div class="tp-hint">Nothing changes until you click Save to Plasticity. The file you had is kept as keymap.json.bak, and Restore Backup brings it back. The one from before this app first changed it stays in keymap.json.original. Restart Plasticity if new shortcuts don't work straight away.</div>
+    </div>
+  </div>
+
+  <div class="app-container" id="pfApp">
+    <div class="center-panel">
+      <div class="notification" id="pfNote"></div>
+      <div class="notification warning" id="pfRunning" hidden>Plasticity is open. It reads these files when it starts and saves some of them again itself, so close it before switching profiles.</div>
+      <div class="mc-head">
+        <div class="section-title">Profiles <span id="pfCount"></span></div>
+        <span class="mc-bar">
+          <button class="btn mc-small" id="pfRefresh" type="button">Look Again</button>
+        </span>
+      </div>
+      <div class="mc-list" id="pfList"></div>
+    </div>
+
+    <div class="properties-panel">
+      <div class="section-title">Save Current Setup</div>
+      <div class="form-group">
+        <label class="form-label" for="pfName">Profile name</label>
+        <input class="form-input" id="pfName" type="text" maxlength="60" placeholder="e.g. Hard surface, Jewellery, Client renders" spellcheck="false" autocomplete="off" />
+      </div>
+      <div class="form-label">Include</div>
+      <div class="pf-parts" id="pfParts"></div>
+      <button class="btn" id="pfSave" type="button">Save as Profile</button>
+
+      <div class="separator"></div>
+      <div class="section-title">In Plasticity Now</div>
+      <div class="pf-now" id="pfNow">Reading your Plasticity folders…</div>
+      <button class="btn" id="pfUndo" type="button">Undo Last Switch</button>
+
+      <div class="tp-hint">A profile is a snapshot of your setup: the theme, your keyboard shortcuts, which radial menus, matcaps and environments are on, and which asset packs are in Plasticity's list. Make one for each way you work, then switch between them here.</div>
+      <div class="tp-hint">Switching does what the other tabs do. theme.json, keymap.json and asset-packs.json are replaced, with the old one kept as .bak. Radial menus, matcaps and environments that aren't in the profile are turned off (moved to their -disabled folders), and the profile's ones are turned back on. Nothing is deleted.</div>
+      <div class="tp-hint">A profile remembers which radial menus, matcaps and environments are on, not copies of them. If you edit a menu later, the profile uses the new version; if you delete one, it's skipped. Fonts aren't part of profiles, because Plasticity always loads every font in its fonts folder.</div>
+      <div class="tp-hint">Undo Last Switch puts back the setup you had before the last switch. Close Plasticity before switching, then open it again to see the change.</div>
     </div>
   </div>
 
@@ -3780,7 +3826,7 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       initPlasticity();
       loadUserThemes();
       let startTab = 'radial';
-      try { const t = localStorage.getItem(TABKEY); if (['theme', 'matcaps', 'environments', 'fonts', 'packs', 'shortcuts'].includes(t)) startTab = t; } catch (e) {}
+      try { const t = localStorage.getItem(TABKEY); if (['theme', 'matcaps', 'environments', 'fonts', 'packs', 'shortcuts', 'profiles'].includes(t)) startTab = t; } catch (e) {}
       showTab(startTab, true);
     })();
   </script>
@@ -5942,6 +5988,16 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       $('ksChange').addEventListener('click', changeFolder);
       $('ksDefault').addEventListener('click', useDefaultFolder);
       $('ksBackup').addEventListener('click', restoreBackup);
+      // Switching profile can replace keymap.json. Show the new one, unless there are unsaved
+      // changes here (Save then warns that the file has changed).
+      document.addEventListener('plasticity-files-changed', async (e) => {
+        if (!started || !tauriAvailable || busy || isDirty() || !e.detail.includes('keymap')) return;
+        await loadKeymap();
+        fillPlaces(editing ? editing.selector : MAIN);
+        fillCommands();
+        if (editing) endEdit();
+        render();
+      });
       $('ksCmd').addEventListener('input', updateForm);
       $('ksKeysText').addEventListener('input', updateForm);
       $('ksCtx').addEventListener('change', updateForm);
@@ -6873,6 +6929,492 @@ body:not([data-tab="shortcuts"]) > #ksApp { display: none; }
       }
       document.addEventListener('app-tab', (e) => { if (e.detail === 'radial' && document.body.dataset.sub === 'manage') start(); });
       if (document.body.dataset.tab === 'radial' && document.body.dataset.sub === 'manage') start();
+    })();
+  </script>
+
+  <!-- ===== Profiles tab script ===== -->
+  <script>
+    // Profiles tab: saves what's active in Plasticity now under a name, and switches back to it
+    // later. A profile holds theme.json and keymap.json as text, the radial menus, matcaps and
+    // environments that are on (by name, not copies of them), and the packs in asset-packs.json.
+    // Switching goes through the same commands as the other tabs: Plasticity's files are replaced
+    // with a .bak kept (write_plasticity_file), and menus, matcaps and environments move to and
+    // from their -disabled folders. Profiles are kept in the app data folder (profiles.json, see
+    // main.rs), with the setup from before the last switch for Undo Last Switch.
+    (function () {
+      'use strict';
+
+      const $ = (id) => document.getElementById(id);
+      const PARTS = [
+        { key: 'theme', label: 'Theme' },
+        { key: 'keymap', label: 'Keyboard shortcuts' },
+        { key: 'radials', label: 'Radial menus', one: 'radial menu' },
+        { key: 'matcaps', label: 'Matcaps', one: 'matcap' },
+        { key: 'environments', label: 'Environments', one: 'environment' },
+        { key: 'packs', label: 'Asset packs', one: 'asset pack' }
+      ];
+      const TEXT_PARTS = ['theme', 'keymap'];
+      const PARTSKEY = 'plasticity-profile-parts';
+      let profiles = [];   // [{ name, saved, parts: { theme, keymap: text; radials, matcaps, environments, packs: [names] } }]
+      let undo = null;     // the setup from before the last switch, the same shape
+      let now = {};        // what's in Plasticity now: the same parts, plus all.radials/matcaps/environments (on and off)
+      let readErrors = {}; // part -> why it couldn't be read
+      let paths = {};      // part -> its file or folder
+      let running = false;
+      let busy = false, started = false;
+
+      function el(tag, className, text) {
+        const e = document.createElement(tag);
+        if (className) e.className = className;
+        if (text != null) e.textContent = text;
+        return e;
+      }
+      const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+      const dateText = (ms) => new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+      function note(message, type = 'success', sticky) {
+        const box = $('pfNote');
+        box.textContent = message;
+        box.className = `notification ${type}`;
+        clearTimeout(note._t);
+        if (!sticky) note._t = setTimeout(() => { box.textContent = ''; box.className = 'notification'; }, 6000);
+      }
+      // Resolves to { ok, value }. With `value`, there is a text box (window.prompt doesn't work on macOS).
+      function dialog(title, lines, okLabel, value) {
+        return new Promise((resolve) => {
+          const wrap = el('div', 'tp-modal');
+          const box = el('div', 'tp-modal-box');
+          box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true');
+          box.appendChild(el('h3', null, title));
+          lines.forEach((t) => box.appendChild(el('p', null, t)));
+          let field = null;
+          if (value != null) {
+            field = el('input', 'form-input');
+            field.type = 'text'; field.value = value; field.maxLength = 60; field.spellcheck = false;
+            field.setAttribute('aria-label', title);
+            box.appendChild(field);
+          }
+          const btns = el('div', 'tp-modal-btns');
+          const cancel = el('button', 'btn', 'Cancel'); cancel.type = 'button';
+          const ok = el('button', 'btn', okLabel); ok.type = 'button';
+          btns.append(cancel, ok); box.appendChild(btns); wrap.appendChild(box);
+          document.body.appendChild(wrap);
+          const done = (yes) => { document.removeEventListener('keydown', onKey, true); wrap.remove(); resolve({ ok: yes, value: field ? field.value.trim() : '' }); };
+          const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); done(false); } };
+          document.addEventListener('keydown', onKey, true);
+          cancel.addEventListener('click', () => done(false));
+          ok.addEventListener('click', () => done(true));
+          wrap.addEventListener('click', (e) => { if (e.target === wrap) done(false); });
+          if (field) {
+            field.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); done(true); } });
+            field.focus(); field.select();
+          } else cancel.focus();
+        });
+      }
+
+      // ---------- where things are ----------
+      // The same places the other tabs use, including folders chosen there.
+      const stored = (key) => { try { return localStorage.getItem(key) || null; } catch (e) { return null; } };
+      const ask = (cmd, args) => invokeCommand(cmd, args).catch(() => null);
+      const join = (dir, name) => dir.replace(/[\\/]+$/, '') + (dir.includes('\\') ? '\\' : '/') + name;
+      async function findPaths() {
+        const config = await ask('default_plasticity_folder');
+        let themeDir = stored('plasticity-theme-folder');
+        if (themeDir && /[\\/]\.plasticity[\\/]?$/.test(themeDir)) themeDir = null; // as the Themes tab does
+        themeDir = themeDir || config;
+        const keyDir = stored('plasticity-keymap-folder') || config;
+        paths = {
+          theme: themeDir ? join(themeDir, 'theme.json') : null,
+          keymap: keyDir ? join(keyDir, 'keymap.json') : null,
+          radials: stored('plasticity-manage-radials-folder') || await ask('default_radials_folder'),
+          matcaps: stored('plasticity-matcaps-folder') || await ask('default_matcaps_folder', { library: 'matcaps' }),
+          environments: stored('plasticity-environments-folder') || await ask('default_matcaps_folder', { library: 'environments' }),
+          packs: stored('plasticity-asset-packs-file') || await ask('default_asset_packs_file')
+        };
+      }
+
+      // ---------- reading the setup ----------
+      // Windows paths and file names match whatever the case and slashes; Mac ones as they are.
+      const norm = (p) => (isMacOS ? String(p) : String(p).replace(/\//g, '\\').toLowerCase());
+      // "03_Peach" -> "peach", like member_key in matcaps.rs, so reordering doesn't break a profile.
+      const memberKey = (n) => String(n).replace(/^\d+_(?=.)/, '').toLowerCase();
+      const keyFor = (part) => (part === 'matcaps' || part === 'environments' ? memberKey : norm);
+      function packList(text) {
+        if (text == null || !text.trim()) return [];
+        const v = Loose.parse(text);
+        if (!Array.isArray(v)) throw new Error('it is not a list of packs');
+        return v.filter((e) => e instanceof Map);
+      }
+      const packPaths = (text) => packList(text).map((e) => e.get('filePath')).filter((p) => typeof p === 'string');
+      const withImage = (list) => list.filter((g) => g.png || g.exr || g.src);
+
+      async function readNow() {
+        const out = { all: {} };
+        readErrors = {};
+        for (const { key } of PARTS) {
+          const where = paths[key];
+          if (!where) { readErrors[key] = "its folder isn't known"; continue; }
+          try {
+            if (TEXT_PARTS.includes(key)) {
+              const text = await invokeCommand('read_text_if_exists', { path: where });
+              if (text != null) Loose.parse(text); // so a broken file is reported, not saved into a profile
+              // No keymap.json is the same as one with no shortcuts of your own in it.
+              out[key] = text == null && key === 'keymap' ? Loose.write(new Map()) : text;
+            } else if (key === 'radials') {
+              const list = (await invokeCommand('list_radial_files', { folder: where })).filter((m) => !m.error);
+              out.all.radials = list.map((m) => m.file);
+              out.radials = list.filter((m) => !m.disabled).map((m) => m.file);
+            } else if (key === 'packs') {
+              out.packs = packPaths(await invokeCommand('read_text_if_exists', { path: where }));
+            } else {
+              const list = withImage(await invokeCommand('list_installed_matcaps', { folder: where, library: key }));
+              out.all[key] = list.map((g) => g.name);
+              out[key] = list.filter((g) => !g.disabled).map((g) => g.name);
+            }
+          } catch (err) {
+            readErrors[key] = String(err.message || err);
+          }
+        }
+        now = out;
+        try { running = await invokeCommand('plasticity_running'); } catch (e) { running = false; }
+      }
+
+      // Text that only differs in layout counts as the same.
+      function canon(text) {
+        if (text == null) return null;
+        try { return Loose.write(Loose.parse(text)); } catch (e) { return String(text).replace(/\r\n/g, '\n').trim(); }
+      }
+      function samePart(key, want, have) {
+        if (TEXT_PARTS.includes(key)) return canon(want) === canon(have);
+        const k = keyFor(key);
+        const a = new Set(want.map(k)), b = new Set(have.map(k));
+        return a.size === b.size && [...a].every((x) => b.has(x));
+      }
+      const inUse = (p) => Object.keys(p.parts).length > 0 && Object.entries(p.parts).every(([key, want]) => !readErrors[key] && now[key] !== undefined && samePart(key, want, now[key]));
+
+      // A profile of the parts asked for, as they are now. A theme can only be saved once there's a theme.json.
+      function snapshot(name, keys) {
+        const parts = {};
+        keys.forEach((key) => { if (!readErrors[key] && now[key] != null) parts[key] = now[key]; });
+        return { name, saved: Date.now(), parts };
+      }
+
+      // ---------- switching ----------
+      // What switching to p would do, part by part, worked out before anything is touched.
+      async function plan(p) {
+        const steps = [];
+        for (const { key, label, one } of PARTS) {
+          if (!(key in p.parts)) continue;
+          const want = p.parts[key];
+          const step = { key, label, one, want };
+          steps.push(step);
+          if (readErrors[key]) { step.skip = `can't be read (${readErrors[key]})`; continue; }
+          if (samePart(key, want, now[key])) { step.same = true; continue; }
+          if (TEXT_PARTS.includes(key)) continue;
+          const k = keyFor(key);
+          const wantKeys = new Set(want.map(k)), haveKeys = new Set(now[key].map(k));
+          step.off = now[key].filter((x) => !wantKeys.has(k(x)));
+          const add = want.filter((x) => !haveKeys.has(k(x)));
+          if (key === 'packs') {
+            let there = [];
+            try { there = await invokeCommand('files_exist', { paths: add }); } catch (e) {}
+            step.on = add.filter((x, i) => there[i] !== false);
+            step.missing = add.filter((x, i) => there[i] === false);
+          } else {
+            const all = new Map(now.all[key].map((x) => [k(x), x]));
+            step.on = add.filter((x) => all.has(k(x))).map((x) => all.get(k(x)));
+            step.missing = add.filter((x) => !all.has(k(x)));
+          }
+        }
+        return steps;
+      }
+
+      function describe(steps) {
+        const lines = [];
+        for (const s of steps) {
+          if (s.skip) lines.push(`${s.label}: left alone, because it ${s.skip}.`);
+          else if (s.same) continue;
+          else if (TEXT_PARTS.includes(s.key)) {
+            const file = s.key === 'theme' ? 'theme.json' : 'keymap.json';
+            lines.push(`${s.label}: ${file} is replaced (the one you have now is kept as ${file}.bak).`);
+          } else {
+            const verbs = s.key === 'packs' ? ['added to the list', 'taken off the list'] : ['turned on', 'turned off'];
+            const what = [s.on.length ? `${s.on.length} ${verbs[0]}` : '', s.off.length ? `${s.off.length} ${verbs[1]}` : ''].filter(Boolean).join(', ');
+            if (what) lines.push(`${s.label}: ${what}.`);
+            if (s.missing.length) {
+              const names = s.key === 'packs' ? s.missing.map((x) => String(x).split(/[\\/]/).pop()) : s.missing;
+              lines.push(`${s.key === 'packs' ? 'Pack files' : s.label} not found any more, so skipped:${names.slice(0, 6).join(', ')}${names.length > 6 ? `, and ${names.length - 6} more` : ''}.`);
+            }
+          }
+        }
+        const same = steps.filter((s) => s.same).map((s) => s.label);
+        if (same.length) lines.push(`Already the same: ${same.join(', ')}.`);
+        return lines;
+      }
+
+      // Carries out a plan. Returns what went wrong, if anything; the rest still goes ahead.
+      async function run(steps) {
+        const problems = [];
+        for (const s of steps) {
+          if (s.skip || s.same) continue;
+          const where = paths[s.key];
+          try {
+            if (TEXT_PARTS.includes(s.key)) {
+              await invokeCommand('write_plasticity_file', { path: where, contents: s.want });
+            } else if (s.key === 'radials') {
+              for (const [files, enabled] of [[s.off, false], [s.on, true]]) {
+                for (const file of files) {
+                  try { await invokeCommand('set_radial_enabled', { folder: where, file, enabled }); }
+                  catch (err) { problems.push(`${file}: ${err}`); }
+                }
+              }
+            } else if (s.key === 'packs') {
+              // Read again first, so anything Plasticity changed since is kept where it can be.
+              const list = packList(await invokeCommand('read_text_if_exists', { path: where }));
+              const wantKeys = new Set(s.want.map(norm));
+              const next = list.filter((e) => typeof e.get('filePath') === 'string' && wantKeys.has(norm(e.get('filePath'))));
+              const listed = new Set(next.map((e) => norm(e.get('filePath'))));
+              s.on.filter((p) => !listed.has(norm(p))).forEach((p) => next.push(new Map([['filePath', p], ['path', []], ['lastOpened', Date.now()]])));
+              await invokeCommand('write_plasticity_file', { path: where, contents: Loose.write(next) });
+            } else {
+              const r = await invokeCommand('apply_matcap_collection', { folder: where, members: s.want, library: s.key });
+              r.failed.forEach((f) => problems.push(f));
+            }
+          } catch (err) {
+            problems.push(`${s.label}: ${err.message || err}`);
+          }
+        }
+        return problems;
+      }
+
+      async function switchTo(p, isUndo) {
+        if (busy) return;
+        busy = true;
+        render();
+        try {
+          await readNow();
+          const steps = await plan(p);
+          const lines = describe(steps);
+          if (!steps.some((s) => !s.same && !s.skip)) {
+            note(isUndo ? 'Nothing to undo: your setup is already the same as before the last switch.' : `${p.name} is already what Plasticity has.`, 'success');
+            return;
+          }
+          if (running) lines.push('Plasticity is open. Close it first if you can: it saves some of these files itself and could undo the switch. Otherwise restart it afterwards.');
+          else lines.push('Open Plasticity afterwards to see the change.');
+          const title = isUndo ? 'Undo the last switch?' : `Switch to ${p.name}?`;
+          if (!(await dialog(title, lines, isUndo ? 'Undo' : 'Switch')).ok) return;
+          // Kept before anything changes, so Undo Last Switch can put it back.
+          const before = snapshot(isUndo ? 'before undo' : `before ${p.name}`, steps.filter((s) => !s.skip && !s.same).map((s) => s.key));
+          const keep = undo;
+          undo = before;
+          if (!(await store())) { undo = keep; return; }
+          note(isUndo ? 'Undoing…' : `Switching to ${p.name}…`, 'success', true);
+          const problems = await run(steps);
+          await readNow();
+          if (problems.length) note(`Switched, but some things couldn't be changed: ${problems.slice(0, 4).join('; ')}${problems.length > 4 ? `; and ${problems.length - 4} more` : ''}.`, 'error', true);
+          else note(isUndo ? 'Put back the setup from before the last switch. Restart Plasticity to see it.' : `Switched to ${p.name}. Restart Plasticity to see it.`);
+          document.dispatchEvent(new CustomEvent('plasticity-files-changed', { detail: steps.map((s) => s.key) }));
+          if (typeof window.refreshRadialCreateList === 'function') { try { window.refreshRadialCreateList(); } catch (e) {} }
+        } catch (err) {
+          note(`Could not switch: ${err.message || err}`, 'error', true);
+        } finally {
+          busy = false;
+          render();
+        }
+      }
+
+      // ---------- saved profiles ----------
+      async function load() {
+        try {
+          const text = await invokeCommand('load_profiles');
+          const data = text ? JSON.parse(text) : {};
+          profiles = Array.isArray(data.profiles) ? data.profiles.filter((p) => p && typeof p.name === 'string' && p.parts) : [];
+          undo = data.undo && data.undo.parts ? data.undo : null;
+        } catch (err) {
+          profiles = []; undo = null;
+          note(`Could not read your profiles: ${err.message || err}`, 'error', true);
+        }
+      }
+      async function store() {
+        try {
+          await invokeCommand('save_profiles', { contents: JSON.stringify({ version: 1, profiles, undo }, null, 2) });
+          return true;
+        } catch (err) {
+          note(`Could not save your profiles: ${err.message || err}`, 'error', true);
+          return false;
+        }
+      }
+      const byName = (name) => profiles.find((p) => p.name.toLowerCase() === name.toLowerCase());
+      const partKeys = (p) => PARTS.filter(({ key }) => key in p.parts).map(({ key }) => key);
+
+      function chosenParts() {
+        return PARTS.filter(({ key }) => $(`pfPart_${key}`).checked).map(({ key }) => key);
+      }
+      async function saveNew() {
+        if (busy) return;
+        const name = $('pfName').value.trim();
+        if (!name) { note('Give the profile a name first.', 'warning'); $('pfName').focus(); return; }
+        const keys = chosenParts();
+        if (!keys.length) { note('Tick at least one thing to include.', 'warning'); return; }
+        busy = true;
+        try {
+          await readNow();
+          const p = snapshot(name, keys);
+          const left = keys.filter((k) => !(k in p.parts));
+          if (!Object.keys(p.parts).length) { note("None of those could be read, so there's nothing to save.", 'error', true); return; }
+          const old = byName(name);
+          if (old && !(await dialog(`Replace ${old.name}?`, ['There is already a profile with that name. Saving replaces it with your current setup.'], 'Replace')).ok) return;
+          const before = profiles.slice();
+          profiles = old ? profiles.map((x) => (x === old ? p : x)) : [...profiles, p];
+          if (!(await store())) { profiles = before; return; }
+          $('pfName').value = '';
+          const why = left.map((k) => (k === 'theme' && !readErrors.theme ? "the theme (there's no theme.json yet, so Plasticity is using its default)" : PARTS.find((x) => x.key === k).label.toLowerCase()));
+          note(`Saved ${name}.${why.length ? ` Not included: ${why.join(', ')}.` : ''}`, why.length ? 'warning' : 'success', !!why.length);
+        } finally {
+          busy = false;
+          render();
+        }
+      }
+
+      async function update(p) {
+        if (busy) return;
+        if (!(await dialog(`Update ${p.name}?`, [`${p.name} is replaced with your current setup (${partKeys(p).map((k) => PARTS.find((x) => x.key === k).label.toLowerCase()).join(', ')}).`], 'Update')).ok) return;
+        busy = true;
+        try {
+          await readNow();
+          const fresh = snapshot(p.name, partKeys(p));
+          const before = profiles.slice();
+          profiles = profiles.map((x) => (x === p ? fresh : x));
+          if (await store()) note(`Updated ${p.name}.`);
+          else profiles = before;
+        } finally {
+          busy = false;
+          render();
+        }
+      }
+
+      async function rename(p) {
+        if (busy) return;
+        const r = await dialog(`Rename ${p.name}`, ['New name:'], 'Rename', p.name);
+        if (!r.ok || !r.value || r.value === p.name) return;
+        const other = byName(r.value);
+        if (other && other !== p) { note(`There is already a profile called ${other.name}.`, 'warning'); return; }
+        const before = profiles.slice();
+        profiles = profiles.map((x) => (x === p ? { ...p, name: r.value } : x));
+        if (!(await store())) profiles = before;
+        render();
+      }
+
+      async function remove(p) {
+        if (busy) return;
+        if (!(await dialog(`Delete ${p.name}?`, ['Only the profile goes. Nothing in Plasticity changes.'], 'Delete')).ok) return;
+        const before = profiles.slice();
+        profiles = profiles.filter((x) => x !== p);
+        if (await store()) note(`Deleted ${p.name}.`);
+        else profiles = before;
+        render();
+      }
+
+      // ---------- drawing ----------
+      function summary(parts) {
+        return PARTS.filter(({ key }) => key in parts).map(({ key, label, one }) => (one ? plural(parts[key].length, one) : label)).join(' · ');
+      }
+      function smallButton(label, title, onClick) {
+        const b = el('button', 'btn mc-small', label);
+        b.type = 'button';
+        if (title) b.title = title;
+        b.disabled = busy;
+        b.addEventListener('click', onClick);
+        return b;
+      }
+      function row(p) {
+        const r = el('div', 'mc-row pf-row');
+        const main = el('div');
+        const title = el('div', 'mc-title', p.name);
+        if (inUse(p)) title.appendChild(el('span', 'mc-tag', 'In use'));
+        main.appendChild(title);
+        main.appendChild(el('div', 'mc-files', summary(p.parts)));
+        main.appendChild(el('div', 'mc-files', `Saved ${dateText(p.saved)}`));
+        r.appendChild(main);
+        const acts = el('div', 'mc-acts');
+        acts.append(
+          smallButton('Use', 'Switch Plasticity to this profile', () => switchTo(p)),
+          smallButton('Update', 'Replace it with your current setup', () => update(p)),
+          smallButton('Rename…', null, () => rename(p)),
+          smallButton('Delete…', null, () => remove(p))
+        );
+        r.appendChild(acts);
+        return r;
+      }
+
+      function renderNow() {
+        const box = $('pfNow');
+        const lines = PARTS.map(({ key, label, one }) => {
+          let text;
+          if (readErrors[key]) text = `can't be read (${readErrors[key]})`;
+          else if (!(key in now)) text = '…';
+          else if (key === 'theme') text = now.theme == null ? "Plasticity's default (no theme.json)" : 'theme.json';
+          else if (key === 'keymap') {
+            let n = 0;
+            try { for (const m of Loose.parse(now.keymap).values()) if (m instanceof Map) n += m.size; } catch (e) {}
+            text = n ? `${plural(n, 'shortcut')} of your own` : "Plasticity's built-in ones";
+          } else text = key === 'packs' ? `${now[key].length} in Plasticity's list` : `${now[key].length} on`;
+          const line = el('div');
+          line.append(el('b', null, `${label}: `), text);
+          return line;
+        });
+        box.replaceChildren(...lines);
+      }
+
+      function render() {
+        const list = $('pfList');
+        if (!profiles.length) list.replaceChildren(el('div', 'mc-empty', 'No profiles yet. Set Plasticity up the way you like it, then save it as a profile on the right.'));
+        else list.replaceChildren(...profiles.slice().sort((a, b) => a.name.localeCompare(b.name)).map(row));
+        $('pfCount').textContent = profiles.length ? `· ${profiles.length}` : '';
+        $('pfRunning').hidden = !running;
+        renderNow();
+        $('pfUndo').disabled = busy || !undo;
+        $('pfUndo').title = undo ? `Put back the setup from ${dateText(undo.saved)}, ${undo.name}` : 'Nothing to undo yet';
+        ['pfSave', 'pfRefresh'].forEach((id) => { $(id).disabled = busy; });
+      }
+
+      async function refresh() {
+        if (busy) return;
+        await findPaths();
+        await readNow();
+        render();
+      }
+
+      // ---------- start ----------
+      const partsBox = $('pfParts');
+      let ticked = null;
+      try { ticked = JSON.parse(localStorage.getItem(PARTSKEY) || 'null'); } catch (e) {}
+      PARTS.forEach(({ key, label }) => {
+        const l = el('label', 'mc-check');
+        const box = el('input'); box.type = 'checkbox'; box.id = `pfPart_${key}`;
+        box.checked = !Array.isArray(ticked) || ticked.includes(key);
+        box.addEventListener('change', () => { try { localStorage.setItem(PARTSKEY, JSON.stringify(chosenParts())); } catch (e) {} });
+        l.append(box, label);
+        partsBox.appendChild(l);
+      });
+      $('pfSave').addEventListener('click', saveNew);
+      $('pfName').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); saveNew(); } });
+      $('pfRefresh').addEventListener('click', refresh);
+      $('pfUndo').addEventListener('click', () => { if (undo) switchTo(undo, true); });
+
+      async function start() {
+        if (started) { refresh(); return; }
+        started = true;
+        if (!initTauriAPI()) {
+          ['pfSave', 'pfRefresh', 'pfUndo'].forEach((id) => { $(id).disabled = true; });
+          $('pfNow').textContent = 'Not available';
+          note('Profiles need the desktop app: they read and change files in your Plasticity folder.', 'warning', true);
+          return;
+        }
+        await load();
+        await refresh();
+      }
+      document.addEventListener('app-tab', (e) => { if (e.detail === 'profiles') start(); });
+      if (document.body.dataset.tab === 'profiles') start();
     })();
   </script>
 </body>
