@@ -119,9 +119,10 @@ body {
 .app-tab:hover { color: var(--text); }
 .app-tab.active { color: var(--text); border-bottom-color: var(--accent); }
 .app-tab:focus-visible { outline: 1px solid var(--accent); outline-offset: -2px; }
-.app-tablist { display: flex; gap: 2px; align-items: flex-end; height: 100%; }
+.app-tablist { display: flex; flex: 1; gap: 2px; align-items: flex-end; height: 100%; }
+.app-tab.app-tab-end { margin-left: auto; }
 .app-terms {
-  margin: 0 0 9px auto; padding: 2px 4px; background: none; border: none; cursor: pointer;
+  margin: 0 0 9px 10px; padding: 2px 4px; background: none; border: none; cursor: pointer;
   color: var(--muted); font-family: inherit; font-size: 12px; text-decoration: underline; text-underline-offset: 3px;
 }
 .app-terms:hover, .app-terms:focus-visible { color: var(--text); outline: none; }
@@ -233,6 +234,7 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
 /* Asset Packs tab */
 #apApp { color-scheme: dark; }
 #apList { flex: 1; min-height: 120px; }
+#apColl { margin-bottom: 4px; }
 #apRunning[hidden] { display: none; }
 .ap-row { grid-template-columns: 64px minmax(0, 1fr) auto; }
 .ap-switch { font-weight: 600; }
@@ -246,7 +248,7 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
 #pfList { flex: 1; min-height: 120px; }
 #pfRunning[hidden] { display: none; }
 .pf-row { grid-template-columns: minmax(0, 1fr) auto; }
-.pf-parts { display: flex; flex-direction: column; gap: 6px; margin: 8px 0 10px; }
+.pf-row.pf-editing { box-shadow: inset 3px 0 0 var(--accent); }
 .pf-now { font-size: 12px; line-height: 1.6; margin-bottom: 8px; }
 .pf-now b { font-weight: 600; }
 .ev-sphere { width: 48px; height: 48px; flex: none; cursor: grab; touch-action: none; }
@@ -444,7 +446,7 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
       <button class="app-tab" type="button" role="tab" data-tab="fonts" aria-selected="false">Fonts</button>
       <button class="app-tab" type="button" role="tab" data-tab="packs" aria-selected="false">Asset Packs</button>
       <button class="app-tab" type="button" role="tab" data-tab="shortcuts" aria-selected="false">Keyboard Shortcuts</button>
-      <button class="app-tab" type="button" role="tab" data-tab="profiles" aria-selected="false">Profiles</button>
+      <button class="app-tab app-tab-end" type="button" role="tab" data-tab="profiles" aria-selected="false">Profiles</button>
     </div>
     <button class="app-terms" type="button" id="termsLink">Terms of use</button>
   </div>
@@ -1035,6 +1037,18 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
       <div class="tp-hint">Add the folders where you keep .plasticitypack files, on any drive. Their subfolders are searched too.</div>
 
       <div class="separator"></div>
+      <div class="section-title">Collections</div>
+      <select class="form-input" id="apColl" aria-label="Asset pack collections"></select>
+      <button class="btn" id="apCollUse" type="button">Use Collection</button>
+      <button class="btn" id="apCollNew" type="button">Save On Packs as New…</button>
+      <div class="tp-btn-row">
+        <button class="btn" id="apCollUpdate" type="button">Update</button>
+        <button class="btn" id="apCollRename" type="button">Rename…</button>
+        <button class="btn" id="apCollDelete" type="button">Delete</button>
+      </div>
+      <div class="tp-hint">A collection is a set of packs to have on, such as your sci-fi kits or your hardware packs. Turn on the packs you want, then click Save On Packs as New. Use Collection turns its packs on and the rest off; the pack files themselves never move. Update saves the packs on now into the chosen collection.</div>
+
+      <div class="separator"></div>
       <div class="section-title">Plasticity's Pack List</div>
       <div class="tp-path" id="apFile">Finding asset-packs.json…</div>
       <button class="btn" id="apBackup" type="button">Restore Backup</button>
@@ -1131,25 +1145,47 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
     </div>
 
     <div class="properties-panel">
-      <div class="section-title">Save Current Setup</div>
+      <div class="section-title" id="pfEditTitle">New Profile</div>
       <div class="form-group">
-        <label class="form-label" for="pfName">Profile name</label>
+        <label class="form-label" for="pfName">Name</label>
         <input class="form-input" id="pfName" type="text" maxlength="60" placeholder="e.g. Hard surface, Jewellery, Client renders" spellcheck="false" autocomplete="off" />
       </div>
-      <div class="form-label">Include</div>
-      <div class="pf-parts" id="pfParts"></div>
-      <button class="btn" id="pfSave" type="button">Save as Profile</button>
+      <div class="form-group">
+        <label class="form-label" for="pfPick_theme">Theme</label>
+        <select class="form-input" id="pfPick_theme"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="pfPick_matcaps">Matcaps</label>
+        <select class="form-input" id="pfPick_matcaps"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="pfPick_environments">Environments</label>
+        <select class="form-input" id="pfPick_environments"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="pfPick_packs">Asset packs</label>
+        <select class="form-input" id="pfPick_packs"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="pfPick_radials">Radial menus</label>
+        <select class="form-input" id="pfPick_radials"></select>
+      </div>
+      <div class="tp-btn-row">
+        <button class="btn" id="pfCancel" type="button" hidden>Cancel</button>
+        <button class="btn" id="pfSave" type="button">Save Profile</button>
+      </div>
 
       <div class="separator"></div>
       <div class="section-title">In Plasticity Now</div>
       <div class="pf-now" id="pfNow">Reading your Plasticity folders…</div>
       <button class="btn" id="pfUndo" type="button">Undo Last Switch</button>
 
-      <div class="tp-hint">A profile is a snapshot of your setup: the theme, your keyboard shortcuts, which radial menus, matcaps and environments are on, and which asset packs are in Plasticity's list. Make one for each way you work, then switch between them here.</div>
-      <div class="tp-hint">Switching does what the other tabs do. theme.json, keymap.json and asset-packs.json are replaced, with the old one kept as .bak. Radial menus, matcaps and environments that aren't in the profile are turned off (moved to their -disabled folders), and the profile's ones are turned back on. Nothing is deleted.</div>
-      <div class="tp-hint">A profile remembers which radial menus, matcaps and environments are on, not copies of them. If you edit a menu later, the profile uses the new version; if you delete one, it's skipped. Fonts aren't part of profiles, because Plasticity always loads every font in its fonts folder.</div>
-      <div class="tp-hint">Undo Last Switch puts back the setup you had before the last switch. Close Plasticity before switching, then open it again to see the change.</div>
+      <div class="tp-hint">Build a profile out of the things you have made: one of My Themes (or a starter), and a matcap, environment and asset pack collection. Make the collections in their own tabs first. Leave as it is keeps that part out of the profile, so switching never touches it.</div>
+      <div class="tp-hint">A profile follows its theme and collections by name, so changing a collection changes every profile that uses it. A copy is kept with the profile too, and used if the theme or collection is deleted. The ones on now saves a fixed list instead.</div>
+      <div class="tp-hint">Use switches Plasticity to the profile. theme.json and asset-packs.json are replaced, with the old one kept as .bak. Matcaps, environments and radial menus that aren't in the profile are turned off (moved to their -disabled folders), and the profile's are turned on. Nothing is deleted, and Undo Last Switch puts back the setup from before.</div>
+      <div class="tp-hint">Close Plasticity before switching, then open it again to see the change. Keyboard shortcuts and fonts aren't part of profiles.</div>
     </div>
+  </div>
   </div>
 
   <!-- JSON Preview Window -->
@@ -3797,6 +3833,47 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
       $('tpMyDelete').addEventListener('click', deleteMyTheme);
       buildStarters('');
 
+      // ---------- for the Profiles tab ----------
+      // The themes it can offer, each as the text Apply to Plasticity would write, and a name
+      // for a theme.json: the theme it is, or the nearest one with a few colours changed.
+      const asText = (t) => JSON.stringify(t, null, 4) + '\n';
+      function flatTheme(t, prefix = '', out = new Map()) {
+        Object.keys(t).forEach((k) => {
+          const v = t[k];
+          if (v && typeof v === 'object') flatTheme(v, prefix + k + '.', out);
+          else out.set(prefix + k, String(v).toLowerCase());
+        });
+        return out;
+      }
+      function themeList() {
+        return [
+          ...userThemes.map((u) => ({ name: u.name, group: 'My Themes', text: asText(merge(defaults(), clone(u.theme))) })),
+          ...PRESETS.map(([name, make, group]) => ({ name, group, text: asText(make()) }))
+        ];
+      }
+      window.themeLibrary = {
+        ready: Promise.resolve(),
+        list: themeList,
+        editor: () => ({ name: (fileLabel || 'Unsaved theme').replace(/ \((my theme|starter, not saved)\)$/, ''), text: themeJson() + '\n' }),
+        nameOf(text) {
+          if (text == null) return { name: "Plasticity's default", changes: 0 };
+          let flat;
+          try {
+            let parsed = relaxedParse(text);
+            if (parsed && !parsed.colors && (parsed.neutral || parsed.viewport)) parsed = { colors: parsed };
+            flat = flatTheme(merge(defaults(), parsed));
+          } catch (e) { return null; }
+          let best = null;
+          themeList().forEach((t) => {
+            const other = flatTheme(merge(defaults(), relaxedParse(t.text)));
+            let changes = 0;
+            new Set([...flat.keys(), ...other.keys()]).forEach((k) => { if (flat.get(k) !== other.get(k)) changes++; });
+            if (!best || changes < best.changes) best = { name: t.name, group: t.group, changes };
+          });
+          return best && best.changes <= 12 ? best : null;
+        }
+      };
+
       // ---------- tabs ----------
       const tabButtons = document.querySelectorAll('.app-tab');
       function showTab(name, initial) {
@@ -3824,7 +3901,7 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
       applyMode(true);
       refresh();
       initPlasticity();
-      loadUserThemes();
+      window.themeLibrary.ready = loadUserThemes();
       let startTab = 'radial';
       try { const t = localStorage.getItem(TABKEY); if (['theme', 'matcaps', 'environments', 'fonts', 'packs', 'shortcuts', 'profiles'].includes(t)) startTab = t; } catch (e) {}
       showTab(startTab, true);
@@ -5988,16 +6065,6 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
       $('ksChange').addEventListener('click', changeFolder);
       $('ksDefault').addEventListener('click', useDefaultFolder);
       $('ksBackup').addEventListener('click', restoreBackup);
-      // Switching profile can replace keymap.json. Show the new one, unless there are unsaved
-      // changes here (Save then warns that the file has changed).
-      document.addEventListener('plasticity-files-changed', async (e) => {
-        if (!started || !tauriAvailable || busy || isDirty() || !e.detail.includes('keymap')) return;
-        await loadKeymap();
-        fillPlaces(editing ? editing.selector : MAIN);
-        fillCommands();
-        if (editing) endEdit();
-        render();
-      });
       $('ksCmd').addEventListener('input', updateForm);
       $('ksKeysText').addEventListener('input', updateForm);
       $('ksCtx').addEventListener('change', updateForm);
@@ -6427,25 +6494,36 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
         clearTimeout(note._t);
         if (!sticky) note._t = setTimeout(() => { box.textContent = ''; box.className = 'notification'; }, 6000);
       }
-      function confirmBox(title, lines, okLabel) {
+      // Resolves to true or false; with `value`, there's a text box and it resolves to its text (or false).
+      function confirmBox(title, lines, okLabel, value) {
         return new Promise((resolve) => {
           const wrap = el('div', 'tp-modal');
           const box = el('div', 'tp-modal-box');
           box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true');
           box.appendChild(el('h3', null, title));
           lines.forEach((t) => box.appendChild(el('p', null, t)));
+          let field = null;
+          if (value != null) {
+            field = el('input', 'form-input');
+            field.type = 'text'; field.value = value; field.maxLength = 60; field.spellcheck = false;
+            field.setAttribute('aria-label', title);
+            box.appendChild(field);
+          }
           const btns = el('div', 'tp-modal-btns');
           const cancel = el('button', 'btn', 'Cancel'); cancel.type = 'button';
           const ok = el('button', 'btn', okLabel); ok.type = 'button';
           btns.append(cancel, ok); box.appendChild(btns); wrap.appendChild(box);
           document.body.appendChild(wrap);
-          const done = (yes) => { document.removeEventListener('keydown', onKey, true); wrap.remove(); resolve(yes); };
+          const done = (yes) => { document.removeEventListener('keydown', onKey, true); wrap.remove(); resolve(yes && field ? field.value : yes); };
           const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); done(false); } };
           document.addEventListener('keydown', onKey, true);
           cancel.addEventListener('click', () => done(false));
           ok.addEventListener('click', () => done(true));
           wrap.addEventListener('click', (e) => { if (e.target === wrap) done(false); });
-          cancel.focus();
+          if (field) {
+            field.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); done(true); } });
+            field.focus(); field.select();
+          } else cancel.focus();
         });
       }
 
@@ -6528,6 +6606,123 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
         const ok = await confirmBox('Put the backup back?', [`The pack list goes back to how it was before the last change: ${plural(list.length, 'pack')} on.`], 'Restore');
         if (!ok) return;
         await change('Restored the backup.', () => list);
+      }
+
+      // ---------- collections ----------
+      // A collection is a saved set of packs to have on, by file path (see packs.rs).
+      let collections = []; // [{ name, packs: [paths] }]
+      const onNow = () => entries.map((e) => e.get('filePath')).filter((p) => typeof p === 'string');
+      const chosenCollection = () => collections.find((c) => c.name === $('apColl').value) || null;
+      const sameSet = (a, b) => { const x = new Set(a.map(norm)), y = new Set(b.map(norm)); return x.size === y.size && [...x].every((k) => y.has(k)); };
+      const collectionInUse = () => collections.find((c) => sameSet(c.packs, onNow())) || null;
+
+      async function loadCollections() {
+        try {
+          const text = await invokeCommand('load_pack_collections');
+          const data = text ? JSON.parse(text) : null;
+          collections = data && Array.isArray(data.collections)
+            ? data.collections.filter((c) => c && typeof c.name === 'string' && Array.isArray(c.packs))
+            : [];
+        } catch (err) {
+          collections = [];
+          note(`Could not read your collections: ${err}`, 'error', true);
+        }
+      }
+      async function storeCollections(before) {
+        try {
+          await invokeCommand('save_pack_collections', { contents: JSON.stringify({ collections }, null, 2) });
+          return true;
+        } catch (err) {
+          collections = before;
+          note(`Could not save your collections: ${err}`, 'error', true);
+          return false;
+        }
+      }
+      function renderCollections() {
+        const sel = $('apColl'), keep = sel.value, inUse = collectionInUse();
+        sel.replaceChildren();
+        if (!collections.length) { const o = el('option', null, 'No collections yet'); o.value = ''; sel.appendChild(o); }
+        collections.forEach((c) => {
+          const o = el('option', null, `${c.name} (${c.packs.length})${c === inUse ? ' · in use' : ''}`);
+          o.value = c.name;
+          sel.appendChild(o);
+        });
+        if (collections.some((c) => c.name === keep)) sel.value = keep;
+        else if (inUse) sel.value = inUse.name;
+        const has = !!chosenCollection();
+        ['apCollUse', 'apCollUpdate', 'apCollRename', 'apCollDelete'].forEach((id) => { $(id).disabled = !has || busy || !tauriAvailable; });
+        $('apCollNew').disabled = busy || !tauriAvailable;
+        sel.disabled = !collections.length;
+      }
+      async function askCollectionName(title, line, value, okLabel, except) {
+        const typed = await confirmBox(title, [line], okLabel, value);
+        if (typed === false) return null;
+        const name = typed.trim();
+        if (!name) return null;
+        if (collections.some((c) => c !== except && c.name.toLowerCase() === name.toLowerCase())) { note(`There's already a collection called ${name}.`, 'warning'); return null; }
+        return name;
+      }
+      async function newCollection() {
+        if (busy) return;
+        const members = onNow();
+        if (!members.length) { note('Turn on the packs you want in the collection first.', 'warning'); return; }
+        const name = await askCollectionName('Save the packs that are on as a collection',
+          `The ${plural(members.length, 'pack')} on now will make up the collection. What should it be called?`, '', 'Save');
+        if (!name) return;
+        const before = collections.slice();
+        collections = [...collections, { name, packs: members }];
+        if (await storeCollections(before)) { renderCollections(); $('apColl').value = name; renderCollections(); note(`Saved ${name} with ${plural(members.length, 'pack')}.`); }
+      }
+      async function updateCollection() {
+        const c = chosenCollection();
+        if (busy || !c) return;
+        const members = onNow();
+        if (!members.length) { note('Turn on the packs you want in the collection first.', 'warning'); return; }
+        const ok = await confirmBox(`Update ${c.name}?`, [`${c.name} will be changed to the ${plural(members.length, 'pack')} on now (it has ${c.packs.length} at the moment).`], 'Update');
+        if (!ok) return;
+        const before = collections.slice();
+        collections = collections.map((x) => (x === c ? { name: c.name, packs: members } : x));
+        if (await storeCollections(before)) { renderCollections(); note(`${c.name} now has ${plural(members.length, 'pack')}.`); }
+      }
+      async function renameCollection() {
+        const c = chosenCollection();
+        if (busy || !c) return;
+        const name = await askCollectionName(`Rename ${c.name}`, 'New name:', c.name, 'Rename', c);
+        if (!name || name === c.name) return;
+        const before = collections.slice();
+        collections = collections.map((x) => (x === c ? { name, packs: c.packs } : x));
+        if (await storeCollections(before)) { renderCollections(); $('apColl').value = name; renderCollections(); }
+      }
+      async function deleteCollection() {
+        const c = chosenCollection();
+        if (busy || !c) return;
+        const ok = await confirmBox(`Delete the collection ${c.name}?`, ['Only the collection goes. Your packs and the list in Plasticity stay as they are.'], 'Delete');
+        if (!ok) return;
+        const before = collections.slice();
+        collections = collections.filter((x) => x !== c);
+        if (await storeCollections(before)) { renderCollections(); note(`Deleted the collection ${c.name}.`); }
+      }
+      async function useCollection() {
+        const c = chosenCollection();
+        if (busy || !c) return;
+        const want = new Set(c.packs.map(norm)), on = onNow(), have = new Set(on.map(norm));
+        const add = c.packs.filter((p) => !have.has(norm(p)));
+        let there = [];
+        try { there = await invokeCommand('files_exist', { paths: add }); } catch (e) {}
+        const adding = add.filter((p, i) => there[i] !== false), missing = add.filter((p, i) => there[i] === false);
+        const removing = on.filter((p) => !want.has(norm(p)));
+        if (!adding.length && !removing.length) {
+          note(`${c.name} is already in use.${missing.length ? ` (${missing.map(packName).join(', ')} can't be found.)` : ''}`, missing.length ? 'warning' : 'success');
+          return;
+        }
+        const lines = [`This turns ${plural(adding.length, 'pack')} on and ${plural(removing.length, 'other')} off. The pack files themselves don't move.`];
+        if (missing.length) lines.push(`Can't be found, so skipped: ${missing.map(packName).join(', ')}.`);
+        if (!(await confirmBox(`Use ${c.name}?`, lines, 'Use Collection'))) return;
+        const keys = new Set(adding.map(norm));
+        await change(`Now using ${c.name}.`, (list) => [
+          ...list.filter((e) => want.has(norm(e.get('filePath')))),
+          ...adding.filter((p) => !list.some((e) => norm(e.get('filePath')) === norm(p)) && keys.has(norm(p))).map(newEntry)
+        ]);
       }
 
       // ---------- folders ----------
@@ -6641,6 +6836,7 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
           return r;
         }));
         if (!folders.length) fl.appendChild(el('div', 'tp-hint', 'No folders yet.'));
+        renderCollections();
       }
 
       // ---------- start ----------
@@ -6648,12 +6844,18 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
       $('apRescan').addEventListener('click', rescan);
       $('apBackup').addEventListener('click', restoreBackup);
       $('apSearch').addEventListener('input', render);
+      $('apColl').addEventListener('change', renderCollections);
+      $('apCollUse').addEventListener('click', useCollection);
+      $('apCollNew').addEventListener('click', newCollection);
+      $('apCollUpdate').addEventListener('click', updateCollection);
+      $('apCollRename').addEventListener('click', renameCollection);
+      $('apCollDelete').addEventListener('click', deleteCollection);
 
       async function start() {
         if (started) { rescan(); return; }
         started = true;
         if (!initTauriAPI()) {
-          ['apAdd', 'apRescan', 'apBackup'].forEach((id) => { $(id).disabled = true; });
+          ['apAdd', 'apRescan', 'apBackup', 'apColl', 'apCollUse', 'apCollNew', 'apCollUpdate', 'apCollRename', 'apCollDelete'].forEach((id) => { $(id).disabled = true; });
           note('The Asset Packs tab needs the desktop app: it reads your folders and Plasticity\'s pack list.', 'warning', true);
           return;
         }
@@ -6661,6 +6863,7 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
         // Developer override for testing against a copy: localStorage 'plasticity-asset-packs-file'.
         try { listPath = localStorage.getItem('plasticity-asset-packs-file') || listPath; } catch (e) {}
         try { folders = await invokeCommand('load_pack_folders'); } catch (err) { folders = []; note(String(err), 'error', true); }
+        await loadCollections();
         await rescan();
       }
       document.addEventListener('app-tab', (e) => { if (e.detail === 'packs') start(); });
@@ -6934,32 +7137,35 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
 
   <!-- ===== Profiles tab script ===== -->
   <script>
-    // Profiles tab: saves what's active in Plasticity now under a name, and switches back to it
-    // later. A profile holds theme.json and keymap.json as text, the radial menus, matcaps and
-    // environments that are on (by name, not copies of them), and the packs in asset-packs.json.
-    // Switching goes through the same commands as the other tabs: Plasticity's files are replaced
-    // with a .bak kept (write_plasticity_file), and menus, matcaps and environments move to and
-    // from their -disabled folders. Profiles are kept in the app data folder (profiles.json, see
-    // main.rs), with the setup from before the last switch for Undo Last Switch.
+    // Profiles tab: a profile is built from the things made in the other tabs (a theme, and a
+    // matcap, environment and asset pack collection), plus optionally the radial menus on now,
+    // and Use switches Plasticity to it. Themes and collections are followed by name, with a copy
+    // kept in case they're deleted. Switching goes through the same commands as the other tabs:
+    // theme.json and asset-packs.json are replaced with a .bak kept (write_plasticity_file), and
+    // matcaps, environments and radial menus move to and from their -disabled folders. Profiles
+    // are kept in the app data folder (profiles.json, see main.rs) with the setup from before the
+    // last switch, for Undo Last Switch.
     (function () {
       'use strict';
 
       const $ = (id) => document.getElementById(id);
       const PARTS = [
         { key: 'theme', label: 'Theme' },
-        { key: 'keymap', label: 'Keyboard shortcuts' },
-        { key: 'radials', label: 'Radial menus', one: 'radial menu' },
         { key: 'matcaps', label: 'Matcaps', one: 'matcap' },
         { key: 'environments', label: 'Environments', one: 'environment' },
-        { key: 'packs', label: 'Asset packs', one: 'asset pack' }
+        { key: 'packs', label: 'Asset packs', one: 'asset pack' },
+        { key: 'radials', label: 'Radial menus', one: 'radial menu' }
       ];
-      const TEXT_PARTS = ['theme', 'keymap'];
-      const PARTSKEY = 'plasticity-profile-parts';
-      let profiles = [];   // [{ name, saved, parts: { theme, keymap: text; radials, matcaps, environments, packs: [names] } }]
-      let undo = null;     // the setup from before the last switch, the same shape
-      let now = {};        // what's in Plasticity now: the same parts, plus all.radials/matcaps/environments (on and off)
-      let readErrors = {}; // part -> why it couldn't be read
-      let paths = {};      // part -> its file or folder
+      // parts.theme = { text, name?, group? }: a theme from the Themes tab's lists is followed by name.
+      // The others = { members, collection? }: a collection is followed by name. A missing part is left as it is.
+      let profiles = [];    // [{ name, saved, parts }]
+      let undo = null;      // the setup from before the last switch, the same shape
+      let now = {};         // what's in Plasticity now: theme text, member lists, and all.* (on and off)
+      let readErrors = {};  // part -> why it couldn't be read
+      let paths = {};       // part -> its file or folder
+      let collections = {}; // matcaps / environments / packs -> [{ name, members }]
+      let themes = [];      // [{ name, group, text }] from the Themes tab
+      let editing = null;   // the profile in the panel; null while making a new one
       let running = false;
       let busy = false, started = false;
 
@@ -6971,6 +7177,7 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
       }
       const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
       const dateText = (ms) => new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+      const partOf = (key) => PARTS.find((x) => x.key === key);
       function note(message, type = 'success', sticky) {
         const box = $('pfNote');
         box.textContent = message;
@@ -6978,36 +7185,25 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
         clearTimeout(note._t);
         if (!sticky) note._t = setTimeout(() => { box.textContent = ''; box.className = 'notification'; }, 6000);
       }
-      // Resolves to { ok, value }. With `value`, there is a text box (window.prompt doesn't work on macOS).
-      function dialog(title, lines, okLabel, value) {
+      function dialog(title, lines, okLabel) {
         return new Promise((resolve) => {
           const wrap = el('div', 'tp-modal');
           const box = el('div', 'tp-modal-box');
           box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true');
           box.appendChild(el('h3', null, title));
           lines.forEach((t) => box.appendChild(el('p', null, t)));
-          let field = null;
-          if (value != null) {
-            field = el('input', 'form-input');
-            field.type = 'text'; field.value = value; field.maxLength = 60; field.spellcheck = false;
-            field.setAttribute('aria-label', title);
-            box.appendChild(field);
-          }
           const btns = el('div', 'tp-modal-btns');
           const cancel = el('button', 'btn', 'Cancel'); cancel.type = 'button';
           const ok = el('button', 'btn', okLabel); ok.type = 'button';
           btns.append(cancel, ok); box.appendChild(btns); wrap.appendChild(box);
           document.body.appendChild(wrap);
-          const done = (yes) => { document.removeEventListener('keydown', onKey, true); wrap.remove(); resolve({ ok: yes, value: field ? field.value.trim() : '' }); };
+          const done = (yes) => { document.removeEventListener('keydown', onKey, true); wrap.remove(); resolve(yes); };
           const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); done(false); } };
           document.addEventListener('keydown', onKey, true);
           cancel.addEventListener('click', () => done(false));
           ok.addEventListener('click', () => done(true));
           wrap.addEventListener('click', (e) => { if (e.target === wrap) done(false); });
-          if (field) {
-            field.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); done(true); } });
-            field.focus(); field.select();
-          } else cancel.focus();
+          cancel.focus();
         });
       }
 
@@ -7017,14 +7213,11 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
       const ask = (cmd, args) => invokeCommand(cmd, args).catch(() => null);
       const join = (dir, name) => dir.replace(/[\\/]+$/, '') + (dir.includes('\\') ? '\\' : '/') + name;
       async function findPaths() {
-        const config = await ask('default_plasticity_folder');
         let themeDir = stored('plasticity-theme-folder');
         if (themeDir && /[\\/]\.plasticity[\\/]?$/.test(themeDir)) themeDir = null; // as the Themes tab does
-        themeDir = themeDir || config;
-        const keyDir = stored('plasticity-keymap-folder') || config;
+        themeDir = themeDir || await ask('default_plasticity_folder');
         paths = {
           theme: themeDir ? join(themeDir, 'theme.json') : null,
-          keymap: keyDir ? join(keyDir, 'keymap.json') : null,
           radials: stored('plasticity-manage-radials-folder') || await ask('default_radials_folder'),
           matcaps: stored('plasticity-matcaps-folder') || await ask('default_matcaps_folder', { library: 'matcaps' }),
           environments: stored('plasticity-environments-folder') || await ask('default_matcaps_folder', { library: 'environments' }),
@@ -7032,7 +7225,7 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
         };
       }
 
-      // ---------- reading the setup ----------
+      // ---------- reading what Plasticity has ----------
       // Windows paths and file names match whatever the case and slashes; Mac ones as they are.
       const norm = (p) => (isMacOS ? String(p) : String(p).replace(/\//g, '\\').toLowerCase());
       // "03_Peach" -> "peach", like member_key in matcaps.rs, so reordering doesn't break a profile.
@@ -7044,7 +7237,6 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
         if (!Array.isArray(v)) throw new Error('it is not a list of packs');
         return v.filter((e) => e instanceof Map);
       }
-      const packPaths = (text) => packList(text).map((e) => e.get('filePath')).filter((p) => typeof p === 'string');
       const withImage = (list) => list.filter((g) => g.png || g.exr || g.src);
 
       async function readNow() {
@@ -7054,17 +7246,16 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
           const where = paths[key];
           if (!where) { readErrors[key] = "its folder isn't known"; continue; }
           try {
-            if (TEXT_PARTS.includes(key)) {
+            if (key === 'theme') {
               const text = await invokeCommand('read_text_if_exists', { path: where });
-              if (text != null) Loose.parse(text); // so a broken file is reported, not saved into a profile
-              // No keymap.json is the same as one with no shortcuts of your own in it.
-              out[key] = text == null && key === 'keymap' ? Loose.write(new Map()) : text;
+              if (text != null) Loose.parse(text); // so a broken file is reported, not compared
+              out.theme = text;
             } else if (key === 'radials') {
               const list = (await invokeCommand('list_radial_files', { folder: where })).filter((m) => !m.error);
               out.all.radials = list.map((m) => m.file);
               out.radials = list.filter((m) => !m.disabled).map((m) => m.file);
             } else if (key === 'packs') {
-              out.packs = packPaths(await invokeCommand('read_text_if_exists', { path: where }));
+              out.packs = packList(await invokeCommand('read_text_if_exists', { path: where })).map((e) => e.get('filePath')).filter((p) => typeof p === 'string');
             } else {
               const list = withImage(await invokeCommand('list_installed_matcaps', { folder: where, library: key }));
               out.all[key] = list.map((g) => g.name);
@@ -7078,38 +7269,90 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
         try { running = await invokeCommand('plasticity_running'); } catch (e) { running = false; }
       }
 
-      // Text that only differs in layout counts as the same.
+      // The user's collections, from the files the Matcaps, Environments and Asset Packs tabs keep.
+      async function loadCollections() {
+        const read = async (cmd, args, field) => {
+          try {
+            const text = await invokeCommand(cmd, args);
+            const data = text ? JSON.parse(text) : null;
+            return data && Array.isArray(data.collections)
+              ? data.collections.filter((c) => c && typeof c.name === 'string' && Array.isArray(c[field])).map((c) => ({ name: c.name, members: c[field] }))
+              : [];
+          } catch (e) { return []; }
+        };
+        collections = {
+          matcaps: await read('load_matcap_collections', { library: 'matcaps' }, 'matcaps'),
+          environments: await read('load_matcap_collections', { library: 'environments' }, 'matcaps'),
+          packs: await read('load_pack_collections', {}, 'packs')
+        };
+      }
+
+      // ---------- comparing ----------
+      // Theme text that only differs in layout counts as the same.
       function canon(text) {
         if (text == null) return null;
         try { return Loose.write(Loose.parse(text)); } catch (e) { return String(text).replace(/\r\n/g, '\n').trim(); }
       }
       function samePart(key, want, have) {
-        if (TEXT_PARTS.includes(key)) return canon(want) === canon(have);
+        if (key === 'theme') return canon(want) === canon(have);
         const k = keyFor(key);
         const a = new Set(want.map(k)), b = new Set(have.map(k));
         return a.size === b.size && [...a].every((x) => b.has(x));
       }
-      const inUse = (p) => Object.keys(p.parts).length > 0 && Object.entries(p.parts).every(([key, want]) => !readErrors[key] && now[key] !== undefined && samePart(key, want, now[key]));
+      // A theme from the Themes tab's lists, or a collection, by its name as it is now; the copy
+      // kept with the profile when it has gone (`lost` says why).
+      function resolve(key, v) {
+        if (key === 'theme') {
+          if (!v.name) return { value: v.text };
+          const t = themes.find((x) => x.name === v.name && (!v.group || x.group === v.group));
+          return t ? { value: t.text } : { value: v.text, lost: `${v.name} isn't in ${v.group === 'My Themes' ? 'My Themes' : 'the themes'} any more` };
+        }
+        if (!v.collection) return { value: v.members };
+        const c = (collections[key] || []).find((x) => x.name === v.collection);
+        return c ? { value: c.members } : { value: v.members, lost: `The collection ${v.collection} doesn't exist any more` };
+      }
+      const partKeys = (p) => PARTS.filter(({ key }) => key in p.parts).map(({ key }) => key);
+      const inUse = (p) => partKeys(p).length > 0 && partKeys(p).every((key) => !readErrors[key] && key in now && samePart(key, resolve(key, p.parts[key]).value, now[key]));
+      const sameProfile = (a, b) => {
+        const ka = partKeys(a), kb = partKeys(b);
+        return ka.length === kb.length && ka.every((k) => k in b.parts && samePart(k, resolve(k, a.parts[k]).value, resolve(k, b.parts[k]).value));
+      };
+      // The collection that matches what's on now, if any.
+      const collectionNow = (key) => (collections[key] && !readErrors[key] && key in now ? collections[key].find((c) => samePart(key, c.members, now[key])) : null);
 
-      // A profile of the parts asked for, as they are now. A theme can only be saved once there's a theme.json.
-      function snapshot(name, keys) {
-        const parts = {};
-        keys.forEach((key) => { if (!readErrors[key] && now[key] != null) parts[key] = now[key]; });
-        return { name, saved: Date.now(), parts };
+      // ---------- theme names ----------
+      // One of My Themes or a starter, or the nearest of them with a few changes (see the Themes tab).
+      const names = new Map();
+      function themeName(text) {
+        if (text == null) return "Plasticity's default";
+        if (!names.has(text)) {
+          const n = window.themeLibrary ? window.themeLibrary.nameOf(text) : null;
+          names.set(text, n ? (n.changes ? `${n.name} with ${plural(n.changes, 'change')}` : n.name) : 'Custom theme (not in My Themes)');
+        }
+        return names.get(text);
+      }
+      // { name, group } when the text is exactly one of the listed themes.
+      function namedTheme(text) {
+        const n = window.themeLibrary && text != null ? window.themeLibrary.nameOf(text) : null;
+        return n && !n.changes ? { name: n.name, group: n.group } : {};
+      }
+      function partText(key, v) {
+        if (key === 'theme') return v.name ? v.name : themeName(v.text);
+        return v.collection ? v.collection : `${plural(v.members.length, partOf(key).one)} saved with the profile`;
       }
 
       // ---------- switching ----------
       // What switching to p would do, part by part, worked out before anything is touched.
       async function plan(p) {
         const steps = [];
-        for (const { key, label, one } of PARTS) {
-          if (!(key in p.parts)) continue;
-          const want = p.parts[key];
-          const step = { key, label, one, want };
+        for (const key of partKeys(p)) {
+          const v = p.parts[key];
+          const { value: want, lost } = resolve(key, v);
+          const step = { key, label: partOf(key).label, want, lost, from: key === 'theme' ? null : v.collection };
           steps.push(step);
           if (readErrors[key]) { step.skip = `can't be read (${readErrors[key]})`; continue; }
           if (samePart(key, want, now[key])) { step.same = true; continue; }
-          if (TEXT_PARTS.includes(key)) continue;
+          if (key === 'theme') continue;
           const k = keyFor(key);
           const wantKeys = new Set(want.map(k)), haveKeys = new Set(now[key].map(k));
           step.off = now[key].filter((x) => !wantKeys.has(k(x)));
@@ -7131,18 +7374,17 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
       function describe(steps) {
         const lines = [];
         for (const s of steps) {
+          if (s.lost) lines.push(`${s.lost}, so the copy saved with the profile is used.`);
           if (s.skip) lines.push(`${s.label}: left alone, because it ${s.skip}.`);
           else if (s.same) continue;
-          else if (TEXT_PARTS.includes(s.key)) {
-            const file = s.key === 'theme' ? 'theme.json' : 'keymap.json';
-            lines.push(`${s.label}: ${file} is replaced (the one you have now is kept as ${file}.bak).`);
-          } else {
+          else if (s.key === 'theme') lines.push(`Theme: ${themeName(s.want)} replaces ${themeName(now.theme)}. The old theme.json is kept as theme.json.bak.`);
+          else {
             const verbs = s.key === 'packs' ? ['added to the list', 'taken off the list'] : ['turned on', 'turned off'];
             const what = [s.on.length ? `${s.on.length} ${verbs[0]}` : '', s.off.length ? `${s.off.length} ${verbs[1]}` : ''].filter(Boolean).join(', ');
-            if (what) lines.push(`${s.label}: ${what}.`);
+            if (what) lines.push(`${s.label}${s.from ? ` (${s.from})` : ''}: ${what}.`);
             if (s.missing.length) {
-              const names = s.key === 'packs' ? s.missing.map((x) => String(x).split(/[\\/]/).pop()) : s.missing;
-              lines.push(`${s.key === 'packs' ? 'Pack files' : s.label} not found any more, so skipped:${names.slice(0, 6).join(', ')}${names.length > 6 ? `, and ${names.length - 6} more` : ''}.`);
+              const shown = s.key === 'packs' ? s.missing.map((x) => String(x).split(/[\\/]/).pop()) : s.missing;
+              lines.push(`${s.key === 'packs' ? 'Pack files' : s.label} not found, so skipped: ${shown.slice(0, 6).join(', ')}${shown.length > 6 ? `, and ${shown.length - 6} more` : ''}.`);
             }
           }
         }
@@ -7158,7 +7400,7 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
           if (s.skip || s.same) continue;
           const where = paths[s.key];
           try {
-            if (TEXT_PARTS.includes(s.key)) {
+            if (s.key === 'theme') {
               await invokeCommand('write_plasticity_file', { path: where, contents: s.want });
             } else if (s.key === 'radials') {
               for (const [files, enabled] of [[s.off, false], [s.on, true]]) {
@@ -7195,24 +7437,27 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
           const steps = await plan(p);
           const lines = describe(steps);
           if (!steps.some((s) => !s.same && !s.skip)) {
-            note(isUndo ? 'Nothing to undo: your setup is already the same as before the last switch.' : `${p.name} is already what Plasticity has.`, 'success');
+            note(isUndo ? 'Nothing to undo: your setup is already the same as before the last switch.' : `${p.name} is already what Plasticity has.`);
             return;
           }
-          if (running) lines.push('Plasticity is open. Close it first if you can: it saves some of these files itself and could undo the switch. Otherwise restart it afterwards.');
+          if (running) lines.push('Plasticity is open. Close it first if you can: it saves its pack list itself and could undo part of the switch. Otherwise restart it afterwards.');
           else lines.push('Open Plasticity afterwards to see the change.');
-          const title = isUndo ? 'Undo the last switch?' : `Switch to ${p.name}?`;
-          if (!(await dialog(title, lines, isUndo ? 'Undo' : 'Switch')).ok) return;
+          if (!(await dialog(isUndo ? 'Undo the last switch?' : `Switch to ${p.name}?`, lines, isUndo ? 'Undo' : 'Switch'))) return;
           // Kept before anything changes, so Undo Last Switch can put it back.
-          const before = snapshot(isUndo ? 'before undo' : `before ${p.name}`, steps.filter((s) => !s.skip && !s.same).map((s) => s.key));
+          const parts = {};
+          steps.filter((s) => !s.skip && !s.same).forEach((s) => {
+            if (s.key !== 'theme') parts[s.key] = { members: now[s.key] };
+            else if (now.theme != null) parts.theme = { text: now.theme };
+          });
           const keep = undo;
-          undo = before;
+          undo = { name: isUndo ? 'before undo' : `before ${p.name}`, saved: Date.now(), parts };
           if (!(await store())) { undo = keep; return; }
           note(isUndo ? 'Undoing…' : `Switching to ${p.name}…`, 'success', true);
           const problems = await run(steps);
           await readNow();
+          fillEditor(editing, true);
           if (problems.length) note(`Switched, but some things couldn't be changed: ${problems.slice(0, 4).join('; ')}${problems.length > 4 ? `; and ${problems.length - 4} more` : ''}.`, 'error', true);
           else note(isUndo ? 'Put back the setup from before the last switch. Restart Plasticity to see it.' : `Switched to ${p.name}. Restart Plasticity to see it.`);
-          document.dispatchEvent(new CustomEvent('plasticity-files-changed', { detail: steps.map((s) => s.key) }));
           if (typeof window.refreshRadialCreateList === 'function') { try { window.refreshRadialCreateList(); } catch (e) {} }
         } catch (err) {
           note(`Could not switch: ${err.message || err}`, 'error', true);
@@ -7223,12 +7468,29 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
       }
 
       // ---------- saved profiles ----------
+      // Profiles from 1.3.8 kept theme text and plain lists, and keyboard shortcuts, which are no longer part of profiles.
+      function upgrade(parts) {
+        const out = {};
+        PARTS.forEach(({ key }) => {
+          const v = parts && parts[key];
+          if (key === 'theme') {
+            const t = typeof v === 'string' ? { text: v } : v;
+            if (t && typeof t.text === 'string') out.theme = t;
+          } else {
+            const l = Array.isArray(v) ? { members: v } : v;
+            if (l && Array.isArray(l.members)) out[key] = l;
+          }
+        });
+        return out;
+      }
       async function load() {
         try {
           const text = await invokeCommand('load_profiles');
           const data = text ? JSON.parse(text) : {};
-          profiles = Array.isArray(data.profiles) ? data.profiles.filter((p) => p && typeof p.name === 'string' && p.parts) : [];
-          undo = data.undo && data.undo.parts ? data.undo : null;
+          profiles = (Array.isArray(data.profiles) ? data.profiles : [])
+            .filter((p) => p && typeof p.name === 'string')
+            .map((p) => ({ name: p.name, saved: p.saved || Date.now(), parts: upgrade(p.parts) }));
+          undo = data.undo && data.undo.parts ? { ...data.undo, parts: upgrade(data.undo.parts) } : null;
         } catch (err) {
           profiles = []; undo = null;
           note(`Could not read your profiles: ${err.message || err}`, 'error', true);
@@ -7236,88 +7498,136 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
       }
       async function store() {
         try {
-          await invokeCommand('save_profiles', { contents: JSON.stringify({ version: 1, profiles, undo }, null, 2) });
+          await invokeCommand('save_profiles', { contents: JSON.stringify({ version: 2, profiles, undo }, null, 2) });
           return true;
         } catch (err) {
           note(`Could not save your profiles: ${err.message || err}`, 'error', true);
           return false;
         }
       }
-      const byName = (name) => profiles.find((p) => p.name.toLowerCase() === name.toLowerCase());
-      const partKeys = (p) => PARTS.filter(({ key }) => key in p.parts).map(({ key }) => key);
 
-      function chosenParts() {
-        return PARTS.filter(({ key }) => $(`pfPart_${key}`).checked).map(({ key }) => key);
+      // ---------- the panel: building a profile ----------
+      // Each part's <select> keeps what its options stand for in select.choices:
+      // { value } (null = leave as it is), or { file: true } to pick a theme file.
+      function fillPick(key, current) {
+        const select = $(`pfPick_${key}`);
+        const choices = select.choices = [];
+        select.replaceChildren();
+        let chosen = null;
+        const add = (parent, label, value, extra) => {
+          const o = el('option', null, label);
+          o.value = String(choices.length);
+          choices.push({ value, ...extra });
+          parent.appendChild(o);
+          return o;
+        };
+        const group = (label) => { const g = el('optgroup'); g.label = label; select.appendChild(g); return g; };
+        const leave = add(select, key === 'theme' ? 'Leave as it is' : 'Leave as they are', null);
+        if (key === 'theme') {
+          if (current && !current.name) chosen = add(select, `Saved with this profile: ${themeName(current.text)}`, current);
+          if (current && current.name && !themes.some((t) => t.name === current.name && (!current.group || t.group === current.group))) {
+            chosen = add(select, `${current.name} (deleted; the saved copy)`, current);
+          }
+          let nowOpt = null;
+          if (!readErrors.theme && now.theme != null) nowOpt = add(select, `As in Plasticity now: ${themeName(now.theme)}`, { text: now.theme, ...namedTheme(now.theme) });
+          if (window.themeLibrary) {
+            const ed = window.themeLibrary.editor();
+            if (canon(ed.text) !== canon(now.theme)) add(select, `Open in the Themes tab: ${ed.name}`, { text: ed.text, ...namedTheme(ed.text) });
+          }
+          const groups = new Map();
+          themes.forEach((t) => {
+            if (!groups.has(t.group)) groups.set(t.group, group(t.group));
+            const o = add(groups.get(t.group), t.name, { name: t.name, group: t.group, text: t.text });
+            if (current && current.name === t.name && (!current.group || current.group === t.group)) chosen = o;
+            else if (!current && !chosen && editing === null && nowOpt && namedTheme(now.theme).name === t.name && namedTheme(now.theme).group === t.group) chosen = o;
+          });
+          add(select, 'From a theme file…', null, { file: true });
+          if (!current && !chosen && editing === null) chosen = nowOpt;
+        } else {
+          const one = partOf(key).one;
+          if (current && (!current.collection || resolve(key, current).lost)) {
+            chosen = add(select, current.collection ? `${current.collection} (deleted; the saved copy of ${current.members.length})` : `Saved with this profile (${current.members.length})`, current);
+          }
+          if (!readErrors[key] && key in now) add(select, `The ones ${key === 'packs' ? 'in the list' : 'on'} now (${now[key].length})`, { members: now[key].slice() });
+          if (key !== 'radials') {
+            const list = collections[key] || [];
+            const g = group(list.length ? 'Your collections' : `No ${one} collections yet`);
+            const match = editing === null && !current ? collectionNow(key) : null;
+            list.forEach((c) => {
+              const o = add(g, `${c.name} (${c.members.length})`, { collection: c.name, members: c.members.slice() });
+              if ((current && current.collection === c.name && !resolve(key, current).lost) || (match && match.name === c.name)) chosen = o;
+            });
+          }
+        }
+        select.value = (chosen || leave).value;
       }
-      async function saveNew() {
+
+      // keepName: leave what has been typed (when the lists are only being read again).
+      function fillEditor(p, keepName) {
+        editing = p;
+        $('pfEditTitle').textContent = p ? `Edit ${p.name}` : 'New Profile';
+        if (!keepName) $('pfName').value = p ? p.name : '';
+        $('pfSave').textContent = p ? 'Save Changes' : 'Save Profile';
+        $('pfCancel').hidden = !p;
+        PARTS.forEach(({ key }) => fillPick(key, p ? p.parts[key] || null : null));
+      }
+
+      // What the panel's choices make up. Undefined if a theme file was asked for and not given.
+      async function pickedParts() {
+        const parts = {};
+        for (const { key } of PARTS) {
+          const select = $(`pfPick_${key}`);
+          const c = select.choices[Number(select.value)];
+          if (!c) continue;
+          if (c.file) {
+            let text;
+            try {
+              const path = await invokeCommand('pick_theme_file');
+              if (!path) return undefined;
+              text = await invokeCommand('read_text_file', { path });
+              Loose.parse(text); // throws for a file that isn't a theme
+            } catch (err) {
+              note(`That theme file can't be used: ${err.message || err}`, 'error', true);
+              return undefined;
+            }
+            parts.theme = { text, ...namedTheme(text) };
+          } else if (c.value) parts[key] = c.value;
+        }
+        return parts;
+      }
+
+      async function saveProfile() {
         if (busy) return;
         const name = $('pfName').value.trim();
         if (!name) { note('Give the profile a name first.', 'warning'); $('pfName').focus(); return; }
-        const keys = chosenParts();
-        if (!keys.length) { note('Tick at least one thing to include.', 'warning'); return; }
-        busy = true;
-        try {
-          await readNow();
-          const p = snapshot(name, keys);
-          const left = keys.filter((k) => !(k in p.parts));
-          if (!Object.keys(p.parts).length) { note("None of those could be read, so there's nothing to save.", 'error', true); return; }
-          const old = byName(name);
-          if (old && !(await dialog(`Replace ${old.name}?`, ['There is already a profile with that name. Saving replaces it with your current setup.'], 'Replace')).ok) return;
-          const before = profiles.slice();
-          profiles = old ? profiles.map((x) => (x === old ? p : x)) : [...profiles, p];
-          if (!(await store())) { profiles = before; return; }
-          $('pfName').value = '';
-          const why = left.map((k) => (k === 'theme' && !readErrors.theme ? "the theme (there's no theme.json yet, so Plasticity is using its default)" : PARTS.find((x) => x.key === k).label.toLowerCase()));
-          note(`Saved ${name}.${why.length ? ` Not included: ${why.join(', ')}.` : ''}`, why.length ? 'warning' : 'success', !!why.length);
-        } finally {
-          busy = false;
-          render();
-        }
-      }
-
-      async function update(p) {
-        if (busy) return;
-        if (!(await dialog(`Update ${p.name}?`, [`${p.name} is replaced with your current setup (${partKeys(p).map((k) => PARTS.find((x) => x.key === k).label.toLowerCase()).join(', ')}).`], 'Update')).ok) return;
-        busy = true;
-        try {
-          await readNow();
-          const fresh = snapshot(p.name, partKeys(p));
-          const before = profiles.slice();
-          profiles = profiles.map((x) => (x === p ? fresh : x));
-          if (await store()) note(`Updated ${p.name}.`);
-          else profiles = before;
-        } finally {
-          busy = false;
-          render();
-        }
-      }
-
-      async function rename(p) {
-        if (busy) return;
-        const r = await dialog(`Rename ${p.name}`, ['New name:'], 'Rename', p.name);
-        if (!r.ok || !r.value || r.value === p.name) return;
-        const other = byName(r.value);
-        if (other && other !== p) { note(`There is already a profile called ${other.name}.`, 'warning'); return; }
+        const other = profiles.find((x) => x !== editing && x.name.toLowerCase() === name.toLowerCase());
+        if (other) { note(`There is already a profile called ${other.name}.`, 'warning'); return; }
+        const parts = await pickedParts();
+        if (!parts) return;
+        if (!Object.keys(parts).length) { note('Choose at least one thing for the profile: everything is set to Leave as it is.', 'warning'); return; }
+        const p = { name, saved: Date.now(), parts };
         const before = profiles.slice();
-        profiles = profiles.map((x) => (x === p ? { ...p, name: r.value } : x));
-        if (!(await store())) profiles = before;
+        profiles = editing && profiles.includes(editing) ? profiles.map((x) => (x === editing ? p : x)) : [...profiles, p];
+        if (!(await store())) { profiles = before; return; }
+        const twin = profiles.find((x) => x !== p && sameProfile(x, p));
+        note(`Saved ${name}.${twin ? ` It's the same as ${twin.name} in everything it sets.` : ''}`, twin ? 'warning' : 'success', !!twin);
+        fillEditor(null);
         render();
       }
 
       async function remove(p) {
         if (busy) return;
-        if (!(await dialog(`Delete ${p.name}?`, ['Only the profile goes. Nothing in Plasticity changes.'], 'Delete')).ok) return;
+        if (!(await dialog(`Delete ${p.name}?`, ['Only the profile goes. Nothing in Plasticity changes, and your themes and collections stay as they are.'], 'Delete'))) return;
         const before = profiles.slice();
         profiles = profiles.filter((x) => x !== p);
-        if (await store()) note(`Deleted ${p.name}.`);
-        else profiles = before;
+        if (await store()) {
+          note(`Deleted ${p.name}.`);
+          if (editing === p) fillEditor(null);
+        } else profiles = before;
         render();
       }
 
       // ---------- drawing ----------
-      function summary(parts) {
-        return PARTS.filter(({ key }) => key in parts).map(({ key, label, one }) => (one ? plural(parts[key].length, one) : label)).join(' · ');
-      }
       function smallButton(label, title, onClick) {
         const b = el('button', 'btn mc-small', label);
         b.type = 'button';
@@ -7332,42 +7642,49 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
         const title = el('div', 'mc-title', p.name);
         if (inUse(p)) title.appendChild(el('span', 'mc-tag', 'In use'));
         main.appendChild(title);
-        main.appendChild(el('div', 'mc-files', summary(p.parts)));
-        main.appendChild(el('div', 'mc-files', `Saved ${dateText(p.saved)}`));
+        partKeys(p).forEach((key) => {
+          const line = el('div', 'mc-files');
+          line.append(el('b', null, `${partOf(key).label}: `), partText(key, p.parts[key]));
+          main.appendChild(line);
+          const { lost } = resolve(key, p.parts[key]);
+          if (lost) main.appendChild(el('div', 'mc-status warning', `${lost}, so the copy saved with the profile will be used.`));
+        });
+        const left = PARTS.filter(({ key }) => !(key in p.parts)).map(({ label }) => label.toLowerCase());
+        if (left.length) main.appendChild(el('div', 'mc-files', `Leaves ${left.join(', ')} as they are`));
+        const twin = profiles.find((x) => x !== p && sameProfile(x, p));
+        if (twin) main.appendChild(el('div', 'mc-status warning', `Exactly the same as ${twin.name}, so switching between them changes nothing.`));
         r.appendChild(main);
         const acts = el('div', 'mc-acts');
         acts.append(
           smallButton('Use', 'Switch Plasticity to this profile', () => switchTo(p)),
-          smallButton('Update', 'Replace it with your current setup', () => update(p)),
-          smallButton('Rename…', null, () => rename(p)),
+          smallButton('Edit', 'Change its name, theme or collections', () => fillEditor(p)),
           smallButton('Delete…', null, () => remove(p))
         );
         r.appendChild(acts);
+        if (editing === p) r.classList.add('pf-editing');
         return r;
       }
 
       function renderNow() {
-        const box = $('pfNow');
-        const lines = PARTS.map(({ key, label, one }) => {
+        const lines = PARTS.map(({ key, label }) => {
           let text;
           if (readErrors[key]) text = `can't be read (${readErrors[key]})`;
           else if (!(key in now)) text = '…';
-          else if (key === 'theme') text = now.theme == null ? "Plasticity's default (no theme.json)" : 'theme.json';
-          else if (key === 'keymap') {
-            let n = 0;
-            try { for (const m of Loose.parse(now.keymap).values()) if (m instanceof Map) n += m.size; } catch (e) {}
-            text = n ? `${plural(n, 'shortcut')} of your own` : "Plasticity's built-in ones";
-          } else text = key === 'packs' ? `${now[key].length} in Plasticity's list` : `${now[key].length} on`;
+          else if (key === 'theme') text = now.theme == null ? "Plasticity's default (no theme.json)" : themeName(now.theme);
+          else {
+            const c = collectionNow(key);
+            text = `${now[key].length} ${key === 'packs' ? "in Plasticity's list" : 'on'}${c ? `, the ${c.name} collection` : ''}`;
+          }
           const line = el('div');
           line.append(el('b', null, `${label}: `), text);
           return line;
         });
-        box.replaceChildren(...lines);
+        $('pfNow').replaceChildren(...lines);
       }
 
       function render() {
         const list = $('pfList');
-        if (!profiles.length) list.replaceChildren(el('div', 'mc-empty', 'No profiles yet. Set Plasticity up the way you like it, then save it as a profile on the right.'));
+        if (!profiles.length) list.replaceChildren(el('div', 'mc-empty', 'No profiles yet. Build one on the right from your themes and collections.'));
         else list.replaceChildren(...profiles.slice().sort((a, b) => a.name.localeCompare(b.name)).map(row));
         $('pfCount').textContent = profiles.length ? `· ${profiles.length}` : '';
         $('pfRunning').hidden = !running;
@@ -7377,27 +7694,22 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
         ['pfSave', 'pfRefresh'].forEach((id) => { $(id).disabled = busy; });
       }
 
+      // Everything is read again each time the tab is shown: themes and collections are made in other tabs.
       async function refresh() {
         if (busy) return;
+        names.clear();
+        themes = window.themeLibrary ? window.themeLibrary.list() : [];
+        await loadCollections();
         await findPaths();
         await readNow();
+        fillEditor(editing, true);
         render();
       }
 
       // ---------- start ----------
-      const partsBox = $('pfParts');
-      let ticked = null;
-      try { ticked = JSON.parse(localStorage.getItem(PARTSKEY) || 'null'); } catch (e) {}
-      PARTS.forEach(({ key, label }) => {
-        const l = el('label', 'mc-check');
-        const box = el('input'); box.type = 'checkbox'; box.id = `pfPart_${key}`;
-        box.checked = !Array.isArray(ticked) || ticked.includes(key);
-        box.addEventListener('change', () => { try { localStorage.setItem(PARTSKEY, JSON.stringify(chosenParts())); } catch (e) {} });
-        l.append(box, label);
-        partsBox.appendChild(l);
-      });
-      $('pfSave').addEventListener('click', saveNew);
-      $('pfName').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); saveNew(); } });
+      $('pfSave').addEventListener('click', saveProfile);
+      $('pfCancel').addEventListener('click', () => fillEditor(null));
+      $('pfName').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); saveProfile(); } });
       $('pfRefresh').addEventListener('click', refresh);
       $('pfUndo').addEventListener('click', () => { if (undo) switchTo(undo, true); });
 
@@ -7411,6 +7723,7 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
           return;
         }
         await load();
+        if (window.themeLibrary) { try { await window.themeLibrary.ready; } catch (e) {} }
         await refresh();
       }
       document.addEventListener('app-tab', (e) => { if (e.detail === 'profiles') start(); });

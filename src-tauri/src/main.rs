@@ -410,6 +410,8 @@ fn main() {
             packs::pick_pack_folder,
             packs::load_pack_folders,
             packs::save_pack_folders,
+            packs::load_pack_collections,
+            packs::save_pack_collections,
             radials::list_radial_files,
             radials::set_radial_enabled,
             radials::trash_disabled_radial,

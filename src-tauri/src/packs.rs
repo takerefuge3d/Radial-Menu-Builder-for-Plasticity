@@ -159,6 +159,27 @@ pub fn save_pack_folders(app: tauri::AppHandle, folders: Vec<String>) -> Result<
     fs::write(folders_path(&app)?, text).map_err(|e| e.to_string())
 }
 
+// Collections: named sets of packs to have on, like matcap collections. Kept as plain text
+// ({ collections: [{ name, packs: [paths] }] }) in the app data folder.
+fn collections_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    Ok(folders_path(app)?.with_file_name("asset_pack_collections.json"))
+}
+
+#[tauri::command]
+pub fn load_pack_collections(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    match fs::read_to_string(collections_path(&app)?) {
+        Ok(s) => Ok(Some(s)),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+#[tauri::command]
+pub fn save_pack_collections(app: tauri::AppHandle, contents: String) -> Result<(), String> {
+    let path = collections_path(&app)?;
+    crate::write_atomic(&path, contents.as_bytes()).map_err(|e| format!("write {} failed: {e}", path.display()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
