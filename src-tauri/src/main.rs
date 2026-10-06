@@ -13,6 +13,7 @@ mod matcaps;
 mod packs;
 mod radials;
 mod shortcuts;
+mod tray;
 
 // ---------- Error helpers ----------
 fn io_err<T: ToString>(msg: T) -> String {
@@ -419,10 +420,30 @@ fn main() {
             shortcuts::load_default_shortcuts,
             shortcuts::read_text_if_exists,
             shortcuts::list_plasticity_radials,
-            shortcuts::pick_radial_file
+            shortcuts::pick_radial_file,
+            tray::set_tray,
+            tray::show_main_window,
+            tray::close_plasticity,
+            tray::launch_plasticity
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        // With profiles in the tray, closing the window keeps the app running there.
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                if tray::TRAY_ON.load(std::sync::atomic::Ordering::SeqCst) {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
+            }
+        })
+        .build(tauri::generate_context!())
+        .expect("error while running tauri application")
+        .run(|_app, _event| {
+            // Clicking the Dock icon brings a hidden window back on macOS.
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { .. } = _event {
+                tray::show_window(_app);
+            }
+        });
 }
 #[cfg(test)]
 mod tests {

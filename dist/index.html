@@ -1180,6 +1180,11 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
       <div class="pf-now" id="pfNow">Reading your Plasticity folders…</div>
       <button class="btn" id="pfUndo" type="button">Undo Last Switch</button>
 
+      <div class="separator"></div>
+      <div class="section-title" id="pfTrayTitle">Tray</div>
+      <label class="mc-check"><input type="checkbox" id="pfTray" /> <span id="pfTrayLabel">Switch profiles from the tray</span></label>
+      <div class="tp-hint" id="pfTrayHint"></div>
+
       <div class="tp-hint">Build a profile out of the things you have made: one of My Themes (or a starter), and a matcap, environment and asset pack collection. Make the collections in their own tabs first. Leave as it is keeps that part out of the profile, so switching never touches it.</div>
       <div class="tp-hint">A profile follows its theme and collections by name, so changing a collection changes every profile that uses it. A copy is kept with the profile too, and used if the theme or collection is deleted. The ones on now saves a fixed list instead.</div>
       <div class="tp-hint">Use switches Plasticity to the profile. theme.json and asset-packs.json are replaced, with the old one kept as .bak. Matcaps, environments and radial menus that aren't in the profile are turned off (moved to their -disabled folders), and the profile's are turned on. Nothing is deleted, and Undo Last Switch puts back the setup from before.</div>
@@ -7167,7 +7172,8 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
       let themes = [];      // [{ name, group, text }] from the Themes tab
       let editing = null;   // the profile in the panel; null while making a new one
       let running = false;
-      let busy = false, started = false;
+      let busy = false, started = false, ready = false; // ready: Plasticity's folders have been read
+      let trayOn = false;   // profiles in the tray (menu bar on macOS), see tray.rs
 
       function el(tag, className, text) {
         const e = document.createElement(tag);
@@ -7428,8 +7434,9 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
         return problems;
       }
 
-      async function switchTo(p, isUndo) {
-        if (busy) return;
+      // Resolves to what happened: same, done, problems, cancelled or failed. Quiet (from the tray) doesn't ask first.
+      async function switchTo(p, isUndo, quiet) {
+        if (busy) return 'cancelled';
         busy = true;
         render();
         try {
@@ -7438,11 +7445,11 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
           const lines = describe(steps);
           if (!steps.some((s) => !s.same && !s.skip)) {
             note(isUndo ? 'Nothing to undo: your setup is already the same as before the last switch.' : `${p.name} is already what Plasticity has.`);
-            return;
+            return 'same';
           }
           if (running) lines.push('Plasticity is open. Close it first if you can: it saves its pack list itself and could undo part of the switch. Otherwise restart it afterwards.');
           else lines.push('Open Plasticity afterwards to see the change.');
-          if (!(await dialog(isUndo ? 'Undo the last switch?' : `Switch to ${p.name}?`, lines, isUndo ? 'Undo' : 'Switch'))) return;
+          if (!quiet && !(await dialog(isUndo ? 'Undo the last switch?' : `Switch to ${p.name}?`, lines, isUndo ? 'Undo' : 'Switch'))) return 'cancelled';
           // Kept before anything changes, so Undo Last Switch can put it back.
           const parts = {};
           steps.filter((s) => !s.skip && !s.same).forEach((s) => {
@@ -7451,7 +7458,7 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
           });
           const keep = undo;
           undo = { name: isUndo ? 'before undo' : `before ${p.name}`, saved: Date.now(), parts };
-          if (!(await store())) { undo = keep; return; }
+          if (!(await store())) { undo = keep; return 'failed'; }
           note(isUndo ? 'Undoing…' : `Switching to ${p.name}…`, 'success', true);
           const problems = await run(steps);
           await readNow();
@@ -7459,8 +7466,10 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
           if (problems.length) note(`Switched, but some things couldn't be changed: ${problems.slice(0, 4).join('; ')}${problems.length > 4 ? `; and ${problems.length - 4} more` : ''}.`, 'error', true);
           else note(isUndo ? 'Put back the setup from before the last switch. Restart Plasticity to see it.' : `Switched to ${p.name}. Restart Plasticity to see it.`);
           if (typeof window.refreshRadialCreateList === 'function') { try { window.refreshRadialCreateList(); } catch (e) {} }
+          return problems.length ? 'problems' : 'done';
         } catch (err) {
           note(`Could not switch: ${err.message || err}`, 'error', true);
+          return 'failed';
         } finally {
           busy = false;
           render();
@@ -7491,6 +7500,7 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
             .filter((p) => p && typeof p.name === 'string')
             .map((p) => ({ name: p.name, saved: p.saved || Date.now(), parts: upgrade(p.parts) }));
           undo = data.undo && data.undo.parts ? { ...data.undo, parts: upgrade(data.undo.parts) } : null;
+          trayOn = data.tray === true;
         } catch (err) {
           profiles = []; undo = null;
           note(`Could not read your profiles: ${err.message || err}`, 'error', true);
@@ -7498,7 +7508,7 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
       }
       async function store() {
         try {
-          await invokeCommand('save_profiles', { contents: JSON.stringify({ version: 2, profiles, undo }, null, 2) });
+          await invokeCommand('save_profiles', { contents: JSON.stringify({ version: 2, tray: trayOn, profiles, undo }, null, 2) });
           return true;
         } catch (err) {
           note(`Could not save your profiles: ${err.message || err}`, 'error', true);
@@ -7692,6 +7702,8 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
         $('pfUndo').disabled = busy || !undo;
         $('pfUndo').title = undo ? `Put back the setup from ${dateText(undo.saved)}, ${undo.name}` : 'Nothing to undo yet';
         ['pfSave', 'pfRefresh'].forEach((id) => { $(id).disabled = busy; });
+        $('pfTray').checked = trayOn;
+        syncTray();
       }
 
       // Everything is read again each time the tab is shown: themes and collections are made in other tabs.
@@ -7703,8 +7715,82 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
         await findPaths();
         await readNow();
         fillEditor(editing, true);
+        ready = true;
         render();
       }
+
+      // ---------- the tray (menu bar on macOS) ----------
+      // tray.rs shows the profiles in its menu, with a tick by the one in use. Sent only when it changes.
+      let traySent = '';
+      function syncTray(status) {
+        if (!tauriAvailable) return;
+        const sorted = profiles.slice().sort((a, b) => a.name.localeCompare(b.name));
+        const current = ready ? sorted.find(inUse) : null;
+        const args = { enabled: trayOn, profiles: sorted.map((p) => p.name), active: current ? current.name : null, status: status || null };
+        const sent = JSON.stringify(args);
+        if (sent === traySent) return;
+        traySent = sent;
+        invokeCommand('set_tray', args).catch((err) => note(`Could not update the ${isMacOS ? 'menu bar' : 'tray'} icon: ${err}`, 'error', true));
+      }
+
+      // The switch started from the tray, so the window comes back on this tab to say what went wrong.
+      function trayProblem(message) {
+        invokeCommand('show_main_window').catch(() => {});
+        const tab = document.querySelector('.app-tab[data-tab="profiles"]');
+        if (document.body.dataset.tab !== 'profiles' && tab) tab.click();
+        note(message, 'error', true);
+      }
+
+      // A profile picked in the tray menu: ask Plasticity to close (it can offer to save), switch,
+      // and start the newest Plasticity installed again. Nothing changes if it doesn't close.
+      window.trayProfile = async (name) => {
+        const p = profiles.find((x) => x.name === name);
+        if (!p || busy) { traySent = ''; syncTray(); return; } // puts the tick back where it was
+        let wasOpen = false;
+        try {
+          syncTray(`Switching to ${p.name}…`);
+          await refresh(); // themes and collections may have changed while the window was closed
+          busy = true;
+          const steps = await plan(p);
+          if (!steps.some((s) => !s.same && !s.skip)) return; // already in use: Plasticity is left alone
+          wasOpen = running;
+          if (wasOpen) {
+            syncTray('Waiting for Plasticity to close…');
+            if (!(await invokeCommand('close_plasticity', { waitSecs: 120 }))) {
+              trayProblem(`Plasticity didn't close, so nothing was switched. If it's asking whether to save your work, answer it, then pick ${p.name} again.`);
+              return;
+            }
+          }
+          busy = false;
+          const result = await switchTo(p, false, true);
+          if (result === 'failed' || result === 'problems') trayProblem($('pfNote').textContent || `Something went wrong switching to ${p.name}.`);
+          if (wasOpen && result !== 'failed') {
+            syncTray('Starting Plasticity…');
+            try { await invokeCommand('launch_plasticity'); }
+            catch (err) { trayProblem(`Switched to ${p.name}, but Plasticity couldn't be started again: ${err}`); }
+          }
+        } catch (err) {
+          trayProblem(`Could not switch to ${p.name}: ${err.message || err}`);
+        } finally {
+          busy = false;
+          traySent = '';
+          render();
+        }
+      };
+
+      const TRAY = isMacOS ? 'menu bar' : 'tray';
+      $('pfTrayTitle').textContent = isMacOS ? 'Menu Bar' : 'Tray';
+      $('pfTrayLabel').textContent = `Switch profiles from the ${TRAY}`;
+      $('pfTrayHint').textContent = isMacOS
+        ? "Right-click (or Control-click) the icon in the menu bar and pick a profile. Plasticity is asked to quit, so it can offer to save your work, then the profile is applied and the newest Plasticity you have installed opens again. If Plasticity hasn't quit after two minutes, nothing changes. Click the icon to open this window. While this is on, closing the window keeps the app in the menu bar; Quit is in its menu."
+        : "Right-click the tray icon (by the clock) and pick a profile. Plasticity is asked to close, so it can offer to save your work, then the profile is applied and the newest Plasticity you have installed opens again. If Plasticity hasn't closed after two minutes, nothing changes. Left-click the icon to open this window. While this is on, closing the window keeps the app in the tray; Quit is in its menu.";
+      $('pfTray').addEventListener('change', async () => {
+        const before = trayOn;
+        trayOn = $('pfTray').checked;
+        if (!(await store())) trayOn = before;
+        render();
+        if (trayOn !== before) note(trayOn ? `Profiles are in the ${TRAY} now. Right-click its icon to switch.` : `Profiles are out of the ${TRAY}, and closing the window quits the app again.`);
+      });
 
       // ---------- start ----------
       $('pfSave').addEventListener('click', saveProfile);
@@ -7717,15 +7803,22 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
         if (started) { refresh(); return; }
         started = true;
         if (!initTauriAPI()) {
-          ['pfSave', 'pfRefresh', 'pfUndo'].forEach((id) => { $(id).disabled = true; });
+          ['pfSave', 'pfRefresh', 'pfUndo', 'pfTray'].forEach((id) => { $(id).disabled = true; });
           $('pfNow').textContent = 'Not available';
           note('Profiles need the desktop app: they read and change files in your Plasticity folder.', 'warning', true);
           return;
         }
-        await load();
+        await loaded;
         if (window.themeLibrary) { try { await window.themeLibrary.ready; } catch (e) {} }
         await refresh();
       }
+      // Read at launch rather than when the tab opens, so the tray comes back by itself.
+      const loaded = initTauriAPI() ? load() : Promise.resolve();
+      loaded.then(async () => {
+        if (!trayOn || started) return;
+        if (window.themeLibrary) { try { await window.themeLibrary.ready; } catch (e) {} }
+        await refresh();
+      });
       document.addEventListener('app-tab', (e) => { if (e.detail === 'profiles') start(); });
       if (document.body.dataset.tab === 'profiles') start();
     })();

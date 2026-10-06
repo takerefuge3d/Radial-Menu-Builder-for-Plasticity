@@ -12,7 +12,7 @@ serde_json = "1.0"
 tokio = { version = "1", features = ["full"] }
 
 # Tauri 2 (stable 2.x line)
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["tray-icon"] }
 
 # Plugins you use
 tauri-plugin-dialog = "2"
