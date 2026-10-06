@@ -106,9 +106,10 @@ pub fn plasticity_running() -> bool {
             })
             .unwrap_or(false)
     }
+    // By where it runs from, so the beta (whatever its process is called) counts too
     #[cfg(not(windows))]
     {
-        Command::new("pgrep").args(["-ix", "plasticity( beta)?"]).output().map(|o| o.status.success()).unwrap_or(false)
+        crate::tray::running_app().is_some()
     }
 }
 

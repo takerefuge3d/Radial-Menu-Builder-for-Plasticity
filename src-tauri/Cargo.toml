@@ -17,6 +17,8 @@ tauri = { version = "2", features = ["tray-icon"] }
 # Plugins you use
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
+tauri-plugin-autostart = "=2.5.0"
+tauri-plugin-single-instance = "=2.3.2"
 
 # Matcaps tab: PNG/JPG/EXR reading and writing
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "hdr"] }

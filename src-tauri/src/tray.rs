@@ -1,8 +1,10 @@
 // ---------- Profiles in the tray (the menu bar on macOS) ----------
-// When the user turns it on in the Profiles tab, the app keeps an icon in the tray whose menu
-// lists their profiles, and closing the window hides it instead of quitting. Picking a profile
-// hands it to the page (window.trayProfile), which closes Plasticity politely, applies the
-// profile and starts Plasticity again, using close_plasticity and launch_plasticity below.
+// The app keeps an icon in the tray whose menu lists the user's profiles; closing the window
+// hides it there, and Quit in the menu closes the app. Picking a profile hands it to the page
+// (window.trayProfile), which asks Plasticity to close, applies the profile and starts the same
+// Plasticity again, using close_plasticity and launch_plasticity below. The app can also start
+// at login, straight into the tray (IN_TRAY_ARG).
+use serde::Serialize;
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -15,11 +17,14 @@ use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     AppHandle, Manager,
 };
+use tauri_plugin_autostart::ManagerExt;
 
 const TRAY_ID: &str = "profiles";
 const PROFILE: &str = "profile:";
+// Passed when the app starts at login, so it stays in the tray instead of opening its window.
+pub const IN_TRAY_ARG: &str = "--in-tray";
 
-// Whether the tray is on; while it is, closing the window only hides it (see main.rs).
+// Set once the tray icon exists; from then on closing the window only hides it (see main.rs).
 pub static TRAY_ON: AtomicBool = AtomicBool::new(false);
 
 pub fn show_window(app: &AppHandle) {
@@ -50,16 +55,10 @@ fn build_menu(app: &AppHandle, profiles: &[String], active: Option<&str>) -> tau
     Ok(menu)
 }
 
-// Turns the tray on (or updates its menu) or off. `status` replaces the tooltip while a switch runs.
-#[tauri::command]
-pub fn set_tray(app: AppHandle, enabled: bool, profiles: Vec<String>, active: Option<String>, status: Option<String>) -> Result<(), String> {
-    TRAY_ON.store(enabled, Ordering::SeqCst);
-    if !enabled {
-        let _ = app.remove_tray_by_id(TRAY_ID);
-        return Ok(());
-    }
-    let menu = build_menu(&app, &profiles, active.as_deref()).map_err(|e| e.to_string())?;
-    let tip = status.unwrap_or_else(|| match &active {
+// Makes the tray icon, or updates its menu. `status` replaces the tooltip while a switch runs.
+pub fn update_tray(app: &AppHandle, profiles: &[String], active: Option<&str>, status: Option<String>) -> Result<(), String> {
+    let menu = build_menu(app, profiles, active).map_err(|e| e.to_string())?;
+    let tip = status.unwrap_or_else(|| match active {
         Some(name) => format!("Radial Menu Builder++ · {name}"),
         None => "Radial Menu Builder++".into(),
     });
@@ -89,12 +88,156 @@ pub fn set_tray(app: AppHandle, enabled: bool, profiles: Vec<String>, active: Op
                 show_window(tray.app_handle());
             }
         })
-        .build(&app)
+        .build(app)
         .map_err(|e| e.to_string())?;
+    TRAY_ON.store(true, Ordering::SeqCst);
     Ok(())
 }
 
-// ---------- Plasticity's installs ----------
+#[tauri::command]
+pub fn set_tray(app: AppHandle, profiles: Vec<String>, active: Option<String>, status: Option<String>) -> Result<(), String> {
+    update_tray(&app, &profiles, active.as_deref(), status)
+}
+
+// ---------- Starting at login ----------
+#[tauri::command]
+pub fn start_at_login(app: AppHandle) -> Result<bool, String> {
+    app.autolaunch().is_enabled().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn set_start_at_login(app: AppHandle, enabled: bool) -> Result<(), String> {
+    let launcher = app.autolaunch();
+    if enabled { launcher.enable() } else { launcher.disable() }.map_err(|e| e.to_string())
+}
+
+// ---------- The Plasticity that's open ----------
+// What to start it again with: on Windows its exe, on macOS its .app. None when it isn't open.
+// Release and beta are told apart by where they live, so either one is found.
+#[cfg(windows)]
+pub(crate) fn running_app() -> Option<PathBuf> {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    // tasklist doesn't give paths; PowerShell does
+    let out = Command::new("powershell")
+        .args([
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            "Get-Process plasticity,plasticity-beta -ErrorAction SilentlyContinue | Where-Object Path | Select-Object -First 1 -ExpandProperty Path",
+        ])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()
+        .ok()?;
+    let path = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    (!path.is_empty()).then(|| PathBuf::from(path))
+}
+
+// Every process's command line; Plasticity's main process runs from
+// <Plasticity*.app>/Contents/MacOS/, its helpers from a second .app inside that one.
+#[cfg(not(windows))]
+pub(crate) fn running_app() -> Option<PathBuf> {
+    let out = Command::new("ps").args(["-axo", "args="]).output().ok()?;
+    String::from_utf8_lossy(&out.stdout).lines().find_map(|line| {
+        let line = line.trim_start();
+        let at = line.find(".app/Contents/MacOS/")?;
+        let bundle = &line[..at];
+        if bundle.contains(".app/") {
+            return None; // a helper inside the app
+        }
+        let name = bundle.rsplit('/').next().unwrap_or("").to_lowercase();
+        name.starts_with("plasticity").then(|| PathBuf::from(format!("{bundle}.app")))
+    })
+}
+
+#[derive(Serialize)]
+pub struct Closed {
+    closed: bool,
+    app: Option<String>, // the Plasticity that was open, to start again
+}
+
+// Asks Plasticity to close the way its own close button does, so it can ask about unsaved work,
+// then waits up to `wait_secs` for it to go. Never forces it.
+#[tauri::command]
+pub async fn close_plasticity(wait_secs: u64) -> Result<Closed, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let app = running_app();
+        let text = app.as_ref().map(|p| p.to_string_lossy().into_owned());
+        if app.is_none() && !crate::packs::plasticity_running() {
+            return Closed { closed: true, app: None };
+        }
+        ask_to_close(app.as_deref());
+        for _ in 0..wait_secs * 2 {
+            std::thread::sleep(Duration::from_millis(500));
+            if !crate::packs::plasticity_running() {
+                return Closed { closed: true, app: text };
+            }
+        }
+        Closed { closed: false, app: text }
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
+// taskkill without /F sends the windows a close message, like clicking their close button.
+#[cfg(windows)]
+fn ask_to_close(_app: Option<&Path>) {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    let _ = Command::new("taskkill")
+        .args(["/IM", "plasticity.exe", "/IM", "plasticity-beta.exe"])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output();
+}
+
+// Quit through AppleScript, which lets the app ask about unsaved work like Cmd+Q does. The app
+// is named by its bundle id, so the release and the beta can't be mixed up.
+#[cfg(not(windows))]
+fn ask_to_close(app: Option<&Path>) {
+    let Some(app) = app else { return };
+    let plist = fs::read_to_string(app.join("Contents/Info.plist")).unwrap_or_default();
+    let target = match plist_string(&plist, "CFBundleIdentifier") {
+        Some(id) => format!("application id \"{}\"", id.replace('"', "")),
+        None => format!("application \"{}\"", app.file_stem().map(|n| n.to_string_lossy().replace('"', "")).unwrap_or_default()),
+    };
+    let _ = Command::new("osascript").args(["-e", &format!("tell {target} to quit")]).output();
+}
+
+// ---------- Starting Plasticity ----------
+// Starts the Plasticity that was open (`app`, from close_plasticity), or else the newest one
+// installed. Returns what was started.
+#[tauri::command]
+pub async fn launch_plasticity(app: Option<String>) -> Result<String, String> {
+    let path = match app.map(PathBuf::from).filter(|p| p.exists()) {
+        Some(p) => launcher_for(p),
+        None => newest_install().map(|(_, p)| p).ok_or("couldn't find Plasticity installed")?,
+    };
+    start(&path).map_err(|e| format!("couldn't start {}: {e}", path.display()))?;
+    Ok(path.to_string_lossy().into_owned())
+}
+
+// On Windows, Plasticity runs from %LOCALAPPDATA%\plasticity(-beta)\app-<version>\, and the
+// launcher of the same name one folder up starts its newest version, so an update downloaded
+// meanwhile is picked up.
+#[cfg(windows)]
+fn launcher_for(exe: PathBuf) -> PathBuf {
+    let up = exe.parent().and_then(|d| d.parent()).zip(exe.file_name()).map(|(root, name)| root.join(name));
+    up.filter(|l| l.is_file()).unwrap_or(exe)
+}
+#[cfg(not(windows))]
+fn launcher_for(app: PathBuf) -> PathBuf {
+    app
+}
+
+#[cfg(windows)]
+fn start(path: &Path) -> std::io::Result<()> {
+    Command::new(path).current_dir(path.parent().unwrap_or(Path::new("."))).spawn().map(|_| ())
+}
+#[cfg(not(windows))]
+fn start(path: &Path) -> std::io::Result<()> {
+    Command::new("open").arg(path).spawn().map(|_| ())
+}
+
 // "26.2.0-beta30" -> ([26, 2, 0], 30); a release sorts after its betas.
 fn version_key(v: &str) -> (Vec<u64>, u64) {
     let (main, pre) = match v.split_once('-') {
@@ -109,16 +252,15 @@ fn version_key(v: &str) -> (Vec<u64>, u64) {
     (nums, pre)
 }
 
-// Each install as (version, what to start). On Windows Plasticity installs per user with
-// Squirrel: %LOCALAPPDATA%\plasticity (or plasticity-beta) holds app-<version> folders and a
-// small launcher exe that starts the newest of them.
+// Each install as (version, what to start), for when no Plasticity was open to start again.
+// On Windows Plasticity installs per user with Squirrel: %LOCALAPPDATA%\plasticity (or
+// plasticity-beta) holds app-<version> folders and a launcher that starts the newest of them.
 #[cfg(windows)]
 fn installs() -> Vec<(String, PathBuf)> {
     let Some(base) = std::env::var_os("LOCALAPPDATA").map(PathBuf::from) else { return vec![] };
     let mut out = vec![];
     for name in ["plasticity", "plasticity-beta"] {
-        let dir = base.join(name);
-        let Ok(entries) = fs::read_dir(&dir) else { continue };
+        let Ok(entries) = fs::read_dir(base.join(name)) else { continue };
         let mut launcher = None;
         let mut newest: Option<String> = None;
         for e in entries.flatten() {
@@ -155,7 +297,7 @@ fn installs() -> Vec<(String, PathBuf)> {
             let name = e.file_name().to_string_lossy().to_lowercase();
             if name.starts_with("plasticity") && name.ends_with(".app") {
                 let plist = fs::read_to_string(e.path().join("Contents/Info.plist")).unwrap_or_default();
-                out.push((plist_version(&plist).unwrap_or_default(), e.path()));
+                out.push((plist_string(&plist, "CFBundleShortVersionString").unwrap_or_default(), e.path()));
             }
         }
     }
@@ -163,8 +305,8 @@ fn installs() -> Vec<(String, PathBuf)> {
 }
 
 #[cfg(not(windows))]
-fn plist_version(plist: &str) -> Option<String> {
-    let after = &plist[plist.find("<key>CFBundleShortVersionString</key>")?..];
+fn plist_string(plist: &str, key: &str) -> Option<String> {
+    let after = &plist[plist.find(&format!("<key>{key}</key>"))?..];
     let start = after.find("<string>")? + "<string>".len();
     let end = after[start..].find("</string>")?;
     Some(after[start..start + end].trim().to_string())
@@ -172,65 +314,6 @@ fn plist_version(plist: &str) -> Option<String> {
 
 fn newest_install() -> Option<(String, PathBuf)> {
     installs().into_iter().max_by(|a, b| version_key(&a.0).cmp(&version_key(&b.0)))
-}
-
-// Starts the newest Plasticity installed. Returns its version.
-#[tauri::command]
-pub async fn launch_plasticity() -> Result<String, String> {
-    let (version, path) = newest_install().ok_or("couldn't find Plasticity installed")?;
-    start(&path).map_err(|e| format!("couldn't start Plasticity {version}: {e}"))?;
-    Ok(version)
-}
-
-#[cfg(windows)]
-fn start(path: &Path) -> std::io::Result<()> {
-    Command::new(path).current_dir(path.parent().unwrap_or(Path::new("."))).spawn().map(|_| ())
-}
-#[cfg(not(windows))]
-fn start(path: &Path) -> std::io::Result<()> {
-    Command::new("open").arg(path).spawn().map(|_| ())
-}
-
-// Asks Plasticity to close the way its own close button does, so it can ask about unsaved work,
-// then waits up to `wait_secs` for it to go. Never forces it. True once it has closed.
-#[tauri::command]
-pub async fn close_plasticity(wait_secs: u64) -> Result<bool, String> {
-    if !crate::packs::plasticity_running() {
-        return Ok(true);
-    }
-    ask_to_close();
-    tauri::async_runtime::spawn_blocking(move || {
-        for _ in 0..wait_secs * 2 {
-            std::thread::sleep(Duration::from_millis(500));
-            if !crate::packs::plasticity_running() {
-                return true;
-            }
-        }
-        false
-    })
-    .await
-    .map_err(|e| e.to_string())
-}
-
-// taskkill without /F sends the windows a close message, like clicking their close button.
-#[cfg(windows)]
-fn ask_to_close() {
-    use std::os::windows::process::CommandExt;
-    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-    let _ = Command::new("taskkill")
-        .args(["/IM", "plasticity.exe", "/IM", "plasticity-beta.exe"])
-        .creation_flags(CREATE_NO_WINDOW)
-        .output();
-}
-
-// Quit through AppleScript, which lets the app ask about unsaved work like Cmd+Q does.
-#[cfg(not(windows))]
-fn ask_to_close() {
-    for (_, path) in installs() {
-        let Some(name) = path.file_stem().map(|n| n.to_string_lossy().replace('"', "")) else { continue };
-        let script = format!("if application \"{name}\" is running then tell application \"{name}\" to quit");
-        let _ = Command::new("osascript").args(["-e", &script]).output();
-    }
 }
 
 #[cfg(test)]
@@ -243,5 +326,19 @@ mod tests {
         assert!(version_key("26.2.0") > version_key("26.2.0-beta30"));
         assert!(version_key("26.2.0-beta.31") > version_key("26.2.0-beta30"));
         assert!(version_key("26.10.0") > version_key("26.9.9"));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn launcher_is_one_folder_up() {
+        let root = std::env::temp_dir().join(format!("launcher-test-{}", std::process::id()));
+        let app = root.join("app-26.2.0-beta30");
+        fs::create_dir_all(&app).unwrap();
+        fs::write(app.join("plasticity-beta.exe"), "").unwrap();
+        // no launcher yet: the exe itself
+        assert_eq!(launcher_for(app.join("plasticity-beta.exe")), app.join("plasticity-beta.exe"));
+        fs::write(root.join("plasticity-beta.exe"), "").unwrap();
+        assert_eq!(launcher_for(app.join("plasticity-beta.exe")), root.join("plasticity-beta.exe"));
+        let _ = fs::remove_dir_all(&root);
     }
 }

@@ -348,8 +348,25 @@ fn write_plasticity_file(path: String, contents: String) -> Result<(), String> {
 
 fn main() {
     tauri::Builder::default()
+        // Opening the app again while it's in the tray brings its window back instead of a second copy.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| tray::show_window(app)))
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            Some(vec![tray::IN_TRAY_ARG]),
+        ))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
+        // The window starts hidden (tauri.conf.json) and is shown here, unless the app was
+        // started at login, when it stays in the tray.
+        .setup(|app| {
+            if let Err(e) = tray::update_tray(app.handle(), &[], None, None) {
+                eprintln!("tray icon failed: {e}");
+            }
+            if !std::env::args().any(|a| a == tray::IN_TRAY_ARG) || !tray::TRAY_ON.load(std::sync::atomic::Ordering::SeqCst) {
+                tray::show_window(app.handle());
+            }
+            Ok(())
+        })
         .manage(matcaps::StagingState::default())
         .manage(fonts::FontStagingState::default())
         .invoke_handler(tauri::generate_handler![
@@ -424,9 +441,11 @@ fn main() {
             tray::set_tray,
             tray::show_main_window,
             tray::close_plasticity,
-            tray::launch_plasticity
+            tray::launch_plasticity,
+            tray::start_at_login,
+            tray::set_start_at_login
         ])
-        // With profiles in the tray, closing the window keeps the app running there.
+        // Closing the window keeps the app running in the tray (Quit is in its menu).
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 if tray::TRAY_ON.load(std::sync::atomic::Ordering::SeqCst) {
