@@ -2,9 +2,11 @@
 // The app keeps an icon in the tray whose menu lists the user's profiles; closing the window
 // hides it there, and Quit in the menu closes the app. Picking a profile hands it to the page
 // (window.trayProfile), which asks Plasticity to close, applies the profile and starts the same
-// Plasticity again, using close_plasticity and launch_plasticity below. The app can also start
-// at login, straight into the tray (IN_TRAY_ARG).
-use serde::Serialize;
+// Plasticity again, using close_plasticity and launch_plasticity below. A Navigation submenu
+// lists the user's saved navigation setups; picking one goes to window.trayNavigation, which
+// only rewrites part of keymap.json, so Plasticity isn't restarted for it. The app can also
+// start at login, straight into the tray (IN_TRAY_ARG).
+use serde::{Deserialize, Serialize};
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -13,7 +15,7 @@ use std::{
     time::Duration,
 };
 use tauri::{
-    menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem},
+    menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     AppHandle, Manager,
 };
@@ -21,6 +23,7 @@ use tauri_plugin_autostart::ManagerExt;
 
 const TRAY_ID: &str = "profiles";
 const PROFILE: &str = "profile:";
+const NAVIGATION: &str = "nav:";
 // Passed when the app starts at login, so it stays in the tray instead of opening its window.
 pub const IN_TRAY_ARG: &str = "--in-tray";
 
@@ -40,25 +43,55 @@ pub fn show_main_window(app: AppHandle) {
     show_window(&app);
 }
 
-fn build_menu(app: &AppHandle, profiles: &[String], active: Option<&str>) -> tauri::Result<Menu<tauri::Wry>> {
+// What the menu lists, from the Profiles tab: the profiles and saved navigation setups by
+// name, with the one in use ticked. `status` replaces the tooltip while a switch runs.
+#[derive(Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct TrayMenu {
+    profiles: Vec<String>,
+    active: Option<String>,
+    navigation: Vec<String>,
+    nav_active: Option<String>,
+    status: Option<String>,
+}
+
+fn build_menu(app: &AppHandle, m: &TrayMenu) -> tauri::Result<Menu<tauri::Wry>> {
     let menu = Menu::new(app)?;
-    if profiles.is_empty() {
+    if m.profiles.is_empty() {
         menu.append(&MenuItem::with_id(app, "none", "No profiles yet", false, None::<&str>)?)?;
     }
-    for name in profiles {
-        let item = CheckMenuItem::with_id(app, format!("{PROFILE}{name}"), name, true, active == Some(name.as_str()), None::<&str>)?;
+    for name in &m.profiles {
+        let item = CheckMenuItem::with_id(app, format!("{PROFILE}{name}"), name, true, m.active.as_ref() == Some(name), None::<&str>)?;
         menu.append(&item)?;
     }
+    menu.append(&PredefinedMenuItem::separator(app)?)?;
+    let nav = Submenu::new(app, "Navigation", true)?;
+    if m.navigation.is_empty() {
+        nav.append(&MenuItem::with_id(app, "nav-none", "Save one in the Profiles tab", false, None::<&str>)?)?;
+    }
+    for name in &m.navigation {
+        let item = CheckMenuItem::with_id(app, format!("{NAVIGATION}{name}"), name, true, m.nav_active.as_ref() == Some(name), None::<&str>)?;
+        nav.append(&item)?;
+    }
+    menu.append(&nav)?;
     menu.append(&PredefinedMenuItem::separator(app)?)?;
     menu.append(&MenuItem::with_id(app, "open", "Open Radial Menu Builder++", true, None::<&str>)?)?;
     menu.append(&MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?)?;
     Ok(menu)
 }
 
-// Makes the tray icon, or updates its menu. `status` replaces the tooltip while a switch runs.
-pub fn update_tray(app: &AppHandle, profiles: &[String], active: Option<&str>, status: Option<String>) -> Result<(), String> {
-    let menu = build_menu(app, profiles, active).map_err(|e| e.to_string())?;
-    let tip = status.unwrap_or_else(|| match active {
+// Hands a menu pick to the page, e.g. window.trayProfile("Hard surface").
+fn tell_page(app: &AppHandle, function: &str, name: &str) {
+    if let Some(w) = app.get_webview_window("main") {
+        let name = serde_json::to_string(name).unwrap_or_default();
+        let _ = w.eval(&format!("window.{function} && window.{function}({name})"));
+    }
+}
+
+// Makes the tray icon, or updates its menu.
+pub fn update_tray(app: &AppHandle, m: &TrayMenu) -> Result<(), String> {
+    let menu = build_menu(app, m).map_err(|e| e.to_string())?;
+    let tip = m.status.clone().unwrap_or_else(|| match &m.active {
         Some(name) => format!("Radial Menu Builder++ · {name}"),
         None => "Radial Menu Builder++".into(),
     });
@@ -77,9 +110,10 @@ pub fn update_tray(app: &AppHandle, profiles: &[String], active: Option<&str>, s
             "open" => show_window(app),
             "quit" => app.exit(0),
             id => {
-                if let (Some(name), Some(w)) = (id.strip_prefix(PROFILE), app.get_webview_window("main")) {
-                    let name = serde_json::to_string(name).unwrap_or_default();
-                    let _ = w.eval(&format!("window.trayProfile && window.trayProfile({name})"));
+                if let Some(name) = id.strip_prefix(PROFILE) {
+                    tell_page(app, "trayProfile", name);
+                } else if let Some(name) = id.strip_prefix(NAVIGATION) {
+                    tell_page(app, "trayNavigation", name);
                 }
             }
         })
@@ -95,8 +129,8 @@ pub fn update_tray(app: &AppHandle, profiles: &[String], active: Option<&str>, s
 }
 
 #[tauri::command]
-pub fn set_tray(app: AppHandle, profiles: Vec<String>, active: Option<String>, status: Option<String>) -> Result<(), String> {
-    update_tray(&app, &profiles, active.as_deref(), status)
+pub fn set_tray(app: AppHandle, menu: TrayMenu) -> Result<(), String> {
+    update_tray(&app, &menu)
 }
 
 // ---------- Starting at login ----------
@@ -133,27 +167,39 @@ pub(crate) fn running_app() -> Option<PathBuf> {
     (!path.is_empty()).then(|| PathBuf::from(path))
 }
 
-// Every process's command line; Plasticity's main process runs from
-// <Plasticity*.app>/Contents/MacOS/, its helpers from a second .app inside that one.
+// Plasticity's main processes as (pid, .app), from every process's command line. The main
+// process runs from <Plasticity*.app>/Contents/MacOS/, its helpers from a second .app inside.
+#[cfg(not(windows))]
+fn main_processes() -> Vec<(u32, PathBuf)> {
+    let Ok(out) = Command::new("ps").args(["-axo", "pid=,args="]).output() else { return vec![] };
+    String::from_utf8_lossy(&out.stdout).lines().filter_map(parse_ps_line).collect()
+}
+
+#[cfg(not(windows))]
+fn parse_ps_line(line: &str) -> Option<(u32, PathBuf)> {
+    let (pid, args) = line.trim_start().split_once(' ')?;
+    let pid = pid.parse().ok()?;
+    let args = args.trim_start();
+    let at = args.find(".app/Contents/MacOS/")?;
+    let bundle = &args[..at];
+    if bundle.contains(".app/") {
+        return None; // a helper inside the app
+    }
+    let name = bundle.rsplit('/').next().unwrap_or("").to_lowercase();
+    name.starts_with("plasticity").then(|| (pid, PathBuf::from(format!("{bundle}.app"))))
+}
+
 #[cfg(not(windows))]
 pub(crate) fn running_app() -> Option<PathBuf> {
-    let out = Command::new("ps").args(["-axo", "args="]).output().ok()?;
-    String::from_utf8_lossy(&out.stdout).lines().find_map(|line| {
-        let line = line.trim_start();
-        let at = line.find(".app/Contents/MacOS/")?;
-        let bundle = &line[..at];
-        if bundle.contains(".app/") {
-            return None; // a helper inside the app
-        }
-        let name = bundle.rsplit('/').next().unwrap_or("").to_lowercase();
-        name.starts_with("plasticity").then(|| PathBuf::from(format!("{bundle}.app")))
-    })
+    main_processes().into_iter().next().map(|(_, app)| app)
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Closed {
     closed: bool,
     app: Option<String>, // the Plasticity that was open, to start again
+    full_screen: bool,   // it was in full screen (macOS), so launch_plasticity puts that back
 }
 
 // Asks Plasticity to close the way its own close button does, so it can ask about unsaved work,
@@ -164,16 +210,19 @@ pub async fn close_plasticity(wait_secs: u64) -> Result<Closed, String> {
         let app = running_app();
         let text = app.as_ref().map(|p| p.to_string_lossy().into_owned());
         if app.is_none() && !crate::packs::plasticity_running() {
-            return Closed { closed: true, app: None };
+            return Closed { closed: true, app: None, full_screen: false };
         }
+        let full_now = app.as_deref().and_then(full_screen::is_full_screen);
         ask_to_close(app.as_deref());
         for _ in 0..wait_secs * 2 {
             std::thread::sleep(Duration::from_millis(500));
             if !crate::packs::plasticity_running() {
-                return Closed { closed: true, app: text };
+                // Without Accessibility it can't be asked, so what Plasticity saved as it closed is used.
+                let full_screen = full_now.unwrap_or_else(|| app.as_deref().map(full_screen::saved_full_screen).unwrap_or(false));
+                return Closed { closed: true, app: text, full_screen };
             }
         }
-        Closed { closed: false, app: text }
+        Closed { closed: false, app: text, full_screen: false }
     })
     .await
     .map_err(|e| e.to_string())
@@ -203,17 +252,194 @@ fn ask_to_close(app: Option<&Path>) {
     let _ = Command::new("osascript").args(["-e", &format!("tell {target} to quit")]).output();
 }
 
+// ---------- Full screen on macOS ----------
+// Plasticity comes back as an ordinary window after it's quit and started again, even when it
+// was in full screen. So the switch notes whether it was: through System Events, which macOS
+// allows once the app is ticked under Privacy & Security > Accessibility, or else from what
+// Plasticity saved in its window-state.json as it quit. Before starting it again that file is
+// marked full screen, and if it still opens in a window, its main window is put back in full
+// screen through System Events.
+#[cfg(not(windows))]
+mod full_screen {
+    use super::*;
+    use std::{process::Stdio, time::Instant};
+
+    // osascript, given up after `wait`: it can sit behind a macOS permission dialog.
+    fn osascript(script: &str, wait: Duration) -> Result<String, String> {
+        let mut child = Command::new("osascript")
+            .args(["-e", script])
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| e.to_string())?;
+        let started = Instant::now();
+        while child.try_wait().map_err(|e| e.to_string())?.is_none() {
+            if started.elapsed() > wait {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err("timed out".into());
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        let out = child.wait_with_output().map_err(|e| e.to_string())?;
+        let text = |b: &[u8]| String::from_utf8_lossy(b).trim().to_string();
+        if out.status.success() { Ok(text(&out.stdout)) } else { Err(text(&out.stderr)) }
+    }
+
+    // The app isn't allowed Accessibility, or to control System Events.
+    fn no_permission(err: &str) -> bool {
+        ["-1719", "-25211", "-1743", "assistive access"].iter().any(|s| err.contains(s))
+    }
+
+    fn pid_of(app: &Path) -> Option<u32> {
+        main_processes().into_iter().find(|(_, a)| a == app).map(|(pid, _)| pid)
+    }
+
+    // AppleScript that finds the process's biggest window as `best` (so a splash screen or a
+    // dialog isn't picked), says "none" if it has no proper window yet, then runs `then`.
+    fn with_main_window(pid: u32, then: &str) -> String {
+        format!(
+            r#"tell application "System Events"
+	tell (first process whose unix id is {pid})
+		set best to missing value
+		set bestArea to 0
+		repeat with w in windows
+			set {{ww, hh}} to size of w
+			if ww * hh > bestArea then
+				set bestArea to ww * hh
+				set best to contents of w
+			end if
+		end repeat
+		if best is missing value or bestArea < 400000 then return "none"
+		{then}
+	end tell
+end tell"#
+        )
+    }
+    const CHECK: &str = r#"if value of attribute "AXFullScreen" of best is true then return "yes"
+		return "no""#;
+    const SET: &str = r#"set value of attribute "AXFullScreen" of best to true
+		return "set""#;
+
+    // Some(true or false) when System Events can tell; None when it isn't allowed to.
+    pub fn is_full_screen(app: &Path) -> Option<bool> {
+        let pid = pid_of(app)?;
+        osascript(&with_main_window(pid, CHECK), Duration::from_secs(60)).ok().map(|s| s == "yes")
+    }
+
+    // Electron's window-state.json, in ~/Library/Application Support/Plasticity, or
+    // plasticity-beta for the beta (the same names as on Windows).
+    fn window_state(app: &Path) -> Option<PathBuf> {
+        let home = std::env::var_os("HOME")?;
+        let name = app.file_stem()?.to_string_lossy().to_lowercase();
+        let folder = if name.contains("beta") { "plasticity-beta" } else { "Plasticity" };
+        Some(PathBuf::from(home).join("Library/Application Support").join(folder).join("window-state.json"))
+    }
+
+    fn read_state(path: &Path) -> Option<serde_json::Value> {
+        serde_json::from_str(&fs::read_to_string(path).ok()?).ok()
+    }
+
+    pub fn saved_full_screen(app: &Path) -> bool {
+        window_state(app).and_then(|p| read_state(&p)).and_then(|v| v.get("isFullScreen")?.as_bool()).unwrap_or(false)
+    }
+
+    // Marks window-state.json full screen, for Plasticity to open that way by itself if it can.
+    pub fn save_full_screen(app: &Path) {
+        let Some(path) = window_state(app) else { return };
+        let Some(mut v) = read_state(&path) else { return };
+        if let Some(o) = v.as_object_mut() {
+            o.insert("isFullScreen".into(), true.into());
+            if let Ok(text) = serde_json::to_string_pretty(&v) {
+                let _ = crate::write_atomic(&path, text.as_bytes());
+            }
+        }
+    }
+
+    // Waits up to 90 seconds for Plasticity's main window, gives it two seconds to go full
+    // screen by itself, then puts it there. Says how it went (see Launched).
+    pub fn restore(app: &Path) -> Option<String> {
+        let started = Instant::now();
+        let timed_out = || started.elapsed() > Duration::from_secs(90);
+        let wait = Duration::from_secs(30);
+        let pid = loop {
+            if let Some(pid) = pid_of(app) {
+                break pid;
+            }
+            if timed_out() {
+                return Some("failed".into());
+            }
+            std::thread::sleep(Duration::from_millis(500));
+        };
+        let mut seen = false;
+        loop {
+            match osascript(&with_main_window(pid, CHECK), wait).as_deref() {
+                Ok("yes") => return Some(if seen { "restored" } else { "kept" }.into()),
+                Ok("no") if seen => break,
+                Ok("no") => seen = true,
+                Err(e) if no_permission(e) => return Some("no-permission".into()),
+                _ => {} // no window yet, or System Events can't see the process yet
+            }
+            if timed_out() {
+                return Some("failed".into());
+            }
+            std::thread::sleep(Duration::from_secs(if seen { 2 } else { 1 }));
+        }
+        match osascript(&with_main_window(pid, SET), wait) {
+            Err(e) if no_permission(&e) => return Some("no-permission".into()),
+            Err(_) => return Some("failed".into()),
+            Ok(_) => {}
+        }
+        std::thread::sleep(Duration::from_millis(1500));
+        let done = osascript(&with_main_window(pid, CHECK), wait).as_deref() == Ok("yes");
+        Some(if done { "restored" } else { "failed" }.into())
+    }
+}
+
+// Plasticity on Windows opens maximised again by itself.
+#[cfg(windows)]
+mod full_screen {
+    use std::path::Path;
+    pub fn is_full_screen(_app: &Path) -> Option<bool> {
+        None
+    }
+    pub fn saved_full_screen(_app: &Path) -> bool {
+        false
+    }
+    pub fn save_full_screen(_app: &Path) {}
+    pub fn restore(_app: &Path) -> Option<String> {
+        None
+    }
+}
+
 // ---------- Starting Plasticity ----------
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Launched {
+    path: String,
+    // Only when it was in full screen: "kept", "restored", "no-permission" or "failed".
+    full_screen: Option<String>,
+}
+
 // Starts the Plasticity that was open (`app`, from close_plasticity), or else the newest one
-// installed. Returns what was started.
+// installed, and on macOS puts it back in full screen if it was.
 #[tauri::command]
-pub async fn launch_plasticity(app: Option<String>) -> Result<String, String> {
-    let path = match app.map(PathBuf::from).filter(|p| p.exists()) {
-        Some(p) => launcher_for(p),
-        None => newest_install().map(|(_, p)| p).ok_or("couldn't find Plasticity installed")?,
-    };
-    start(&path).map_err(|e| format!("couldn't start {}: {e}", path.display()))?;
-    Ok(path.to_string_lossy().into_owned())
+pub async fn launch_plasticity(app: Option<String>, full_screen: Option<bool>) -> Result<Launched, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let path = match app.map(PathBuf::from).filter(|p| p.exists()) {
+            Some(p) => launcher_for(p),
+            None => newest_install().map(|(_, p)| p).ok_or("couldn't find Plasticity installed")?,
+        };
+        let full = full_screen.unwrap_or(false);
+        if full {
+            full_screen::save_full_screen(&path);
+        }
+        start(&path).map_err(|e| format!("couldn't start {}: {e}", path.display()))?;
+        let full_screen = full.then(|| full_screen::restore(&path)).flatten();
+        Ok(Launched { path: path.to_string_lossy().into_owned(), full_screen })
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 // On Windows, Plasticity runs from %LOCALAPPDATA%\plasticity(-beta)\app-<version>\, and the
@@ -326,6 +552,16 @@ mod tests {
         assert!(version_key("26.2.0") > version_key("26.2.0-beta30"));
         assert!(version_key("26.2.0-beta.31") > version_key("26.2.0-beta30"));
         assert!(version_key("26.10.0") > version_key("26.9.9"));
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn mac_processes() {
+        let main = parse_ps_line("  812 /Applications/Plasticity Beta.app/Contents/MacOS/Plasticity Beta");
+        assert_eq!(main, Some((812, PathBuf::from("/Applications/Plasticity Beta.app"))));
+        let helper = "  813 /Applications/Plasticity.app/Contents/Frameworks/Plasticity Helper (GPU).app/Contents/MacOS/Plasticity Helper (GPU) --type=gpu-process";
+        assert_eq!(parse_ps_line(helper), None);
+        assert_eq!(parse_ps_line("  90 /Applications/Safari.app/Contents/MacOS/Safari"), None);
     }
 
     #[cfg(windows)]

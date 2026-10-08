@@ -346,6 +346,24 @@ fn write_plasticity_file(path: String, contents: String) -> Result<(), String> {
     backup_and_write(Path::new(&path), &contents)
 }
 
+// For a change Plasticity picks up while it's open (switching navigation changes keymap.json,
+// which Plasticity watches). The file is written over where it is instead of replaced, because
+// on macOS a watch can stay on the old file after a replace. NAME.original is still kept the
+// first time, but not NAME.bak, so switching back and forth doesn't push out the backup that
+// the Keyboard Shortcuts tab restores.
+fn write_in_place(path: &Path, contents: &str) -> Result<(), String> {
+    let original = PathBuf::from(format!("{}.original", path.display()));
+    if path.is_file() && !original.exists() {
+        fs::copy(path, &original).map_err(|e| format!("backup to {} failed: {e}", fmt_path(&original)))?;
+    }
+    fs::write(path, contents).map_err(|e| format!("write {} failed: {e}", fmt_path(path)))
+}
+
+#[tauri::command]
+fn write_plasticity_file_in_place(path: String, contents: String) -> Result<(), String> {
+    write_in_place(Path::new(&path), &contents)
+}
+
 fn main() {
     tauri::Builder::default()
         // Opening the app again while it's in the tray brings its window back instead of a second copy.
@@ -359,7 +377,7 @@ fn main() {
         // The window starts hidden (tauri.conf.json) and is shown here, unless the app was
         // started at login, when it stays in the tray.
         .setup(|app| {
-            if let Err(e) = tray::update_tray(app.handle(), &[], None, None) {
+            if let Err(e) = tray::update_tray(app.handle(), &tray::TrayMenu::default()) {
                 eprintln!("tray icon failed: {e}");
             }
             if !std::env::args().any(|a| a == tray::IN_TRAY_ARG) || !tray::TRAY_ON.load(std::sync::atomic::Ordering::SeqCst) {
@@ -393,6 +411,7 @@ fn main() {
             read_text_file,
             write_text_file,
             write_plasticity_file,
+            write_plasticity_file_in_place,
             matcaps::stage_matcap_bytes,
             matcaps::stage_matcap_path,
             matcaps::unstage_matcaps,
@@ -487,6 +506,24 @@ mod tests {
         let mut names: Vec<String> = fs::read_dir(&dir).unwrap().flatten().map(|e| e.file_name().to_string_lossy().into_owned()).collect();
         names.sort();
         assert_eq!(names, ["keymap.json", "keymap.json.bak", "keymap.json.original"]);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn in_place() {
+        let dir = std::env::temp_dir().join(format!("in-place-test-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("keymap.json");
+        let read = |name: &str| fs::read_to_string(dir.join(name)).unwrap();
+        write_in_place(&path, "one").unwrap();
+        assert!(!dir.join("keymap.json.original").exists());
+        fs::write(dir.join("keymap.json.bak"), "backup").unwrap();
+        write_in_place(&path, "two, longer").unwrap();
+        write_in_place(&path, "three").unwrap();
+        assert_eq!(read("keymap.json"), "three");
+        assert_eq!(read("keymap.json.original"), "one");
+        assert_eq!(read("keymap.json.bak"), "backup"); // left alone
         let _ = fs::remove_dir_all(&dir);
     }
 }

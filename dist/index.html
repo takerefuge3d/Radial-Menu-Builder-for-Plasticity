@@ -250,6 +250,10 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
 .pf-row { grid-template-columns: minmax(0, 1fr) auto; }
 .pf-row.pf-editing { box-shadow: inset 3px 0 0 var(--accent); }
 .pf-now { font-size: 12px; line-height: 1.6; margin-bottom: 8px; }
+.pf-nav-head { margin-top: 18px; }
+#pfList { flex: 1 1 auto; min-height: 120px; }
+#pfNavList { flex: none; max-height: 38%; }
+#pfNavHint { flex: none; }
 .pf-now b { font-weight: 600; }
 .ev-sphere { width: 48px; height: 48px; flex: none; cursor: grab; touch-action: none; }
 .ev-views.spinning .ev-sphere { cursor: grabbing; }
@@ -1142,6 +1146,15 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
         </span>
       </div>
       <div class="mc-list" id="pfList"></div>
+
+      <div class="mc-head pf-nav-head">
+        <div class="section-title">Navigation <span id="pfNavCount"></span></div>
+        <span class="mc-bar">
+          <button class="btn mc-small" id="pfNavSave" type="button">Save Plasticity's Navigation…</button>
+        </span>
+      </div>
+      <div class="mc-list" id="pfNavList"></div>
+      <div class="tp-hint" id="pfNavHint">Pick a navigation preset in Plasticity's Preferences, such as Touchpad &amp; Magic Mouse or Blender, then click Save Plasticity's Navigation… here. Do the same for each one you use. Switching between them changes only the mouse and touchpad part of keymap.json, and Plasticity picks it up straight away, without a restart.</div>
     </div>
 
     <div class="properties-panel">
@@ -6066,6 +6079,13 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
       $('ksShow').addEventListener('change', render);
       $('ksSave').addEventListener('click', save);
       $('ksDiscard').addEventListener('click', discard);
+      // The Profiles tab switched the navigation: show the new keymap.json here, unless there are
+      // changes not saved yet (Save then warns that the file has changed).
+      document.addEventListener('plasticity-keymap-changed', async () => {
+        if (!started || busy || !folder || editing || isDirty()) return;
+        await loadKeymap();
+        render();
+      });
       $('ksReload').addEventListener('click', reload);
       $('ksChange').addEventListener('click', changeFolder);
       $('ksDefault').addEventListener('click', useDefaultFolder);
@@ -7164,6 +7184,7 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
       // parts.theme = { text, name?, group? }: a theme from the Themes tab's lists is followed by name.
       // The others = { members, collection? }: a collection is followed by name. A missing part is left as it is.
       let profiles = [];    // [{ name, saved, parts }]
+      let navigation = [];  // [{ name, saved, blocks }], see the navigation section below
       let undo = null;      // the setup from before the last switch, the same shape
       let now = {};         // what's in Plasticity now: theme text, member lists, and all.* (on and off)
       let readErrors = {};  // part -> why it couldn't be read
@@ -7190,25 +7211,42 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
         clearTimeout(note._t);
         if (!sticky) note._t = setTimeout(() => { box.textContent = ''; box.className = 'notification'; }, 6000);
       }
-      function dialog(title, lines, okLabel) {
+      // With inputValue, it asks for a name too, and resolves to the text typed (false for Cancel).
+      function dialog(title, lines, okLabel, inputValue) {
         return new Promise((resolve) => {
           const wrap = el('div', 'tp-modal');
           const box = el('div', 'tp-modal-box');
           box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true');
           box.appendChild(el('h3', null, title));
           lines.forEach((t) => box.appendChild(el('p', null, t)));
+          let field = null;
+          if (inputValue != null) {
+            field = el('input', 'form-input');
+            field.type = 'text'; field.spellcheck = false; field.maxLength = 60; field.value = inputValue;
+            field.setAttribute('aria-label', title);
+            box.appendChild(field);
+          }
           const btns = el('div', 'tp-modal-btns');
           const cancel = el('button', 'btn', 'Cancel'); cancel.type = 'button';
           const ok = el('button', 'btn', okLabel); ok.type = 'button';
           btns.append(cancel, ok); box.appendChild(btns); wrap.appendChild(box);
           document.body.appendChild(wrap);
-          const done = (yes) => { document.removeEventListener('keydown', onKey, true); wrap.remove(); resolve(yes); };
+          const done = (yes) => {
+            document.removeEventListener('keydown', onKey, true);
+            wrap.remove();
+            resolve(yes ? (field ? field.value : true) : false);
+          };
           const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); done(false); } };
           document.addEventListener('keydown', onKey, true);
           cancel.addEventListener('click', () => done(false));
           ok.addEventListener('click', () => done(true));
           wrap.addEventListener('click', (e) => { if (e.target === wrap) done(false); });
-          cancel.focus();
+          if (field) {
+            field.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); done(true); } });
+            field.focus(); field.select();
+          } else {
+            cancel.focus();
+          }
         });
       }
 
@@ -7221,8 +7259,10 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
         let themeDir = stored('plasticity-theme-folder');
         if (themeDir && /[\\/]\.plasticity[\\/]?$/.test(themeDir)) themeDir = null; // as the Themes tab does
         themeDir = themeDir || await ask('default_plasticity_folder');
+        const keymapDir = stored('plasticity-keymap-folder') || await ask('default_plasticity_folder'); // as the Keyboard Shortcuts tab does
         paths = {
           theme: themeDir ? join(themeDir, 'theme.json') : null,
+          keymap: keymapDir ? join(keymapDir, 'keymap.json') : null,
           radials: stored('plasticity-manage-radials-folder') || await ask('default_radials_folder'),
           matcaps: stored('plasticity-matcaps-folder') || await ask('default_matcaps_folder', { library: 'matcaps' }),
           environments: stored('plasticity-environments-folder') || await ask('default_matcaps_folder', { library: 'environments' }),
@@ -7499,14 +7539,16 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
             .filter((p) => p && typeof p.name === 'string')
             .map((p) => ({ name: p.name, saved: p.saved || Date.now(), parts: upgrade(p.parts) }));
           undo = data.undo && data.undo.parts ? { ...data.undo, parts: upgrade(data.undo.parts) } : null;
+          navigation = (Array.isArray(data.navigation) ? data.navigation : [])
+            .filter((n) => n && typeof n.name === 'string' && n.blocks && typeof n.blocks === 'object');
         } catch (err) {
-          profiles = []; undo = null;
+          profiles = []; undo = null; navigation = [];
           note(`Could not read your profiles: ${err.message || err}`, 'error', true);
         }
       }
       async function store() {
         try {
-          await invokeCommand('save_profiles', { contents: JSON.stringify({ version: 2, profiles, undo }, null, 2) });
+          await invokeCommand('save_profiles', { contents: JSON.stringify({ version: 2, profiles, undo, navigation }, null, 2) });
           return true;
         } catch (err) {
           note(`Could not save your profiles: ${err.message || err}`, 'error', true);
@@ -7687,6 +7729,13 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
           line.append(el('b', null, `${label}: `), text);
           return line;
         });
+        const nav = el('div');
+        const navIs = navInUse();
+        nav.append(el('b', null, 'Navigation: '), navError ? `can't be read (${navError})`
+          : !navNow ? '…'
+          : navIs ? navIs.name
+          : `${navGuess(navNow)}, not saved yet`);
+        lines.push(nav);
         $('pfNow').replaceChildren(...lines);
       }
 
@@ -7697,6 +7746,7 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
         $('pfCount').textContent = profiles.length ? `· ${profiles.length}` : '';
         $('pfRunning').hidden = !running;
         renderNow();
+        renderNav();
         $('pfUndo').disabled = busy || !undo;
         $('pfUndo').title = undo ? `Put back the setup from ${dateText(undo.saved)}, ${undo.name}` : 'Nothing to undo yet';
         ['pfSave', 'pfRefresh'].forEach((id) => { $(id).disabled = busy; });
@@ -7711,10 +7761,197 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
         await loadCollections();
         await findPaths();
         await readNow();
+        await readNav();
         fillEditor(editing, true);
         ready = true;
         render();
       }
+
+      // ---------- navigation ----------
+      // Plasticity's navigation presets (Preferences > Navigation) are mouse and touchpad bindings in
+      // the orbit-controls part of keymap.json. A saved navigation is a copy of that part,
+      // blocks = { selector: { keys: command } }, and {} when Plasticity uses its own. Using one
+      // writes it back and leaves the rest of keymap.json alone. Plasticity watches keymap.json,
+      // so the change shows straight away, without a restart.
+      let navNow = null;   // the same shape, from keymap.json now; null when it can't be read
+      let navError = null;
+      const isNavSelector = (sel) => String(sel).includes('orbit-controls');
+      function navBlocks(doc) {
+        const out = {};
+        for (const [sel, keys] of doc) {
+          if (!isNavSelector(sel) || !(keys instanceof Map)) continue;
+          const b = {};
+          for (const [k, v] of keys) if (typeof v === 'string') b[k] = v;
+          if (Object.keys(b).length) out[sel] = b;
+        }
+        return out;
+      }
+      async function readKeymap() {
+        if (!paths.keymap) throw new Error("its folder isn't known");
+        const text = await invokeCommand('read_text_if_exists', { path: paths.keymap });
+        const doc = text == null || !text.trim() ? new Map() : Loose.parse(text);
+        if (!(doc instanceof Map)) throw new Error("it isn't a set of shortcuts");
+        return doc;
+      }
+      async function readNav() {
+        try { navNow = navBlocks(await readKeymap()); navError = null; }
+        catch (err) { navNow = null; navError = String(err.message || err); }
+      }
+      const byFirst = (a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0);
+      const navCanon = (blocks) => JSON.stringify(Object.keys(blocks).filter((s) => Object.keys(blocks[s]).length).sort()
+        .map((s) => [s, Object.entries(blocks[s]).map(([k, v]) => [k.toLowerCase(), v]).sort(byFirst)]));
+      const navInUse = () => (navNow ? navigation.find((n) => navCanon(n.blocks) === navCanon(navNow)) || null : null);
+
+      // A name to start from: Plasticity's preset it looks like, by the binding each one is known for.
+      function navGuess(blocks) {
+        const all = Object.values(blocks).flatMap((b) => Object.entries(b)).map(([k, v]) => [k.toLowerCase(), v]);
+        const has = (key, cmd) => all.some(([k, v]) => k === key && (!cmd || v === cmd));
+        if (!all.length) return 'Plasticity default';
+        if (all.some(([k, v]) => /pinch|gesture/.test(`${k} ${v}`))) return 'Touchpad & Magic Mouse';
+        if (has('alt-mouse0', 'orbit:rotate')) return 'Maya';
+        if (has('ctrl-shift-mouse1')) return 'Fusion 360';
+        if (has('ctrl-alt-mouse1')) return '3ds Max';
+        if (has('shift-mouse2', 'orbit:pan')) return 'MoI3D';
+        if (has('shift-mouse1', 'orbit:pan')) return 'Blender';
+        if (has('mouse1', 'orbit:rotate') && has('mouse2', 'orbit:pan')) return 'Plasticity default';
+        return 'My navigation';
+      }
+      const MOUSE = { mouse0: 'left mouse', mouse1: 'middle mouse', mouse2: 'right mouse' };
+      function navSummary(blocks) {
+        const all = Object.values(blocks).flatMap((b) => Object.entries(b)).filter(([, v]) => v !== 'unset!');
+        if (!all.length) return "Plasticity's own: middle mouse to orbit, right mouse to pan";
+        const keys = (cmd) => all.filter(([, v]) => v === cmd).map(([k]) => k.split('-').map((x) => MOUSE[x.toLowerCase()] || x).join('-'));
+        const parts = [['Orbit', 'orbit:rotate'], ['Pan', 'orbit:pan'], ['Zoom', 'orbit:dolly']]
+          .filter(([, cmd]) => keys(cmd).length).map(([label, cmd]) => `${label}: ${keys(cmd).join(' or ')}`);
+        return parts.length ? parts.join(' · ') : plural(all.length, 'binding');
+      }
+
+      // Asks for a name until it's one not used yet, or Cancel (null).
+      async function askNavName(title, lines, okLabel, value, except) {
+        for (;;) {
+          const typed = await dialog(title, lines, okLabel, value);
+          if (typed === false) return null;
+          const name = typed.trim();
+          const other = navigation.find((x) => x !== except && x.name.toLowerCase() === name.toLowerCase());
+          if (!name) note('Give it a name.', 'warning');
+          else if (other) note(`There is already a navigation called ${other.name}.`, 'warning');
+          else return name;
+          value = typed;
+        }
+      }
+
+      async function saveNavigation() {
+        if (busy) return;
+        if (!paths.keymap) await findPaths();
+        await readNav();
+        render();
+        if (navError) { note(`Could not read keymap.json: ${navError}`, 'error', true); return; }
+        const twin = navInUse();
+        if (twin) { note(`Plasticity's navigation is already saved, as ${twin.name}.`, 'warning'); return; }
+        const name = await askNavName("Save Plasticity's navigation", [
+          `Plasticity uses ${navSummary(navNow)}.`,
+          `Name it to pick it from the ${TRAY} menu, under Navigation.`
+        ], 'Save', navGuess(navNow));
+        if (!name) return;
+        const before = navigation;
+        navigation = [...navigation, { name, saved: Date.now(), blocks: navNow }];
+        if (await store()) note(`Saved ${name}. It's in the ${TRAY} menu under Navigation.`);
+        else navigation = before;
+        render();
+      }
+
+      async function renameNavigation(n) {
+        if (busy) return;
+        const name = await askNavName(`Rename ${n.name}`, [], 'Rename', n.name, n);
+        if (!name || name === n.name) return;
+        const before = navigation;
+        navigation = navigation.map((x) => (x === n ? { ...n, name } : x));
+        if (await store()) note(`Renamed to ${name}.`);
+        else navigation = before;
+        render();
+      }
+
+      async function removeNavigation(n) {
+        if (busy) return;
+        if (!(await dialog(`Delete ${n.name}?`, ["Only the saved copy goes. Plasticity's navigation doesn't change."], 'Delete'))) return;
+        const before = navigation;
+        navigation = navigation.filter((x) => x !== n);
+        if (await store()) note(`Deleted ${n.name}.`);
+        else navigation = before;
+        render();
+      }
+
+      // Puts n's orbit-controls part in keymap.json where the old one was; everything else stays.
+      async function useNavigation(n, fromTray) {
+        if (busy) return;
+        busy = true;
+        render();
+        try {
+          if (!paths.keymap) await findPaths();
+          const doc = await readKeymap();
+          if (navCanon(navBlocks(doc)) === navCanon(n.blocks)) {
+            navNow = navBlocks(doc);
+            note(`${n.name} is already Plasticity's navigation.`);
+            return;
+          }
+          const next = new Map();
+          let placed = false;
+          const put = () => {
+            if (placed) return;
+            placed = true;
+            Object.entries(n.blocks).forEach(([sel, keys]) => next.set(sel, new Map(Object.entries(keys))));
+          };
+          for (const [sel, v] of doc) {
+            if (isNavSelector(sel)) put();
+            else next.set(sel, v);
+          }
+          put();
+          await invokeCommand('write_plasticity_file_in_place', { path: paths.keymap, contents: Loose.write(next) });
+          await readNav();
+          document.dispatchEvent(new CustomEvent('plasticity-keymap-changed'));
+          note(`Navigation switched to ${n.name}.`);
+        } catch (err) {
+          const message = `Could not switch the navigation to ${n.name}: ${err.message || err}`;
+          if (fromTray) trayProblem(message);
+          else note(message, 'error', true);
+        } finally {
+          busy = false;
+          traySent = '';
+          render();
+        }
+      }
+
+      function navRow(n, current) {
+        const r = el('div', 'mc-row pf-row');
+        const main = el('div');
+        const title = el('div', 'mc-title', n.name);
+        if (n === current) title.appendChild(el('span', 'mc-tag', 'In use'));
+        main.append(title, el('div', 'mc-files', navSummary(n.blocks)));
+        const acts = el('div', 'mc-acts');
+        acts.append(
+          smallButton('Use', "Switch Plasticity's navigation to this; no restart needed", () => useNavigation(n)),
+          smallButton('Rename…', null, () => renameNavigation(n)),
+          smallButton('Delete…', null, () => removeNavigation(n))
+        );
+        r.append(main, acts);
+        return r;
+      }
+      function renderNav() {
+        const current = navInUse();
+        const sorted = navigation.slice().sort((a, b) => a.name.localeCompare(b.name));
+        $('pfNavList').replaceChildren(...(sorted.length ? sorted.map((n) => navRow(n, current)) : [el('div', 'mc-empty', 'None saved yet.')]));
+        $('pfNavCount').textContent = navigation.length ? `· ${navigation.length}` : '';
+        $('pfNavSave').disabled = busy;
+      }
+
+      // Plasticity's Preferences can change the navigation too, so keymap.json is looked at now and
+      // then, to keep the tick in the menu on the right one.
+      setInterval(async () => {
+        if (!ready || busy || !tauriAvailable) return;
+        const before = navCanon(navNow || {}) + navError;
+        await readNav();
+        if (navCanon(navNow || {}) + navError !== before) render();
+      }, 5000);
 
       // ---------- the tray (menu bar on macOS) ----------
       // tray.rs shows the profiles in its menu, with a tick by the one in use. Sent only when it changes.
@@ -7723,11 +7960,18 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
         if (!tauriAvailable) return;
         const sorted = profiles.slice().sort((a, b) => a.name.localeCompare(b.name));
         const current = ready ? sorted.find(inUse) : null;
-        const args = { profiles: sorted.map((p) => p.name), active: current ? current.name : null, status: status || null };
-        const sent = JSON.stringify(args);
+        const nav = ready ? navInUse() : null;
+        const menu = {
+          profiles: sorted.map((p) => p.name),
+          active: current ? current.name : null,
+          navigation: navigation.map((n) => n.name).sort((a, b) => a.localeCompare(b)),
+          navActive: nav ? nav.name : null,
+          status: status || null
+        };
+        const sent = JSON.stringify(menu);
         if (sent === traySent) return;
         traySent = sent;
-        invokeCommand('set_tray', args).catch((err) => note(`Could not update the ${isMacOS ? 'menu bar' : 'tray'} icon: ${err}`, 'error', true));
+        invokeCommand('set_tray', { menu }).catch((err) => note(`Could not update the ${isMacOS ? 'menu bar' : 'tray'} icon: ${err}`, 'error', true));
       }
 
       // The switch started from the tray, so the window comes back on this tab to say what went wrong.
@@ -7743,7 +7987,7 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
       window.trayProfile = async (name) => {
         const p = profiles.find((x) => x.name === name);
         if (!p || busy) { traySent = ''; syncTray(); return; } // puts the tick back where it was
-        let wasOpen = false, app = null;
+        let wasOpen = false, app = null, fullScreen = false;
         try {
           syncTray(`Switching to ${p.name}…`);
           await refresh(); // themes and collections may have changed while the window was closed
@@ -7755,6 +7999,7 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
             syncTray('Waiting for Plasticity to close…');
             const r = await invokeCommand('close_plasticity', { waitSecs: 120 });
             app = r.app;
+            fullScreen = !!r.fullScreen;
             if (!r.closed) {
               trayProblem(`Plasticity didn't close, so nothing was switched. If it's asking whether to save your work, answer it, then pick ${p.name} again.`);
               return;
@@ -7765,8 +8010,15 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
           if (result === 'failed' || result === 'problems') trayProblem($('pfNote').textContent || `Something went wrong switching to ${p.name}.`);
           if (wasOpen && result !== 'failed') {
             syncTray('Starting Plasticity…');
-            try { await invokeCommand('launch_plasticity', { app }); }
-            catch (err) { trayProblem(`Switched to ${p.name}, but Plasticity couldn't be started again: ${err}`); }
+            try {
+              // On macOS this waits for Plasticity's window when it was in full screen, to put that back.
+              const l = await invokeCommand('launch_plasticity', { app, fullScreen });
+              if (l && l.fullScreen === 'no-permission') {
+                note(`Switched to ${p.name}. Plasticity opened in a window instead of full screen: to bring full screen back after a switch, turn on Radial Menu Builder++ in System Settings > Privacy & Security > Accessibility.`, 'warning', true);
+              } else if (l && l.fullScreen === 'failed') {
+                note(`Switched to ${p.name}, but Plasticity couldn't be put back in full screen.`, 'warning', true);
+              }
+            } catch (err) { trayProblem(`Switched to ${p.name}, but Plasticity couldn't be started again: ${err}`); }
           }
         } catch (err) {
           trayProblem(`Could not switch to ${p.name}: ${err.message || err}`);
@@ -7777,12 +8029,19 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
         }
       };
 
+      // A navigation picked in the tray menu: Plasticity stays open and picks it up by itself.
+      window.trayNavigation = async (name) => {
+        const n = navigation.find((x) => x.name === name);
+        if (!n || busy) { traySent = ''; syncTray(); return; } // puts the tick back where it was
+        await useNavigation(n, true);
+      };
+
       const TRAY = isMacOS ? 'menu bar' : 'tray';
       $('pfTrayTitle').textContent = isMacOS ? 'Menu Bar' : 'Tray';
       $('pfLoginLabel').textContent = isMacOS ? 'Open at login, in the menu bar' : 'Start with Windows, in the tray';
       $('pfTrayHint').textContent = isMacOS
-        ? "Right-click (or Control-click) the icon in the menu bar and pick a profile. Plasticity is asked to quit, so it can offer to save your work, then the profile is applied and the same Plasticity, release or beta, opens again. If Plasticity hasn't quit after two minutes, nothing changes. Click the icon to open this window. Closing the window keeps the app in the menu bar; Quit is in its menu. Leave Open at login off to have it there only after you open the app."
-        : "Right-click the tray icon (by the clock) and pick a profile. Plasticity is asked to close, so it can offer to save your work, then the profile is applied and the same Plasticity, release or beta, opens again. If Plasticity hasn't closed after two minutes, nothing changes. Left-click the icon to open this window. Closing the window keeps the app in the tray; Quit is in its menu. Leave Start with Windows off to have it there only after you open the app.";
+        ? "Right-click (or Control-click) the icon in the menu bar and pick a profile. Plasticity is asked to quit, so it can offer to save your work, then the profile is applied and the same Plasticity, release or beta, opens again, in full screen if it was. If Plasticity hasn't quit after two minutes, nothing changes. Navigation in the same menu switches between the navigation setups saved on the left, and Plasticity stays open for that. Click the icon to open this window. Closing the window keeps the app in the menu bar; Quit is in its menu. Leave Open at login off to have it there only after you open the app. Putting Plasticity back in full screen needs Radial Menu Builder++ turned on in System Settings > Privacy & Security > Accessibility; macOS asks the first time."
+        : "Right-click the tray icon (by the clock) and pick a profile. Plasticity is asked to close, so it can offer to save your work, then the profile is applied and the same Plasticity, release or beta, opens again. If Plasticity hasn't closed after two minutes, nothing changes. Navigation in the same menu switches between the navigation setups saved on the left, and Plasticity stays open for that. Left-click the icon to open this window. Closing the window keeps the app in the tray; Quit is in its menu. Leave Start with Windows off to have it there only after you open the app.";
       $('pfLogin').addEventListener('change', async () => {
         const on = $('pfLogin').checked;
         try {
@@ -7800,12 +8059,13 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
       $('pfName').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); saveProfile(); } });
       $('pfRefresh').addEventListener('click', refresh);
       $('pfUndo').addEventListener('click', () => { if (undo) switchTo(undo, true); });
+      $('pfNavSave').addEventListener('click', saveNavigation);
 
       async function start() {
         if (started) { refresh(); return; }
         started = true;
         if (!initTauriAPI()) {
-          ['pfSave', 'pfRefresh', 'pfUndo', 'pfLogin'].forEach((id) => { $(id).disabled = true; });
+          ['pfSave', 'pfRefresh', 'pfUndo', 'pfLogin', 'pfNavSave'].forEach((id) => { $(id).disabled = true; });
           $('pfNow').textContent = 'Not available';
           note('Profiles need the desktop app: they read and change files in your Plasticity folder.', 'warning', true);
           return;
