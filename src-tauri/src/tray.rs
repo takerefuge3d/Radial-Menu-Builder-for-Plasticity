@@ -2,11 +2,9 @@
 // The app keeps an icon in the tray whose menu lists the user's profiles; closing the window
 // hides it there, and Quit in the menu closes the app. Picking a profile hands it to the page
 // (window.trayProfile), which asks Plasticity to close, applies the profile and starts the same
-// Plasticity again, using close_plasticity and launch_plasticity below. A Navigation submenu
-// lists the user's saved navigation setups; picking one goes to window.trayNavigation, which
-// only rewrites part of keymap.json, so Plasticity isn't restarted for it. The app can also
-// start at login, straight into the tray (IN_TRAY_ARG).
-use serde::{Deserialize, Serialize};
+// Plasticity again, using close_plasticity and launch_plasticity below. The app can also start
+// at login, straight into the tray (IN_TRAY_ARG).
+use serde::Serialize;
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -15,7 +13,7 @@ use std::{
     time::Duration,
 };
 use tauri::{
-    menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu},
+    menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     AppHandle, Manager,
 };
@@ -23,7 +21,6 @@ use tauri_plugin_autostart::ManagerExt;
 
 const TRAY_ID: &str = "profiles";
 const PROFILE: &str = "profile:";
-const NAVIGATION: &str = "nav:";
 // Passed when the app starts at login, so it stays in the tray instead of opening its window.
 pub const IN_TRAY_ARG: &str = "--in-tray";
 
@@ -43,55 +40,25 @@ pub fn show_main_window(app: AppHandle) {
     show_window(&app);
 }
 
-// What the menu lists, from the Profiles tab: the profiles and saved navigation setups by
-// name, with the one in use ticked. `status` replaces the tooltip while a switch runs.
-#[derive(Default, Deserialize)]
-#[serde(rename_all = "camelCase", default)]
-pub struct TrayMenu {
-    profiles: Vec<String>,
-    active: Option<String>,
-    navigation: Vec<String>,
-    nav_active: Option<String>,
-    status: Option<String>,
-}
-
-fn build_menu(app: &AppHandle, m: &TrayMenu) -> tauri::Result<Menu<tauri::Wry>> {
+fn build_menu(app: &AppHandle, profiles: &[String], active: Option<&str>) -> tauri::Result<Menu<tauri::Wry>> {
     let menu = Menu::new(app)?;
-    if m.profiles.is_empty() {
+    if profiles.is_empty() {
         menu.append(&MenuItem::with_id(app, "none", "No profiles yet", false, None::<&str>)?)?;
     }
-    for name in &m.profiles {
-        let item = CheckMenuItem::with_id(app, format!("{PROFILE}{name}"), name, true, m.active.as_ref() == Some(name), None::<&str>)?;
+    for name in profiles {
+        let item = CheckMenuItem::with_id(app, format!("{PROFILE}{name}"), name, true, active == Some(name.as_str()), None::<&str>)?;
         menu.append(&item)?;
     }
-    menu.append(&PredefinedMenuItem::separator(app)?)?;
-    let nav = Submenu::new(app, "Navigation", true)?;
-    if m.navigation.is_empty() {
-        nav.append(&MenuItem::with_id(app, "nav-none", "Save one in the Profiles tab", false, None::<&str>)?)?;
-    }
-    for name in &m.navigation {
-        let item = CheckMenuItem::with_id(app, format!("{NAVIGATION}{name}"), name, true, m.nav_active.as_ref() == Some(name), None::<&str>)?;
-        nav.append(&item)?;
-    }
-    menu.append(&nav)?;
     menu.append(&PredefinedMenuItem::separator(app)?)?;
     menu.append(&MenuItem::with_id(app, "open", "Open Radial Menu Builder++", true, None::<&str>)?)?;
     menu.append(&MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?)?;
     Ok(menu)
 }
 
-// Hands a menu pick to the page, e.g. window.trayProfile("Hard surface").
-fn tell_page(app: &AppHandle, function: &str, name: &str) {
-    if let Some(w) = app.get_webview_window("main") {
-        let name = serde_json::to_string(name).unwrap_or_default();
-        let _ = w.eval(&format!("window.{function} && window.{function}({name})"));
-    }
-}
-
-// Makes the tray icon, or updates its menu.
-pub fn update_tray(app: &AppHandle, m: &TrayMenu) -> Result<(), String> {
-    let menu = build_menu(app, m).map_err(|e| e.to_string())?;
-    let tip = m.status.clone().unwrap_or_else(|| match &m.active {
+// Makes the tray icon, or updates its menu. `status` replaces the tooltip while a switch runs.
+pub fn update_tray(app: &AppHandle, profiles: &[String], active: Option<&str>, status: Option<String>) -> Result<(), String> {
+    let menu = build_menu(app, profiles, active).map_err(|e| e.to_string())?;
+    let tip = status.unwrap_or_else(|| match active {
         Some(name) => format!("Radial Menu Builder++ · {name}"),
         None => "Radial Menu Builder++".into(),
     });
@@ -110,10 +77,9 @@ pub fn update_tray(app: &AppHandle, m: &TrayMenu) -> Result<(), String> {
             "open" => show_window(app),
             "quit" => app.exit(0),
             id => {
-                if let Some(name) = id.strip_prefix(PROFILE) {
-                    tell_page(app, "trayProfile", name);
-                } else if let Some(name) = id.strip_prefix(NAVIGATION) {
-                    tell_page(app, "trayNavigation", name);
+                if let (Some(name), Some(w)) = (id.strip_prefix(PROFILE), app.get_webview_window("main")) {
+                    let name = serde_json::to_string(name).unwrap_or_default();
+                    let _ = w.eval(&format!("window.trayProfile && window.trayProfile({name})"));
                 }
             }
         })
@@ -129,8 +95,8 @@ pub fn update_tray(app: &AppHandle, m: &TrayMenu) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn set_tray(app: AppHandle, menu: TrayMenu) -> Result<(), String> {
-    update_tray(&app, &menu)
+pub fn set_tray(app: AppHandle, profiles: Vec<String>, active: Option<String>, status: Option<String>) -> Result<(), String> {
+    update_tray(&app, &profiles, active.as_deref(), status)
 }
 
 // ---------- Starting at login ----------
