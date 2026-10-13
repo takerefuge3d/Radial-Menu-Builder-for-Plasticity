@@ -349,6 +349,12 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
 .tp-row label, .tp-range label { color: var(--muted); font-weight: 600; }
 .tp-range { display: grid; grid-template-columns: 1fr 130px; gap: 8px; align-items: center; font-size: 13px; }
 .tp-range input { accent-color: var(--accent); width: 100%; }
+.tp-find { display: grid; grid-template-columns: 22px 1fr auto; gap: 4px 8px; align-items: center; width: 100%; margin-bottom: 4px; padding: 6px 8px; background: #1f1f1f; border: 1px solid var(--border); border-radius: 4px; color: var(--text); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.tp-find:hover { border-color: var(--accent); }
+.tp-find i { width: 22px; height: 22px; border: 1px solid var(--border); border-radius: 3px; }
+.tp-find small { display: block; color: var(--muted); font-size: 11px; }
+.tp-find .tp-hex { color: var(--muted); font-size: 12px; }
+.tp-find-use { grid-column: 2 / 4; color: var(--muted); font-size: 12px; line-height: 1.4; }
 
 /* ---------- the stand-in Plasticity window (drawn at 1280 x 800, then scaled) ---------- */
 .tp-mock{
@@ -767,6 +773,14 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
       <div class="tp-hint">Save the colours you have now under your own name. They appear at the top of the list, under My Themes.</div>
 
       <div class="separator"></div>
+      <div class="section-title">Find a Colour</div>
+      <div class="tp-row"><label for="tpFindT">Colour</label><input type="color" class="tp-color" id="tpFindC" aria-label="Pick the colour to find" /><input type="text" class="form-input tp-hex" id="tpFindT" spellcheck="false" placeholder="#rrggbb" /></div>
+      <button class="btn" id="tpFindPick" type="button" hidden>Pick from Screen</button>
+      <div id="tpFindOut"></div>
+      <div class="tp-hint">Shows the colours in this theme nearest to the one you give, and what each is known to colour. To see what colours a part of Plasticity, load the "Debug: every colour different" starter, apply it to Plasticity and restart Plasticity, then pick a colour from its window. Every colour in that theme is different, so the nearest one is the one that drives that part.</div>
+      <div class="tp-hint" id="tpFindApp" hidden>To read a colour from Plasticity's window, use a colour picker app and type the value here. On a Mac, Digital Color Meter (in Applications &gt; Utilities) does it: set it to Display in sRGB.</div>
+
+      <div class="separator"></div>
 
       <label class="mc-check tp-adv"><input type="checkbox" id="tpAdv" /> Advanced: show every colour in the theme file</label>
       <div class="tp-hint" id="tpSimpleHint">Only the colours we've seen Plasticity use are shown. Turn on Advanced to see the rest too, in case a future version uses them or we've missed one.</div>
@@ -903,7 +917,7 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
       </div>
       <div class="tp-hint">Plasticity wants each matcap as a pair with the same name: an EXR for the texture and a PNG for the picker. Files you add are copied as they are under the clean name (spaces become _). Only the missing half of the pair is made, at the sizes above.</div>
       <div class="tp-hint">A JPG or WebP has no transparency, so the files made from it are cut to a circle.</div>
-      <div class="tp-hint">Tinted (beta) saves NAME.json containing { isTinted: true }, which lets Plasticity tint the matcap with the material colour. Plasticity multiplies the matcap by the material colour, so tinting can only darken and shift colours. It works best on neutral matcaps with low saturation (greys, silvers, clay); colourful matcaps don't tint well. A tinted matcap shows a row of examples (red, yellow, green, blue and grey materials) next to its checkbox.</div>
+      <div class="tp-hint">Tinted (26.2+) saves NAME.json containing { isTinted: true }, which lets Plasticity 26.2 and later tint the matcap with the material colour. Plasticity multiplies the matcap by the material colour, so tinting can only darken and shift colours. It works best on neutral matcaps with low saturation (greys, silvers, clay); colourful matcaps don't tint well. A tinted matcap shows a row of examples (red, yellow, green, blue and grey materials) next to its checkbox.</div>
       <div class="tp-hint">Disable moves a matcap into a matcaps-disabled folder next to this one, where Plasticity doesn't look. Enable moves it back. A disabled matcap can be deleted, which moves its files to the Recycle Bin (Trash on a Mac).</div>
       <div class="tp-hint">Reorder… lets you drag matcaps into order, then renames them 01_Name, 02_Name and so on so they sort that way. Remove Numbers takes the numbers off again. Restart Plasticity to see changes.</div>
       <div class="tp-hint">Installed matcaps are only changed when you click: Fix, Tinted, Disable, Enable, Delete or Apply Order.</div>
@@ -1010,7 +1024,7 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
       <div class="tp-hint">Each style is its own font: add Regular and Bold files separately if you want both. A font can only show the characters it contains. Ligatures and the extra styles inside variable fonts aren't carried over.</div>
       <div class="tp-hint">Very decorative or overlapping letters can make awkward geometry for extrudes and fillets, even when the font converts cleanly. Simple, solid typefaces work best.</div>
       <div class="tp-hint">Check that your font's licence lets you use it this way. Fonts whose own settings say they mustn't be embedded are flagged before you install them.</div>
-      <div class="tp-hint">This tab uses Plasticity's fonts folder, which works in Plasticity 26.1.3 but isn't an official feature, so a future version could change it.</div>
+      <div class="tp-hint">This tab uses Plasticity's fonts folder, which works in Plasticity 26.1.3 and 26.2 but isn't an official feature, so a future version could change it.</div>
     </div>
   </div>
 
@@ -1550,10 +1564,14 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
     // Plasticity release; the ids must match load_commands in main.rs.
     const PLASTICITY_VERSIONS = [
       { id: '26.1', label: '26.1', file: '26.1.json' },
-      { id: '26.2-beta', label: '26.2 beta', file: '26.2-beta.json' }
+      { id: '26.2', label: '26.2', file: '26.2.json' }
     ];
     const VERSION_KEY = 'plasticity-version';
-    const versionInfo = (id) => PLASTICITY_VERSIONS.find((v) => v.id === id) || PLASTICITY_VERSIONS[0];
+    const DEFAULT_VERSION = '26.2';
+    // Ids saved by older versions of this app: the 26.2 beta's list became the 26.2 list.
+    const OLD_VERSION_IDS = { '26.2-beta': '26.2' };
+    const versionInfo = (id) => PLASTICITY_VERSIONS.find((v) => v.id === (OLD_VERSION_IDS[id] || id))
+      || PLASTICITY_VERSIONS.find((v) => v.id === DEFAULT_VERSION);
 
     // Loads every version's list up front (they are small) so switching is instant and
     // "new in" tags can compare versions. Returns a list of failures.
@@ -1611,7 +1629,7 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
       const prev = idx > 0 ? appState.commandSets[PLASTICITY_VERSIONS[idx - 1].id] : null;
       if (prev) {
         Object.keys(appState.commandSets[v.id] || {}).forEach((cmd) => {
-          if (!(cmd in prev)) COMMAND_VERSION_NOTES[cmd] = `new in ${v.label.replace(/ beta$/, '')}`;
+          if (!(cmd in prev)) COMMAND_VERSION_NOTES[cmd] = `new in ${v.label}`;
         });
       }
     }
@@ -2882,6 +2900,49 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
         if (o.reticle) c.supporting = o.reticle;
         return t;
       }
+      // Every one of the 262 colours in this theme is different, so a colour picked from
+      // Plasticity's window tells you which one drives that part (see Find a Colour). Shades next
+      // to each other are far apart, and neutral 50-300 are light and 400-900 dark so the UI stays
+      // readable. The values are fixed, so screenshots stay comparable between versions of this app.
+      const DEBUG = {
+        singles: {
+          viewport: '#103010', dialog: '#2a0a3a', matcap: '#ffc890', white: '#00e5ff', grid: '#ffff00a0', solidEdge: '#ff0000', solidEdgeOccluded: '#ff00ff90', sheetEdge: '#0040ff', sheetEdgeOccluded: '#00ff0090', 'sheet-edge': '#ff8000', 'instance-edge': '#00ffa0', measurement: '#ff0090'
+        },
+        ranges: {
+          neutral: '89c431 adffff f08fff 7ef195 5600b8 0f408a 8a0f0f 7a006a 0000d6 00007a',
+          accent: '00993d 6391ee d65c7c a033ff 6e6e0c 12a5a5 2ce851 c5ff52 c14f15 0093f5',
+          supporting: '3db800 f5d6f3 e8c22c ff52d1 63dbee 5643d0 63ff14 d3ffad adb8ff ff3341',
+          red: 'ab2ba3 ac74dc b4f500 187a00 b89300 4314ff c1155a 005c49 ff8d70 1565c1',
+          orange: '9d00d6 43d08e 1f7a7a 3369ff 5c3700 33ffd6 e28db5 80ff52 ffff70 d07c43',
+          amber: '00b86e 431f7a db2ce8 3d0000 ff3392 33bbff 00d6c8 152cc1 499325 00d62b',
+          yellow: 'f54100 d600c8 acdc74 a5e9c5 f50041 64d65c 7452ff 002b5c c12115 b80093',
+          lime: '8c9325 72d600 ffadd3 52ff74 70ffcf d6a55c 621840 762593 00b800 fff8cc',
+          green: '933b25 ff5d52 c552ff 43abd0 d0434d 4ec431 305309 8e43d0 9fb800 968fff',
+          emerald: '7200f5 932567 5c6cd6 00d68f bdd043 d65cb6 ff70a0 ffdc52 d6d600 52ffff',
+          teal: '99003d ff9233 14ff72 452bab d6f5e7 290099 5cd6be 1f7a31 7eb4f1 ff14c0',
+          cyan: '2bab56 9ce82c 9adcf4 dc189b adff8f 995c00 dcdc74 52ffa3 f1ff33 2c38e8',
+          sky: '850099 ddb6f7 005c18 3392ff 14ff34 669900 3189c4 49005c bd43d0 efd5be',
+          blue: 'ab6f2b 2cdbe8 d67200 33dc18 006699 e2a98d b80000 dc74dc c014ff 001f99',
+          indigo: '2ce8a9 7c15c1 c38fff 0087b8 00d656 f5b400 5c33ff c49d31 2bab81 00abd6',
+          violet: '0047d6 ff33ff f4ee9a ffae52 ccd6ff 003d35 009914 e82c6a 34ff14 0062f5',
+          purple: '5c001f 1414ff e8512c c4317f 2b4dab ff70f5 00c4f5 ffe014 5a18dc 31c4ba',
+          fuchsia: 'ff5280 ff2414 184962 007a5a 299900 491d12 2bab2b cfe82c d6001d 3900d6',
+          pink: '9214ff 00183d b515c1 00997a 00f5d4 6fab2b d60072 ab2b45 f352ff 497a00',
+          rose: '8370ff dc8274 00b849 c1b515 ff6314 8dd65c 0ed600 abd600 ff33c9 ff1463',
+          slate: '221862 83f500 8fffb4 dc8e18 00f552 ffadff 992900 31c46c 2ce883 a3ab2b',
+          zinc: '7ef1f1 6ae82c 624e18 00b825 dc749e 832ce8 6eb800 c670ff ff8fd2 997a00',
+          balanced: '1818dc 4eff33 ff8f9e dc1840 d043a1 bce9a5 14ffff 8f9900 005a7a 96ff70',
+          gray: '7c5cd6 4752eb d0ff14 1800b8 935825 dc3318 d05f43 477eeb a5127e 21c115',
+          stone: 'd6c65c 15c19f ff7070 373406 1881dc 74dc7b 7a251f 610f8a 259367 258c93'
+        }
+      };
+      const DEBUG_NAME = 'Debug: every colour different';
+      function debugTheme() {
+        const t = defaults(), c = t.colors;
+        Object.keys(DEBUG.ranges).forEach((k) => { c[k] = ramp(DEBUG.ranges[k]); });
+        Object.assign(c, DEBUG.singles); // the 26.2 edge colours go last, as Plasticity writes them
+        return t;
+      }
       // [name, make, group]. Light themes list neutral from dark to light, since
       // neutral 50 is the text colour and neutral 900 the window background.
       const PRESETS = [
@@ -2970,7 +3031,8 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
           accent: 'f0fff6 d9ffe9 b3ffd3 80ffb5 4dff96 2bf07c 1bc764 179d51 167b43 146539',
           supporting: 'eff5f9 dbe8f0 bcd4e3 92b8d0 6b9ab9 5285a6 446f8c 3a5c73 334d5f 2d414f',
           edges: ['#111111', '#6b9ab9', '#ffffff'], reticle: '#2bf07c'
-        }), 'Inspired by other apps']
+        }), 'Inspired by other apps'],
+        [DEBUG_NAME, debugTheme, 'Troubleshooting']
       ];
 
       // Where each shade shows up in Plasticity 2026.1, read from probe-theme screenshots.
@@ -3018,12 +3080,11 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
       const alphaOf = (h) => (h.length === 9 ? parseInt(h.substr(7, 2), 16) / 255 : 1);
       const hex2 = (n) => { const s = Math.round(n).toString(16); return s.length < 2 ? '0' + s : s; };
       // Plasticity's 3D view shows theme colours darker than written; this reproduces it.
-      function darken(h) {
-        return 'rgb(' + rgb(h).map((c) => {
-          c /= 255;
-          return Math.round(255 * (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)));
-        }).join(',') + ')';
-      }
+      const darkRgb = (h) => rgb(h).map((c) => {
+        c /= 255;
+        return 255 * (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+      });
+      const darken = (h) => 'rgb(' + darkRgb(h).map(Math.round).join(',') + ')';
 
       // ---------- messages ----------
       function note(message, type = 'success') {
@@ -3110,7 +3171,7 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
           + `<line x1="${m0[0]}" y1="${m0[1]}" x2="${m1[0]}" y2="${m1[1]}" marker-start="url(#tp-arrow)" marker-end="url(#tp-arrow)"/>`
           + `<text x="${mid[0]}" y="${mid[1]}" dy="-8" transform="rotate(${ang} ${mid[0]} ${mid[1]})" text-anchor="middle" stroke="none" style="fill:var(--meas)" font-size="15" font-family="Lato, Segoe UI, sans-serif">20.462 cm</text></g>`;
         // A curve with the lines between its control points, and the control points. Control
-        // points use accent 600 (checked in 26.2 beta). The lines between them are a fixed faint
+        // points use accent 600 (checked in 26.2). The lines between them are a fixed faint
         // white, and the curve is always blue in Plasticity.
         const cvs = [P(2.6, 3.2, 0), P(5.6, 3.0, 0), P(3.0, 0.4, 0), P(5.8, 0.6, 0)];
         const [c0, c1, c2, c3] = cvs;
@@ -3301,7 +3362,7 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
 
       // ---------- edge colours (Plasticity 26.2+) ----------
       // [theme key, input id prefix, colour drawn when unset, preview CSS variable]. These are
-      // written by Preferences > Appearance in the 26.2 beta; when the key is missing Plasticity
+      // written by Preferences > Appearance in 26.2; when the key is missing Plasticity
       // uses its own default, so the preview shows an approximation of it.
       EDGE_KEYS.forEach(([key, id]) => {
         const C = $(id + 'C'), T = $(id + 'T');
@@ -3361,7 +3422,7 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
       }
       function refresh(keepText) {
         ['neutral', 'accent', 'supporting'].forEach((p) => refreshCard(p, keepText));
-        refreshSingles(keepText); refreshEdges(keepText); renderExtra(); showPath(); paint();
+        refreshSingles(keepText); refreshEdges(keepText); renderExtra(); renderFind(); showPath(); paint();
       }
 
       // ---------- pointing at the stand-in ----------
@@ -3397,20 +3458,138 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
         const el = e.target.closest && e.target.closest('[data-u]');
         if (!el) return;
         describe(el);
-        const ref = el.dataset.u.split('|')[1], m = /^(neutral|accent|supporting)-(\d+)$/.exec(ref);
-        let target = null;
-        if (m) { sel[m[1]] = m[2]; refreshCard(m[1]); target = cards[m[1]].card; }
-        else if (ref === 'viewport') target = vpT;
-        else if (ref === 'grid') target = grT;
-        else if (ref === 'sheet-edge') target = $('tpSeT');
-        else if (ref === 'instance-edge') target = $('tpIeT');
-        else if (ref === 'measurement') target = $('tpMeT');
-        else if (ref === 'reticle') target = $('tpReT');
-        if (target) {
-          if (target.scrollIntoView) target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-          (m ? cards[m[1]].txt : target).focus({ preventScroll: true });
-        }
+        const ref = el.dataset.u.split('|')[1];
+        if (/^(neutral|accent|supporting)-\d+$/.test(ref) || ROW_INPUTS[ref]) goTo(ref); // not "fixed" parts
       });
+      // Scroll to the editor for a colour ("neutral-600", "viewport", "red-500", "dialog"…) and
+      // focus it, turning on Advanced when Simple hides it.
+      const ROW_INPUTS = { viewport: 'tpVpT', grid: 'tpGrT', 'sheet-edge': 'tpSeT', 'instance-edge': 'tpIeT', measurement: 'tpMeT', reticle: 'tpReT' };
+      function goTo(ref) {
+        const m = /^(neutral|accent|supporting)-(\d+)$/.exec(ref);
+        const showAll = () => {
+          if (advanced) return;
+          advanced = true;
+          try { localStorage.setItem(ADVKEY, '1'); } catch (e) {}
+          applyMode();
+        };
+        let target, field;
+        if (m) {
+          if (m[1] === 'supporting' || !USE[m[1]][m[2]]) showAll();
+          sel[m[1]] = m[2]; refreshCard(m[1]);
+          target = cards[m[1]].card; field = cards[m[1]].txt;
+        } else if (ROW_INPUTS[ref]) {
+          target = field = $(ROW_INPUTS[ref]);
+        } else {
+          showAll();
+          const r = /^(.+)-(\d+)$/.exec(ref), label = r ? `${r[1]} ${r[2]}` : ref;
+          field = [...$('tpExtraList').querySelectorAll('[aria-label]')].find((x) => x.getAttribute('aria-label') === label);
+          target = field || $('tpExtra');
+        }
+        if (target && target.scrollIntoView) target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        if (field) field.focus({ preventScroll: true });
+      }
+
+      // ---------- find a colour ----------
+      // The colours in this theme nearest to one picked from Plasticity's window. With the Debug
+      // starter every colour is different, so the nearest is the one that drives that part.
+      // See-through colours are also tried as they look over the viewport, and the grid as
+      // Plasticity draws it (darker, see darkRgb).
+      const FIND_ROWS = {
+        viewport: ['Background', 'The viewport behind your model.'],
+        grid: ['Grid lines', 'The grid in the viewport.'],
+        'sheet-edge': ['Regular edges', 'The edges of regular objects.'],
+        'instance-edge': ['Instance edges', 'The edges of instances.'],
+        measurement: ['Measurements', 'Measurements in the viewport.'],
+        reticle: ['Supporting colour', 'The reticle (the dot under the cursor) and the Scene folder icon.']
+      };
+      const NEW_FIND = "We haven't seen this one used before, so if it's the part you picked, that's a new find.";
+      const findC = $('tpFindC'), findT = $('tpFindT');
+      let findHex = null;
+      // A quick perceptual colour distance ("redmean"): 0 is the same colour, black to white about 765.
+      function distance(a, b) {
+        const r = (a[0] + b[0]) / 2, dr = a[0] - b[0], dg = a[1] - b[1], db = a[2] - b[2];
+        return Math.sqrt((2 + r / 256) * dr * dr + 4 * dg * dg + (2 + (255 - r) / 256) * db * db);
+      }
+      const over = (under, top, a) => under.map((u, i) => u + (top[i] - u) * a);
+      function themeColours() {
+        const c = theme.colors, bg = rgb(safe(c.viewport, defaults().colors.viewport)), out = [];
+        const add = (ref, name, value) => {
+          const h = normHex(value);
+          if (!h) return;
+          const a = alphaOf(h), looks = [rgb(h)];
+          if (ref === 'grid') looks.push(over(bg, darkRgb(h), a));
+          else if (a < 1) looks.push(over(bg, rgb(h), a));
+          out.push({ ref, name, hex: h, looks });
+        };
+        Object.keys(c).forEach((k) => {
+          const v = c[k];
+          if (k === 'supporting' && typeof v === 'string') add('reticle', FIND_ROWS.reticle[0], v);
+          else if (typeof v === 'string') add(k, FIND_ROWS[k] ? FIND_ROWS[k][0] : k, v);
+          else if (v && typeof v === 'object') Object.keys(v).forEach((s) => add(`${k}-${s}`, `${cap(k)} ${s}`, v[s]));
+        });
+        return out;
+      }
+      function whatItColours(ref) {
+        const m = /^(neutral|accent|supporting)-(\d+)$/.exec(ref);
+        return (m ? USE[m[1]][m[2]] : FIND_ROWS[ref] && FIND_ROWS[ref][1]) || NEW_FIND;
+      }
+      function renderFind() {
+        const out = $('tpFindOut');
+        if (!findHex) { out.replaceChildren(); return; }
+        const want = rgb(findHex);
+        const list = themeColours().map((t) => ({ ...t, d: Math.min(...t.looks.map((l) => distance(want, l))) }))
+          .sort((a, b) => a.d - b.d);
+        const same = list.filter((t) => t.d <= 4);
+        const rows = (same.length > 1 ? same.slice(0, 8) : list.slice(0, 3)).map((t) => {
+          const b = document.createElement('button');
+          b.type = 'button'; b.className = 'tp-find'; b.title = 'Show this colour in the editor';
+          const sw = document.createElement('i'); sw.style.background = t.hex.substr(0, 7);
+          const name = document.createElement('span'); name.textContent = t.name;
+          const how = document.createElement('small');
+          how.textContent = t.d <= 4 ? 'Same colour' : t.d <= 30 ? 'Very close' : t.d <= 80 ? 'Close' : 'Nearest, but not close';
+          name.appendChild(how);
+          const hex = document.createElement('span'); hex.className = 'tp-hex'; hex.textContent = t.hex;
+          const use = document.createElement('span'); use.className = 'tp-find-use'; use.textContent = whatItColours(t.ref);
+          b.append(sw, name, hex, use);
+          b.addEventListener('click', () => goTo(t.ref));
+          return b;
+        });
+        const hint = document.createElement('div'); hint.className = 'tp-hint';
+        if (same.length > 1) hint.textContent = `These are all the same colour in this theme, so any of them could be it. In the "${DEBUG_NAME}" starter, every colour is different.`;
+        else if (list.length && list[0].d > 80) hint.textContent = "Nothing in this theme is close. The part may be built into Plasticity (like the yellow selection outline or blue curves), or a see-through colour mixed with what's behind it, like the faint neutral 50 highlights.";
+        if (hint.textContent) rows.push(hint);
+        out.replaceChildren(...rows);
+      }
+      // A hex value, or red, green and blue as numbers ("rgb(31, 41, 55)" or "31 41 55"), the way
+      // colour picker apps such as Digital Color Meter show them.
+      function readColour(value) {
+        const n = /^\s*(?:rgba?\(\s*)?(\d{1,3})[\s,]+(\d{1,3})[\s,]+(\d{1,3})\b/i.exec(value || '');
+        if (n && n.slice(1, 4).every((x) => +x <= 255)) return '#' + n.slice(1, 4).map((x) => hex2(+x)).join('');
+        const h = normHex(value);
+        return h ? h.substr(0, 7) : null;
+      }
+      function setFind(value) {
+        findHex = readColour(value);
+        if (findHex) findC.value = findHex;
+        findT.value = findHex || '';
+        renderFind();
+      }
+      findC.addEventListener('input', () => setFind(findC.value));
+      findT.addEventListener('change', () => {
+        if (findT.value.trim() && !readColour(findT.value)) { note('Type the colour as a hex value like #1f2937, or as red, green and blue numbers like 31 41 55.', 'error'); return; }
+        setFind(findT.value);
+      });
+      // Chromium (Windows) can pick a colour from anywhere on screen; the macOS webview can't.
+      if (window.EyeDropper) {
+        const pick = $('tpFindPick');
+        pick.hidden = false;
+        pick.addEventListener('click', async () => {
+          try { setFind((await new window.EyeDropper().open()).sRGBHex); }
+          catch (err) { if (!err || err.name !== 'AbortError') note("Picking from the screen didn't work here. Type the colour instead.", 'error'); }
+        });
+      } else {
+        $('tpFindApp').hidden = false;
+      }
 
       // ---------- reading theme text ----------
       // Accepts strict JSON, and the looser form shared on the Plasticity Discord
@@ -3734,7 +3913,7 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
         const [name, make] = preset;
         theme = name === 'Plasticity default' ? make() : inheritEdges(make(), theme.colors); filePath = null; fileLabel = `${name} (starter, not saved)`; dirty = false;
         refresh();
-        note(`Loaded ${name}.`);
+        note(name === DEBUG_NAME ? `Loaded ${name}. Apply it to Plasticity and restart Plasticity, then use Find a Colour.` : `Loaded ${name}.`);
       });
 
       // The desktop app keeps My Themes in a file in its data folder; the browser build uses localStorage.
@@ -4671,7 +4850,7 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
           const tint = el('label', 'mc-check');
           const tbox = el('input'); tbox.type = 'checkbox'; tbox.checked = g.tinted;
           tbox.addEventListener('change', () => { g.tinted = tbox.checked; render(); });
-          tint.append(tbox, 'Tinted (beta)');
+          tint.append(tbox, 'Tinted (26.2+)');
           tint.title = TINT_TIP;
           row.appendChild(tintCell(g.tinted, img, tint));
         } else {
@@ -4689,7 +4868,7 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
         clash: 'Fix can\'t choose between these, so rename or remove the extra file by hand.',
         orphan: 'Add the matcap with this name, or delete the .json by hand.'
       };
-      const TINT_TIP = 'Lets Plasticity tint this matcap with the material colour. Works best on neutral, low-saturation matcaps.';
+      const TINT_TIP = 'Lets Plasticity 26.2 and later tint this matcap with the material colour. Works best on neutral, low-saturation matcaps.';
 
       // ---------- tint examples ----------
       // Plasticity draws a tinted matcap with three.js's matcap shader, which multiplies it by
@@ -4968,7 +5147,7 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
           const tint = el('label', 'mc-check');
           const box = el('input'); box.type = 'checkbox'; box.checked = g.tinted;
           box.addEventListener('change', () => setTint(g, box.checked));
-          tint.append(box, 'Tinted (beta)');
+          tint.append(box, 'Tinted (26.2+)');
           tint.title = TINT_TIP;
           row.appendChild(tintCell(g.tinted, img, tint));
         } else {
@@ -6046,7 +6225,7 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
         commandSets = (typeof appState !== 'undefined' && appState.commandSets) || {};
         if (!Object.keys(commandSets).length) {
           commandSets = {};
-          for (const v of ['26.1', '26.2-beta']) {
+          for (const v of ['26.1', '26.2']) {
             try { commandSets[v] = await invokeCommand('load_commands', { version: v }); } catch (e) {}
           }
         }
@@ -7789,8 +7968,8 @@ body:not([data-tab="profiles"]) > #pfApp { display: none; }
       $('pfTrayTitle').textContent = isMacOS ? 'Menu Bar' : 'Tray';
       $('pfLoginLabel').textContent = isMacOS ? 'Open at login, in the menu bar' : 'Start with Windows, in the tray';
       $('pfTrayHint').textContent = isMacOS
-        ? "Right-click (or Control-click) the icon in the menu bar and pick a profile. Plasticity is asked to quit, so it can offer to save your work, then the profile is applied and the same Plasticity, release or beta, opens again, in full screen if it was. If Plasticity hasn't quit after two minutes, nothing changes. Click the icon to open this window. Closing the window keeps the app in the menu bar; Quit is in its menu. Leave Open at login off to have it there only after you open the app. Putting Plasticity back in full screen needs Radial Menu Builder++ turned on in System Settings > Privacy & Security > Accessibility; macOS asks the first time."
-        : "Right-click the tray icon (by the clock) and pick a profile. Plasticity is asked to close, so it can offer to save your work, then the profile is applied and the same Plasticity, release or beta, opens again. If Plasticity hasn't closed after two minutes, nothing changes. Left-click the icon to open this window. Closing the window keeps the app in the tray; Quit is in its menu. Leave Start with Windows off to have it there only after you open the app.";
+        ? "Right-click (or Control-click) the icon in the menu bar and pick a profile. Plasticity is asked to quit, so it can offer to save your work, then the profile is applied and the Plasticity you had open starts again, in full screen if it was. If Plasticity hasn't quit after two minutes, nothing changes. Click the icon to open this window. Closing the window keeps the app in the menu bar; Quit is in its menu. Leave Open at login off to have it there only after you open the app. Putting Plasticity back in full screen needs Radial Menu Builder++ turned on in System Settings > Privacy & Security > Accessibility; macOS asks the first time."
+        : "Right-click the tray icon (by the clock) and pick a profile. Plasticity is asked to close, so it can offer to save your work, then the profile is applied and the Plasticity you had open starts again. If Plasticity hasn't closed after two minutes, nothing changes. Left-click the icon to open this window. Closing the window keeps the app in the tray; Quit is in its menu. Leave Start with Windows off to have it there only after you open the app.";
       $('pfLogin').addEventListener('change', async () => {
         const on = $('pfLogin').checked;
         try {
