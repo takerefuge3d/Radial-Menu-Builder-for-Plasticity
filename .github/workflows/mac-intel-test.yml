@@ -1,0 +1,143 @@
+name: 'Mac Intel test'
+# Builds the app on one of GitHub's Intel Macs and checks it there: the Rust tests, that the
+# Mac app holds an Intel build and starts, and a whole tray switch against a stand-in
+# Plasticity (a copy of this app named Plasticity.app). It makes no release. Results show as
+# notes on the run; screenshots, logs and the DMG are attached to it.
+on:
+  workflow_dispatch:
+  push:
+    branches: [mac-test]
+
+jobs:
+  intel:
+    runs-on: macos-15-intel
+    timeout-minutes: 90
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Machine
+        run: echo "::notice title=Machine::$(uname -m), macOS $(sw_vers -productVersion), $(sysctl -n machdep.cpu.brand_string), screen $(system_profiler SPDisplaysDataType | awk '/Resolution/ {print $2"x"$4; exit}')"
+
+      - name: Rust setup
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: 'x86_64-apple-darwin,aarch64-apple-darwin'
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Node setup
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: 'npm'
+
+      - name: Install frontend dependencies
+        run: npm install
+
+      - name: Rust tests
+        id: tests
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          if cargo test --manifest-path src-tauri/Cargo.toml 2>&1 | tee tests.txt; then
+            echo "::notice title=Rust tests::$(grep 'test result' tests.txt | head -1)"
+          else
+            echo "::error title=Rust tests failed::$(grep -E '^error|^test .* FAILED|panicked at' tests.txt | head -20 | tr '\n' ' ')"
+            exit 1
+          fi
+
+      - name: Build the universal app (Intel and Apple Silicon)
+        id: build
+        run: npx tauri build --target universal-apple-darwin
+
+      - name: Check the app
+        id: app
+        run: |
+          APP=$(ls -d "$PWD"/src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app | head -1)
+          BIN="$APP/Contents/MacOS/$(/usr/libexec/PlistBuddy -c 'Print CFBundleExecutable' "$APP/Contents/Info.plist")"
+          echo "app=$APP" >> "$GITHUB_OUTPUT"
+          echo "bin=$BIN" >> "$GITHUB_OUTPUT"
+          MIN=$(/usr/libexec/PlistBuddy -c 'Print LSMinimumSystemVersion' "$APP/Contents/Info.plist" 2>/dev/null || echo 'not set')
+          echo "::notice title=App::$(basename "$APP"): $(lipo -archs "$BIN"), needs macOS $MIN, $(du -sh "$APP" | cut -f1)"
+          lipo -archs "$BIN" | grep -q x86_64
+          ls -la src-tauri/target/universal-apple-darwin/release/bundle/dmg/
+
+      - name: Start it on the Intel Mac
+        env:
+          BIN: ${{ steps.app.outputs.bin }}
+        run: |
+          mkdir -p shots
+          arch -x86_64 "$BIN" > app.log 2>&1 &
+          PID=$!
+          sleep 25
+          if ! kill -0 $PID 2>/dev/null; then
+            echo "::error title=Start::It quit by itself: $(tail -20 app.log | tr '\n' ' ')"
+            exit 1
+          fi
+          echo "::notice title=Start::Still running after 25 s ($(file -b "$BIN" | head -c 80)…)"
+          screencapture -x shots/1-started.png || echo "::warning title=Screenshot::screencapture failed"
+          W=$(osascript -e "tell application \"System Events\" to get {name, size} of every window of (first process whose unix id is $PID)" 2>&1 || true)
+          echo "::notice title=Its windows (System Events)::$W"
+          # A second copy should hand over to the first and quit (single instance).
+          arch -x86_64 "$BIN" > second.log 2>&1 &
+          P2=$!
+          sleep 10
+          if kill -0 $P2 2>/dev/null; then
+            echo "::error title=Single instance::A second copy kept running"
+            kill $P2
+          else
+            echo "::notice title=Single instance::A second start handed over to the first and quit"
+          fi
+          kill -0 $PID || { echo "::error title=Single instance::The first copy went away"; exit 1; }
+          screencapture -x shots/2-after-second-start.png || true
+          if grep -qi panic app.log; then echo "::error title=Log::$(grep -i panic app.log | head -5 | tr '\n' ' ')"; fi
+          kill $PID
+          sleep 3
+
+      - name: Tray switch with a stand-in Plasticity
+        id: switch
+        env:
+          APP: ${{ steps.app.outputs.app }}
+        run: |
+          set -o pipefail
+          FAKE="$RUNNER_TEMP/Plasticity.app"
+          cp -R "$APP" "$FAKE"
+          /usr/libexec/PlistBuddy -c 'Set CFBundleIdentifier com.takerefuge3d.stand-in-plasticity' -c 'Set CFBundleName Plasticity' "$FAKE/Contents/Info.plist"
+          codesign --force --deep -s - "$FAKE"
+          open "$FAKE"
+          sleep 20
+          ps -axo pid=,args= | grep -F "$FAKE" | grep -v grep | head -3 || true
+          screencapture -x shots/3-stand-in-started.png || true
+          if FAKE_PLASTICITY="$FAKE" cargo test --manifest-path src-tauri/Cargo.toml -- --ignored --nocapture --test-threads=1 mac_ 2>&1 | tee mac.txt; then
+            OK=1
+          else
+            OK=0
+          fi
+          grep '^mac-test:' mac.txt | while read -r line; do echo "::notice title=Mac test::${line#mac-test: }"; done || true
+          screencapture -x shots/4-after-switch.png || true
+          pkill -f "$FAKE/Contents/MacOS" || true
+          if [ "$OK" = 0 ]; then
+            echo "::error title=Mac tests failed::$(grep -E '^error|^test .* FAILED|panicked at|assertion|left:|right:' mac.txt | head -20 | tr '\n' ' ')"
+            exit 1
+          fi
+          echo "::notice title=Mac tests::$(grep 'test result' mac.txt | tail -1)"
+
+      - name: Attach screenshots, logs and the DMG
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-intel-test
+          path: |
+            shots/
+            *.log
+            *.txt
+            src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+          if-no-files-found: warn
+
+      - name: Fail when the Rust tests failed
+        if: ${{ steps.tests.outcome == 'failure' }}
+        run: exit 1

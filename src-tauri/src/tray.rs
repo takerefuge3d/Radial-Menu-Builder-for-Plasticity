@@ -252,7 +252,8 @@ mod full_screen {
         if out.status.success() { Ok(text(&out.stdout)) } else { Err(text(&out.stderr)) }
     }
 
-    // The app isn't allowed Accessibility, or to control System Events.
+    // The app isn't allowed Accessibility, or to control System Events. -1719 is also "Invalid
+    // index", which a process System Events can't see yet gives; with_main_window rules that out.
     fn no_permission(err: &str) -> bool {
         ["-1719", "-25211", "-1743", "assistive access"].iter().any(|s| err.contains(s))
     }
@@ -262,10 +263,12 @@ mod full_screen {
     }
 
     // AppleScript that finds the process's biggest window as `best` (so a splash screen or a
-    // dialog isn't picked), says "none" if it has no proper window yet, then runs `then`.
+    // dialog isn't picked), says "none" if System Events can't see the process yet (just
+    // started) or it has no proper window yet, then runs `then`.
     fn with_main_window(pid: u32, then: &str) -> String {
         format!(
             r#"tell application "System Events"
+	if not (exists (first process whose unix id is {pid})) then return "none"
 	tell (first process whose unix id is {pid})
 		set best to missing value
 		set bestArea to 0
@@ -359,6 +362,23 @@ end tell"#
         std::thread::sleep(Duration::from_millis(1500));
         let done = osascript(&with_main_window(pid, CHECK), wait).as_deref() == Ok("yes");
         Some(if done { "restored" } else { "failed" }.into())
+    }
+
+    // Run on GitHub's Mac by the Mac test workflow (`cargo test -- --ignored mac_`). Ignored
+    // otherwise, since talking to System Events makes a Mac ask for permission.
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        #[ignore]
+        fn mac_window_script_before_the_process_shows() {
+            let raw = r#"tell application "System Events" to tell (first process whose unix id is 999999) to get windows"#;
+            println!("mac-test: without the exists check: {:?}", osascript(raw, Duration::from_secs(30)));
+            let checked = osascript(&with_main_window(999_999, CHECK), Duration::from_secs(30));
+            println!("mac-test: with it: {checked:?}");
+            assert_eq!(checked.as_deref(), Ok("none"));
+        }
     }
 }
 
@@ -528,6 +548,46 @@ mod tests {
         let helper = "  813 /Applications/Plasticity.app/Contents/Frameworks/Plasticity Helper (GPU).app/Contents/MacOS/Plasticity Helper (GPU) --type=gpu-process";
         assert_eq!(parse_ps_line(helper), None);
         assert_eq!(parse_ps_line("  90 /Applications/Safari.app/Contents/MacOS/Safari"), None);
+    }
+
+    // A tray switch on a real Mac, run by the Mac test workflow: it starts a copy of this app
+    // named Plasticity.app (FAKE_PLASTICITY), and this puts it in full screen, closes it the way
+    // a switch does, and starts it again in full screen. It quits the Plasticity it finds, so it
+    // only runs on GitHub's Mac.
+    #[cfg(not(windows))]
+    #[test]
+    #[ignore]
+    fn mac_switch() {
+        let fake = PathBuf::from(std::env::var_os("FAKE_PLASTICITY").expect("FAKE_PLASTICITY"));
+        assert_eq!(std::env::var("GITHUB_ACTIONS").as_deref(), Ok("true"), "only on GitHub's Mac");
+        assert_eq!(running_app(), Some(fake.clone()), "the fake Plasticity is the one open");
+        let fake_text = fake.to_string_lossy().into_owned();
+
+        let first = full_screen::restore(&fake);
+        println!("mac-test: full screen before the switch: {first:?}");
+        let allowed = first.as_deref() != Some("no-permission");
+        if allowed {
+            assert_eq!(first.as_deref(), Some("restored"));
+            assert_eq!(full_screen::is_full_screen(&fake), Some(true));
+        }
+
+        let closed = tauri::async_runtime::block_on(close_plasticity(60)).unwrap();
+        println!("mac-test: closed: {}, app: {:?}, was full screen: {}", closed.closed, closed.app, closed.full_screen);
+        assert!(closed.closed, "it quit when asked");
+        assert_eq!(closed.app.as_deref(), Some(fake_text.as_str()));
+        assert_eq!(running_app(), None);
+        assert_eq!(closed.full_screen, allowed);
+
+        let launched = tauri::async_runtime::block_on(launch_plasticity(closed.app, Some(true))).unwrap();
+        println!("mac-test: started again: {}, full screen: {:?}", launched.path, launched.full_screen);
+        assert_eq!(launched.path, fake_text);
+        assert_eq!(running_app(), Some(fake.clone()));
+        if allowed {
+            assert_eq!(launched.full_screen.as_deref(), Some("restored"));
+            assert_eq!(full_screen::is_full_screen(&fake), Some(true));
+        } else {
+            assert_eq!(launched.full_screen.as_deref(), Some("no-permission"));
+        }
     }
 
     #[cfg(windows)]
