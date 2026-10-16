@@ -347,6 +347,12 @@ fn write_plasticity_file(path: String, contents: String) -> Result<(), String> {
 }
 
 fn main() {
+    // WebKitGTK's DMA-BUF renderer shows a blank window on some Linux setups (NVIDIA drivers in
+    // particular). This app doesn't need it, so it's off unless the user has set it themselves.
+    #[cfg(target_os = "linux")]
+    if std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none() {
+        std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+    }
     tauri::Builder::default()
         // Opening the app again while it's in the tray brings its window back instead of a second copy.
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| tray::show_window(app)))

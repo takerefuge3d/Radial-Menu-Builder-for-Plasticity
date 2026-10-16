@@ -1,0 +1,284 @@
+name: 'Linux test'
+# Builds the Linux app on Ubuntu 22.04 (what Plasticity supports) and checks it: the Rust tests,
+# the .deb, .rpm and AppImage, that it starts on a virtual screen, the .deb installed, and a whole
+# tray switch against a stand-in Plasticity (a copy of this app named plasticity). Then the .deb
+# on Ubuntu 24.04 and the AppImage on Debian, Fedora and Arch. The Windows and Mac tests run too,
+# since the code each platform builds is chosen per platform. It makes no release. Results show
+# as notes on the run; screenshots, logs and the packages are attached to it.
+on:
+  workflow_dispatch:
+  push:
+    branches: [linux-test]
+
+jobs:
+  ubuntu:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 75
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Machine
+        run: echo "::notice title=Machine::$(lsb_release -ds), $(uname -m), glibc $(ldd --version | head -1 | awk '{print $NF}')"
+
+      - name: Linux packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libxdo-dev \
+            xvfb dbus-x11 imagemagick xdotool fonts-liberation
+
+      - name: Rust setup
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Node setup
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: 'npm'
+
+      - name: Install frontend dependencies
+        run: npm install
+
+      - name: Rust tests
+        id: tests
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          if cargo test --manifest-path src-tauri/Cargo.toml 2>&1 | tee tests.txt; then
+            echo "::notice title=Rust tests::$(grep 'test result' tests.txt | head -1)"
+          else
+            echo "::error title=Rust tests failed::$(grep -E '^error|^test .* FAILED|panicked at' tests.txt | head -20 | tr '\n' ' ')"
+            exit 1
+          fi
+
+      - name: Build the .deb, .rpm and AppImage
+        run: npx tauri build
+
+      - name: The packages
+        run: |
+          B=src-tauri/target/release/bundle
+          for f in $B/deb/*.deb $B/rpm/*.rpm $B/appimage/*.AppImage; do
+            echo "::notice title=Package::$(basename "$f"), $(du -h "$f" | cut -f1)"
+          done
+          echo "::notice title=The .deb needs::$(dpkg-deb -f $B/deb/*.deb Depends)"
+          mkdir -p pkg
+          cp $B/deb/*.deb $B/rpm/*.rpm $B/appimage/*.AppImage pkg/
+
+      - name: A virtual screen
+        run: |
+          Xvfb :99 -screen 0 1920x1080x24 > /dev/null 2>&1 &
+          sleep 2
+          echo "DISPLAY=:99" >> "$GITHUB_ENV"
+          dbus-launch --sh-syntax | grep -o 'DBUS_SESSION_BUS_ADDRESS=[^;]*' | tr -d "'" >> "$GITHUB_ENV"
+
+      - name: Start it
+        run: |
+          mkdir -p shots
+          BIN=src-tauri/target/release/radial-menu-builder
+          "$BIN" > app.log 2>&1 &
+          PID=$!
+          sleep 20
+          if ! kill -0 $PID 2>/dev/null; then
+            echo "::error title=Start::It quit by itself: $(tail -20 app.log | tr '\n' ' ')"
+            exit 1
+          fi
+          WINDOWS=$(xdotool search --pid $PID --name '.' 2>/dev/null | while read -r w; do xdotool getwindowname "$w"; done | sort -u | tr '\n' '|')
+          echo "::notice title=Start::Still running after 20 s. Windows: $WINDOWS"
+          import -window root shots/1-started.png || true
+          echo "::notice title=Screenshot::$(identify -format '%k colours' shots/1-started.png 2>/dev/null || echo 'none') on screen"
+          # A second copy should hand over to the first and quit (single instance).
+          "$BIN" > second.log 2>&1 &
+          P2=$!
+          sleep 10
+          if kill -0 $P2 2>/dev/null; then
+            echo "::error title=Single instance::A second copy kept running"
+            kill $P2
+          else
+            echo "::notice title=Single instance::A second start handed over to the first and quit"
+          fi
+          kill -0 $PID || { echo "::error title=Single instance::The first copy went away"; exit 1; }
+          if grep -qi panic app.log; then echo "::error title=Log::$(grep -i panic app.log | head -5 | tr '\n' ' ')"; fi
+          kill $PID
+          sleep 3
+
+      - name: Install the .deb and start it
+        run: |
+          sudo apt-get install -y ./pkg/*.deb
+          INSTALLED=$(dpkg -L "$(dpkg-deb -f pkg/*.deb Package)" | grep -E '^/usr/bin/' | head -1)
+          echo "::notice title=Installed::$INSTALLED and $(dpkg -L "$(dpkg-deb -f pkg/*.deb Package)" | grep -c '\.desktop$') menu entry"
+          "$INSTALLED" > installed.log 2>&1 &
+          PID=$!
+          sleep 15
+          if kill -0 $PID 2>/dev/null; then
+            echo "::notice title=Installed copy::Still running after 15 s"
+          else
+            echo "::error title=Installed copy::It quit by itself: $(tail -20 installed.log | tr '\n' ' ')"
+            exit 1
+          fi
+          import -window root shots/2-installed.png || true
+          kill $PID
+          sleep 3
+
+      - name: Tray switch with a stand-in Plasticity
+        run: |
+          set -o pipefail
+          STANDIN="$RUNNER_TEMP/standin/plasticity"
+          mkdir -p "$(dirname "$STANDIN")"
+          cp src-tauri/target/release/radial-menu-builder "$STANDIN"
+          "$STANDIN" > standin.log 2>&1 &
+          sleep 15
+          import -window root shots/3-stand-in-started.png || true
+          if STANDIN_PLASTICITY="$STANDIN" cargo test --manifest-path src-tauri/Cargo.toml -- --ignored --nocapture --test-threads=1 linux_ 2>&1 | tee linux.txt; then
+            OK=1
+          else
+            OK=0
+          fi
+          grep -o 'linux-test:.*' linux.txt | while read -r line; do echo "::notice title=Linux test::${line#linux-test: }"; done || true
+          sleep 10
+          import -window root shots/4-after-switch.png || true
+          pkill -f "$STANDIN" || true
+          if [ "$OK" = 0 ]; then
+            echo "::error title=Linux tests failed::$(grep -E '^error|^test .* FAILED|panicked at|assertion|left:|right:' linux.txt | head -20 | tr '\n' ' ')"
+            exit 1
+          fi
+          echo "::notice title=Linux tests::$(grep 'test result' linux.txt | tail -1)"
+
+      - name: Attach screenshots, logs and the packages
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-ubuntu-22.04
+          path: |
+            shots/
+            *.log
+            *.txt
+            pkg/
+          if-no-files-found: warn
+
+      - name: Fail when the Rust tests failed
+        if: ${{ steps.tests.outcome == 'failure' }}
+        run: exit 1
+
+  # The packages from Ubuntu 22.04 on other systems: start them on a virtual screen.
+  elsewhere:
+    needs: ubuntu
+    if: ${{ !cancelled() && needs.ubuntu.result != 'skipped' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: 'Ubuntu 24.04 (.deb)'
+            runs-on: 'ubuntu-24.04'
+            container: ''
+            setup: 'sudo apt-get update && sudo apt-get install -y xvfb dbus-x11 imagemagick fonts-liberation && sudo apt-get install -y ./pkg/*.deb'
+            start: 'deb'
+          - name: 'Ubuntu 24.04 (AppImage)'
+            runs-on: 'ubuntu-24.04'
+            container: ''
+            setup: 'sudo apt-get update && sudo apt-get install -y xvfb dbus-x11 imagemagick fonts-liberation'
+            start: 'appimage'
+          - name: 'Debian 12 (AppImage)'
+            runs-on: 'ubuntu-latest'
+            container: 'debian:12'
+            setup: 'apt-get update && apt-get install -y xvfb dbus dbus-x11 imagemagick fonts-liberation libgl1 libegl1 procps'
+            start: 'appimage'
+          - name: 'Fedora (AppImage)'
+            runs-on: 'ubuntu-latest'
+            container: 'fedora:latest'
+            setup: 'dnf install -y xorg-x11-server-Xvfb dbus-daemon dbus-x11 ImageMagick liberation-sans-fonts mesa-dri-drivers mesa-libEGL mesa-libGL procps-ng findutils'
+            start: 'appimage'
+          - name: 'Arch (AppImage)'
+            runs-on: 'ubuntu-latest'
+            container: 'archlinux:latest'
+            setup: 'pacman -Syu --noconfirm xorg-server-xvfb dbus imagemagick ttf-liberation mesa procps-ng'
+            start: 'appimage'
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.runs-on }}
+    container: ${{ matrix.container }}
+    timeout-minutes: 20
+    steps:
+      - name: Get the packages
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-ubuntu-22.04
+
+      - name: Set up
+        shell: bash
+        run: ${{ matrix.setup }}
+
+      - name: Start it
+        shell: bash
+        env:
+          NAME: ${{ matrix.name }}
+          START: ${{ matrix.start }}
+        run: |
+          mkdir -p shots
+          SHOT="shots/$(echo "$NAME" | tr -c 'A-Za-z0-9.' '-').png"
+          if [ "$START" = appimage ]; then
+            chmod +x pkg/*.AppImage
+            export APPIMAGE_EXTRACT_AND_RUN=1 # no FUSE in containers
+            CMD=$(ls "$PWD"/pkg/*.AppImage)
+          else
+            CMD=$(dpkg -L "$(dpkg-deb -f pkg/*.deb Package)" | grep '^/usr/bin/' | head -1)
+          fi
+          Xvfb :99 -screen 0 1600x1000x24 > /dev/null 2>&1 &
+          sleep 2
+          export DISPLAY=:99 CMD SHOT
+          RUN=""
+          if command -v dbus-run-session > /dev/null; then RUN="dbus-run-session --"; fi
+          $RUN bash -c '
+            "$CMD" > app.log 2>&1 &
+            PID=$!
+            sleep 30
+            ( import -window root "$SHOT" || magick import -window root "$SHOT" ) 2>/dev/null
+            COLOURS=$( (identify -format "%k" "$SHOT" || magick identify -format "%k" "$SHOT") 2>/dev/null)
+            if kill -0 $PID 2>/dev/null; then
+              echo "::notice title=$NAME::Still running after 30 s, $COLOURS colours on screen"
+              kill $PID
+            else
+              echo "::error title=$NAME::It quit by itself: $(tail -15 app.log | tr "\n" " ")"
+              exit 1
+            fi'
+
+      - name: Attach the screenshot and log
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-${{ strategy.job-index }}
+          path: |
+            shots/
+            app.log
+          if-no-files-found: warn
+
+  # The Rust tests on Windows and Mac too, since the code for each platform is chosen per platform.
+  others:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ['windows-latest', 'macos-latest']
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Rust setup
+        uses: dtolnay/rust-toolchain@stable
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+      - name: Rust tests
+        shell: bash
+        run: |
+          set -o pipefail
+          if cargo test --manifest-path src-tauri/Cargo.toml 2>&1 | tee tests.txt; then
+            echo "::notice title=Rust tests (${{ matrix.os }})::$(grep 'test result' tests.txt | head -1)"
+          else
+            echo "::error title=Rust tests failed (${{ matrix.os }})::$(grep -E '^error|^test .* FAILED|panicked at' tests.txt | head -20 | tr '\n' ' ')"
+            exit 1
+          fi

@@ -427,11 +427,11 @@ pub async fn pick_fonts_folder(app: tauri::AppHandle) -> Result<Option<String>, 
 mod tests {
     use super::*;
 
-    // A font shipped with Windows, if this machine has one, converted and checked against
+    // A system font (Arial, or Liberation Sans on Linux), if this machine has one, converted and checked against
     // the rules Plasticity's own fonts follow.
     #[test]
     fn converts_a_system_font() {
-        let candidates = ["C:/Windows/Fonts/arial.ttf", "/System/Library/Fonts/Supplemental/Arial.ttf", "/Library/Fonts/Arial.ttf"];
+        let candidates = ["C:/Windows/Fonts/arial.ttf", "/System/Library/Fonts/Supplemental/Arial.ttf", "/Library/Fonts/Arial.ttf", "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"];
         let Some(bytes) = candidates.iter().find_map(|p| fs::read(p).ok()) else {
             eprintln!("no system font to test with; skipped");
             return;

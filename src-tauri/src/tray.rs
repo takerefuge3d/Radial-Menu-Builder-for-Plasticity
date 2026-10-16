@@ -135,13 +135,52 @@ pub(crate) fn running_app() -> Option<PathBuf> {
 
 // Plasticity's main processes as (pid, .app), from every process's command line. The main
 // process runs from <Plasticity*.app>/Contents/MacOS/, its helpers from a second .app inside.
-#[cfg(not(windows))]
+#[cfg(target_os = "macos")]
 fn main_processes() -> Vec<(u32, PathBuf)> {
     let Ok(out) = Command::new("ps").args(["-axo", "pid=,args="]).output() else { return vec![] };
     String::from_utf8_lossy(&out.stdout).lines().filter_map(parse_ps_line).collect()
 }
 
-#[cfg(not(windows))]
+// On Linux, Plasticity's main processes as (pid, what to start it with), from /proc.
+#[cfg(target_os = "linux")]
+fn main_processes() -> Vec<(u32, PathBuf)> {
+    let Ok(dir) = fs::read_dir("/proc") else { return vec![] };
+    let mut found: Vec<(u32, PathBuf)> = dir
+        .flatten()
+        .filter_map(|e| {
+            let pid = e.file_name().to_str()?.parse().ok()?;
+            let exe = fs::read_link(e.path().join("exe")).ok()?; // only the user's own processes
+            let cmdline = fs::read(e.path().join("cmdline")).ok()?;
+            linux_main_process(pid, &exe, &cmdline, || fs::read(e.path().join("environ")).ok())
+        })
+        .collect();
+    found.sort_by_key(|(pid, _)| *pid);
+    found
+}
+
+// The .deb puts Plasticity in /usr/lib/plasticity/plasticity (plasticity-beta for the beta), and
+// Electron's helpers run that same file with --type=…, so they're skipped. An AppImage runs from
+// a temporary mount, so it's started again from the AppImage file (its APPIMAGE variable). A file
+// replaced by an update while running reads as "… (deleted)".
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+fn linux_main_process(pid: u32, exe: &Path, cmdline: &[u8], environ: impl FnOnce() -> Option<Vec<u8>>) -> Option<(u32, PathBuf)> {
+    let exe = PathBuf::from(exe.to_string_lossy().trim_end_matches(" (deleted)"));
+    if !exe.file_name()?.to_string_lossy().to_lowercase().starts_with("plasticity") {
+        return None;
+    }
+    if cmdline.split(|b| *b == 0).any(|arg| arg.starts_with(b"--type=")) {
+        return None; // a helper
+    }
+    let appimage = || {
+        let env = environ()?;
+        let value = env.split(|b| *b == 0).find_map(|v| v.strip_prefix(b"APPIMAGE="))?;
+        Some(PathBuf::from(String::from_utf8_lossy(value).into_owned()))
+    };
+    let from_mount = exe.to_string_lossy().contains("/.mount_");
+    Some((pid, from_mount.then(appimage).flatten().unwrap_or(exe)))
+}
+
+#[cfg(target_os = "macos")]
 fn parse_ps_line(line: &str) -> Option<(u32, PathBuf)> {
     let (pid, args) = line.trim_start().split_once(' ')?;
     let pid = pid.parse().ok()?;
@@ -207,7 +246,7 @@ fn ask_to_close(_app: Option<&Path>) {
 
 // Quit through AppleScript, which lets the app ask about unsaved work like Cmd+Q does. The app
 // is named by its bundle id, so the release and the beta can't be mixed up.
-#[cfg(not(windows))]
+#[cfg(target_os = "macos")]
 fn ask_to_close(app: Option<&Path>) {
     let Some(app) = app else { return };
     let plist = fs::read_to_string(app.join("Contents/Info.plist")).unwrap_or_default();
@@ -218,6 +257,15 @@ fn ask_to_close(app: Option<&Path>) {
     let _ = Command::new("osascript").args(["-e", &format!("tell {target} to quit")]).output();
 }
 
+// SIGTERM, which Electron handles like its own Quit (the way macOS's quit arrives too), so
+// Plasticity can still ask about unsaved work. Never SIGKILL.
+#[cfg(target_os = "linux")]
+fn ask_to_close(_app: Option<&Path>) {
+    for (pid, _) in main_processes() {
+        let _ = Command::new("kill").args(["-TERM", &pid.to_string()]).output();
+    }
+}
+
 // ---------- Full screen on macOS ----------
 // Plasticity comes back as an ordinary window after it's quit and started again, even when it
 // was in full screen. So the switch notes whether it was: through System Events, which macOS
@@ -225,7 +273,7 @@ fn ask_to_close(app: Option<&Path>) {
 // Plasticity saved in its window-state.json as it quit. Before starting it again that file is
 // marked full screen, and if it still opens in a window, its main window is put back in full
 // screen through System Events.
-#[cfg(not(windows))]
+#[cfg(target_os = "macos")]
 mod full_screen {
     use super::*;
     use std::{process::Stdio, time::Instant};
@@ -382,8 +430,9 @@ end tell"#
     }
 }
 
-// Plasticity on Windows opens maximised again by itself.
-#[cfg(windows)]
+// Elsewhere nothing is done: Plasticity on Windows opens maximised again by itself, and Linux
+// desktops have no one way to put another app's window in full screen.
+#[cfg(not(target_os = "macos"))]
 mod full_screen {
     use std::path::Path;
     pub fn is_full_screen(_app: &Path) -> Option<bool> {
@@ -445,9 +494,15 @@ fn launcher_for(app: PathBuf) -> PathBuf {
 fn start(path: &Path) -> std::io::Result<()> {
     Command::new(path).current_dir(path.parent().unwrap_or(Path::new("."))).spawn().map(|_| ())
 }
-#[cfg(not(windows))]
+#[cfg(target_os = "macos")]
 fn start(path: &Path) -> std::io::Result<()> {
     Command::new("open").arg(path).spawn().map(|_| ())
+}
+// Through sh in the background, so Plasticity isn't left a child of this app.
+#[cfg(target_os = "linux")]
+fn start(path: &Path) -> std::io::Result<()> {
+    let status = Command::new("sh").args(["-c", r#""$0" </dev/null >/dev/null 2>&1 &"#]).arg(path).status()?;
+    if status.success() { Ok(()) } else { Err(std::io::Error::other(format!("sh exited with {status}"))) }
 }
 
 // "26.2.0-beta30" -> ([26, 2, 0], 30); a release sorts after its betas.
@@ -496,7 +551,7 @@ fn installs() -> Vec<(String, PathBuf)> {
 }
 
 // On macOS: Plasticity*.app in /Applications or ~/Applications, versioned by their Info.plist.
-#[cfg(not(windows))]
+#[cfg(target_os = "macos")]
 fn installs() -> Vec<(String, PathBuf)> {
     let mut dirs = vec![PathBuf::from("/Applications")];
     if let Some(home) = std::env::var_os("HOME") {
@@ -516,12 +571,32 @@ fn installs() -> Vec<(String, PathBuf)> {
     out
 }
 
-#[cfg(not(windows))]
+#[cfg(target_os = "macos")]
 fn plist_string(plist: &str, key: &str) -> Option<String> {
     let after = &plist[plist.find(&format!("<key>{key}</key>"))?..];
     let start = after.find("<string>")? + "<string>".len();
     let end = after[start..].find("</string>")?;
     Some(after[start..start + end].trim().to_string())
+}
+
+// On Linux: the .deb's /usr/lib/plasticity (or plasticity-beta), an /opt install, or a
+// Plasticity AppImage in ~/Applications. Versions aren't known, so the release comes last and
+// wins (see newest_install).
+#[cfg(target_os = "linux")]
+fn installs() -> Vec<(String, PathBuf)> {
+    let home = std::env::var_os("HOME").map(PathBuf::from).unwrap_or_default();
+    let mut out = vec![];
+    for name in ["plasticity-beta", "plasticity"] {
+        let exe = [Path::new("/usr/lib"), Path::new("/opt")].into_iter().map(|d| d.join(name).join(name)).find(|p| p.is_file());
+        let image = fs::read_dir(home.join("Applications")).ok().and_then(|entries| {
+            entries.flatten().map(|e| e.path()).find(|p| {
+                let file = p.file_name().map(|n| n.to_string_lossy().to_lowercase()).unwrap_or_default();
+                file.starts_with(name) && file.ends_with(".appimage") && (name == "plasticity-beta" || !file.contains("beta"))
+            })
+        });
+        out.extend(exe.or(image).map(|p| (String::new(), p)));
+    }
+    out
 }
 
 fn newest_install() -> Option<(String, PathBuf)> {
@@ -540,7 +615,23 @@ mod tests {
         assert!(version_key("26.10.0") > version_key("26.9.9"));
     }
 
-    #[cfg(not(windows))]
+    #[test]
+    fn linux_processes() {
+        let none = || None;
+        let exe = Path::new("/usr/lib/plasticity/plasticity");
+        assert_eq!(linux_main_process(7, exe, b"/usr/lib/plasticity/plasticity\0--no-sandbox\0", none), Some((7, exe.to_path_buf())));
+        assert_eq!(linux_main_process(8, exe, b"/usr/lib/plasticity/plasticity\0--type=renderer\0", none), None);
+        let beta = Path::new("/usr/lib/plasticity-beta/plasticity-beta (deleted)");
+        assert_eq!(linux_main_process(9, beta, b"x\0", none), Some((9, PathBuf::from("/usr/lib/plasticity-beta/plasticity-beta"))));
+        assert_eq!(linux_main_process(10, Path::new("/usr/bin/blender"), b"blender\0", none), None);
+        let mount = Path::new("/tmp/.mount_PlastiAb12/plasticity");
+        let env = || Some(b"HOME=/home/u\0APPIMAGE=/home/u/Applications/Plasticity-26.2.0.AppImage\0".to_vec());
+        assert_eq!(linux_main_process(11, mount, b"x\0", env), Some((11, PathBuf::from("/home/u/Applications/Plasticity-26.2.0.AppImage"))));
+        // APPIMAGE left in the environment by something else doesn't count outside a mount
+        assert_eq!(linux_main_process(12, exe, b"x\0", env), Some((12, exe.to_path_buf())));
+    }
+
+    #[cfg(target_os = "macos")]
     #[test]
     fn mac_processes() {
         let main = parse_ps_line("  812 /Applications/Plasticity Beta.app/Contents/MacOS/Plasticity Beta");
@@ -554,7 +645,7 @@ mod tests {
     // named Plasticity.app (FAKE_PLASTICITY), and this puts it in full screen, closes it the way
     // a switch does, and starts it again in full screen. It quits the Plasticity it finds, so it
     // only runs on GitHub's Mac.
-    #[cfg(not(windows))]
+    #[cfg(target_os = "macos")]
     #[test]
     #[ignore]
     fn mac_switch() {
@@ -588,6 +679,34 @@ mod tests {
         } else {
             assert_eq!(launched.full_screen.as_deref(), Some("no-permission"));
         }
+    }
+
+    // A tray switch on Linux, run by the Linux test workflow: it starts a copy of this app named
+    // plasticity (STANDIN_PLASTICITY), and this closes it the way a switch does and starts it
+    // again. It closes the Plasticity it finds, so it only runs on GitHub's Linux machine.
+    #[cfg(target_os = "linux")]
+    #[test]
+    #[ignore]
+    fn linux_switch() {
+        let standin = PathBuf::from(std::env::var_os("STANDIN_PLASTICITY").expect("STANDIN_PLASTICITY"));
+        assert_eq!(std::env::var("GITHUB_ACTIONS").as_deref(), Ok("true"), "only on GitHub's Linux machine");
+        assert_eq!(running_app(), Some(standin.clone()), "the stand-in Plasticity is the one open");
+        let text = standin.to_string_lossy().into_owned();
+
+        let closed = tauri::async_runtime::block_on(close_plasticity(60)).unwrap();
+        println!("linux-test: closed: {}, app: {:?}, full screen: {}", closed.closed, closed.app, closed.full_screen);
+        assert!(closed.closed, "it quit when asked");
+        assert_eq!(closed.app.as_deref(), Some(text.as_str()));
+        assert_eq!(running_app(), None);
+
+        let launched = tauri::async_runtime::block_on(launch_plasticity(closed.app, Some(false))).unwrap();
+        println!("linux-test: started again: {}, full screen: {:?}", launched.path, launched.full_screen);
+        assert_eq!(launched.path, text);
+        let started = std::time::Instant::now();
+        while running_app().is_none() && started.elapsed() < Duration::from_secs(20) {
+            std::thread::sleep(Duration::from_millis(250));
+        }
+        assert_eq!(running_app(), Some(standin));
     }
 
     #[cfg(windows)]
