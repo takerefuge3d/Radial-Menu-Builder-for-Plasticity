@@ -2,7 +2,7 @@ name: 'Linux test'
 # Builds the Linux app on Ubuntu 22.04 (what Plasticity supports) and checks it: the Rust tests,
 # the .deb, .rpm and AppImage, that it starts on a virtual screen, the .deb installed, and a whole
 # tray switch against a stand-in Plasticity (a copy of this app named plasticity). Then the .deb
-# on Ubuntu 24.04 and the AppImage on Debian, Fedora and Arch. The Windows and Mac tests run too,
+# on Ubuntu 24.04, the AppImage on Ubuntu 24.04, Debian, Fedora and Arch, and the .rpm on Fedora. The Windows and Mac tests run too,
 # since the code each platform builds is chosen per platform. It makes no release. Results show
 # as notes on the run; screenshots, logs and the packages are attached to it.
 on:
@@ -164,7 +164,9 @@ jobs:
         if: ${{ steps.tests.outcome == 'failure' }}
         run: exit 1
 
-  # The packages from Ubuntu 22.04 on other systems: start them on a virtual screen.
+  # The packages from Ubuntu 22.04 on other systems: start them on a virtual screen and count the
+  # colours on it, so a window that runs but draws nothing shows up. Each note carries the end of
+  # the app's log.
   elsewhere:
     needs: ubuntu
     if: ${{ !cancelled() && needs.ubuntu.result != 'skipped' }}
@@ -175,27 +177,32 @@ jobs:
           - name: 'Ubuntu 24.04 (.deb)'
             runs-on: 'ubuntu-24.04'
             container: ''
-            setup: 'sudo apt-get update && sudo apt-get install -y xvfb dbus-x11 imagemagick fonts-liberation && sudo apt-get install -y ./pkg/*.deb'
+            setup: 'sudo apt-get update && sudo apt-get install -y xvfb dbus-x11 imagemagick fonts-liberation x11-utils && sudo apt-get install -y ./pkg/*.deb'
             start: 'deb'
           - name: 'Ubuntu 24.04 (AppImage)'
             runs-on: 'ubuntu-24.04'
             container: ''
-            setup: 'sudo apt-get update && sudo apt-get install -y xvfb dbus-x11 imagemagick fonts-liberation'
+            setup: 'sudo apt-get update && sudo apt-get install -y xvfb dbus-x11 imagemagick fonts-liberation x11-utils libegl1 libgl1'
             start: 'appimage'
           - name: 'Debian 12 (AppImage)'
             runs-on: 'ubuntu-latest'
             container: 'debian:12'
-            setup: 'apt-get update && apt-get install -y xvfb dbus dbus-x11 imagemagick fonts-liberation libgl1 libegl1 procps'
+            setup: 'apt-get update && apt-get install -y xvfb dbus dbus-x11 imagemagick fonts-liberation x11-utils libgl1 libegl1 procps'
             start: 'appimage'
           - name: 'Fedora (AppImage)'
             runs-on: 'ubuntu-latest'
             container: 'fedora:latest'
-            setup: 'dnf install -y xorg-x11-server-Xvfb dbus-daemon dbus-x11 ImageMagick liberation-sans-fonts mesa-dri-drivers mesa-libEGL mesa-libGL procps-ng findutils'
+            setup: 'dnf install -y xorg-x11-server-Xvfb dbus-daemon dbus-x11 ImageMagick liberation-sans-fonts mesa-dri-drivers mesa-libEGL mesa-libGL procps-ng findutils xwininfo'
             start: 'appimage'
+          - name: 'Fedora (.rpm)'
+            runs-on: 'ubuntu-latest'
+            container: 'fedora:latest'
+            setup: 'dnf install -y xorg-x11-server-Xvfb dbus-daemon dbus-x11 ImageMagick liberation-sans-fonts mesa-dri-drivers procps-ng findutils xwininfo && dnf install -y ./pkg/*.rpm'
+            start: 'rpm'
           - name: 'Arch (AppImage)'
             runs-on: 'ubuntu-latest'
             container: 'archlinux:latest'
-            setup: 'pacman -Syu --noconfirm xorg-server-xvfb dbus imagemagick ttf-liberation mesa procps-ng'
+            setup: 'pacman -Syu --noconfirm xorg-server-xvfb dbus imagemagick ttf-liberation mesa procps-ng xorg-xwininfo'
             start: 'appimage'
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.runs-on }}
@@ -218,41 +225,61 @@ jobs:
           START: ${{ matrix.start }}
         run: |
           mkdir -p shots
-          SHOT="shots/$(echo "$NAME" | tr -c 'A-Za-z0-9.' '-').png"
           if [ "$START" = appimage ]; then
             chmod +x pkg/*.AppImage
             export APPIMAGE_EXTRACT_AND_RUN=1 # no FUSE in containers
             CMD=$(ls "$PWD"/pkg/*.AppImage)
-          else
+          elif [ "$START" = deb ]; then
             CMD=$(dpkg -L "$(dpkg-deb -f pkg/*.deb Package)" | grep '^/usr/bin/' | head -1)
+          else
+            CMD=$(rpm -qlp pkg/*.rpm | grep '^/usr/bin/' | head -1)
           fi
+          SLUG=$(echo "$NAME" | tr -c 'A-Za-z0-9.' '-')
           Xvfb :99 -screen 0 1600x1000x24 > /dev/null 2>&1 &
           sleep 2
-          export DISPLAY=:99 CMD SHOT
+          export DISPLAY=:99 CMD SLUG
+          # try.sh <label> [VAR=value…]: runs the app for 30 s, says what's on screen.
+          # Exits 0 when it drew its window, 1 when it ran but drew nothing, 2 when it quit.
+          cat > try.sh <<'EOS'
+          label=$1; shift
+          env "$@" "$CMD" > "app-$label.log" 2>&1 &
+          PID=$!
+          sleep 30
+          SHOT="shots/$SLUG-$label.png"
+          ( import -window root "$SHOT" || magick import -window root "$SHOT" ) 2>/dev/null
+          COLOURS=$( (identify -format "%k" "$SHOT" || magick identify -format "%k" "$SHOT") 2>/dev/null | tr -cd '0-9')
+          COLOURS=${COLOURS:-0}
+          WINS=$(xwininfo -root -tree 2>/dev/null | grep -o '"[^"]*"' | sort -u | tr '\n' ' ' | head -c 200)
+          LOG=$(grep -v '^[[:space:]]*$' "app-$label.log" | tail -8 | tr '\n' '|' | head -c 700 | sed 's/%/%25/g')
+          if kill -0 $PID 2>/dev/null; then
+            echo "::notice title=$NAME ($label)::Running after 30 s, $COLOURS colours on screen. Windows: $WINS Log: $LOG"
+            kill $PID
+            pkill -f radial-menu-builder || true
+            sleep 3
+            [ "$COLOURS" -gt 50 ] && exit 0
+            exit 1
+          fi
+          echo "::error title=$NAME ($label)::It quit by itself. Log: $LOG"
+          exit 2
+          EOS
           RUN=""
           if command -v dbus-run-session > /dev/null; then RUN="dbus-run-session --"; fi
           $RUN bash -c '
-            "$CMD" > app.log 2>&1 &
-            PID=$!
-            sleep 30
-            ( import -window root "$SHOT" || magick import -window root "$SHOT" ) 2>/dev/null
-            COLOURS=$( (identify -format "%k" "$SHOT" || magick identify -format "%k" "$SHOT") 2>/dev/null)
-            if kill -0 $PID 2>/dev/null; then
-              echo "::notice title=$NAME::Still running after 30 s, $COLOURS colours on screen"
-              kill $PID
-            else
-              echo "::error title=$NAME::It quit by itself: $(tail -15 app.log | tr "\n" " ")"
-              exit 1
-            fi'
+            bash try.sh plain; status=$?
+            [ $status = 0 ] && exit 0
+            [ $status = 2 ] && exit 1
+            echo "::warning title=$NAME::It ran but drew nothing; trying again without WebKit compositing"
+            bash try.sh no-compositing WEBKIT_DISABLE_COMPOSITING_MODE=1 && echo "::warning title=$NAME::It drew its window with WEBKIT_DISABLE_COMPOSITING_MODE=1"
+            exit 1'
 
-      - name: Attach the screenshot and log
+      - name: Attach the screenshots and logs
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: linux-${{ strategy.job-index }}
           path: |
             shots/
-            app.log
+            app-*.log
           if-no-files-found: warn
 
   # The Rust tests on Windows and Mac too, since the code for each platform is chosen per platform.
