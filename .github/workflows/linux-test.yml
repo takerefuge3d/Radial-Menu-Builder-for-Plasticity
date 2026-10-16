@@ -57,6 +57,10 @@ jobs:
           fi
 
       - name: Build the .deb, .rpm and AppImage
+        env:
+          # Wayland's libraries stay out of the AppImage: the ones from Ubuntu 22.04 stop the newer
+          # graphics drivers on Fedora and Arch from starting, which leaves a blank window.
+          LINUXDEPLOY_EXCLUDED_LIBRARIES: 'libwayland-*'
         run: npx tauri build
 
       - name: The packages
@@ -68,6 +72,21 @@ jobs:
           echo "::notice title=The .deb needs::$(dpkg-deb -f $B/deb/*.deb Depends)"
           mkdir -p pkg
           cp $B/deb/*.deb $B/rpm/*.rpm $B/appimage/*.AppImage pkg/
+          # If linuxdeploy still put Wayland's libraries in, repack the AppImage without them.
+          A=$(ls "$PWD"/pkg/*.AppImage)
+          (cd "$RUNNER_TEMP" && "$A" --appimage-extract > /dev/null)
+          W=$(find "$RUNNER_TEMP/squashfs-root" -name 'libwayland-*' | xargs -r -n1 basename | sort | tr '\n' ' ')
+          if [ -n "$W" ]; then
+            echo "::warning title=AppImage::linuxdeploy kept $W- repacked without them"
+            find "$RUNNER_TEMP/squashfs-root" -name 'libwayland-*' -delete
+            curl -sSLo "$RUNNER_TEMP/appimagetool" https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+            chmod +x "$RUNNER_TEMP/appimagetool"
+            rm "$A"
+            ARCH=x86_64 "$RUNNER_TEMP/appimagetool" --appimage-extract-and-run "$RUNNER_TEMP/squashfs-root" "$A" > repack.log 2>&1
+            echo "::notice title=AppImage::Repacked: $(du -h "$A" | cut -f1)"
+          else
+            echo "::notice title=AppImage::No Wayland libraries inside, as asked"
+          fi
 
       - name: A virtual screen
         run: |
@@ -179,20 +198,25 @@ jobs:
             container: ''
             setup: 'sudo apt-get update && sudo apt-get install -y xvfb dbus-x11 imagemagick fonts-liberation x11-utils && sudo apt-get install -y ./pkg/*.deb'
             start: 'deb'
+          - name: 'Ubuntu 22.04 (AppImage)'
+            runs-on: 'ubuntu-22.04'
+            container: ''
+            setup: 'sudo apt-get update && sudo apt-get install -y xvfb dbus-x11 imagemagick fonts-liberation x11-utils libegl1 libgl1 libwayland-client0 libwayland-cursor0 libwayland-egl1'
+            start: 'appimage'
           - name: 'Ubuntu 24.04 (AppImage)'
             runs-on: 'ubuntu-24.04'
             container: ''
-            setup: 'sudo apt-get update && sudo apt-get install -y xvfb dbus-x11 imagemagick fonts-liberation x11-utils libegl1 libgl1'
+            setup: 'sudo apt-get update && sudo apt-get install -y xvfb dbus-x11 imagemagick fonts-liberation x11-utils libegl1 libgl1 libwayland-client0 libwayland-cursor0 libwayland-egl1'
             start: 'appimage'
           - name: 'Debian 12 (AppImage)'
             runs-on: 'ubuntu-latest'
             container: 'debian:12'
-            setup: 'apt-get update && apt-get install -y xvfb dbus dbus-x11 imagemagick fonts-liberation x11-utils libgl1 libegl1 procps'
+            setup: 'apt-get update && apt-get install -y xvfb dbus dbus-x11 imagemagick fonts-liberation x11-utils libgl1 libegl1 procps libwayland-client0 libwayland-cursor0 libwayland-egl1'
             start: 'appimage'
           - name: 'Fedora (AppImage)'
             runs-on: 'ubuntu-latest'
             container: 'fedora:latest'
-            setup: 'dnf install -y xorg-x11-server-Xvfb dbus-daemon dbus-x11 ImageMagick liberation-sans-fonts mesa-dri-drivers mesa-libEGL mesa-libGL procps-ng findutils xwininfo'
+            setup: 'dnf install -y xorg-x11-server-Xvfb dbus-daemon dbus-x11 ImageMagick liberation-sans-fonts mesa-dri-drivers mesa-libEGL mesa-libGL procps-ng findutils xwininfo libwayland-client libwayland-cursor libwayland-egl'
             start: 'appimage'
           - name: 'Fedora (.rpm)'
             runs-on: 'ubuntu-latest'
@@ -202,7 +226,7 @@ jobs:
           - name: 'Arch (AppImage)'
             runs-on: 'ubuntu-latest'
             container: 'archlinux:latest'
-            setup: 'pacman -Syu --noconfirm xorg-server-xvfb dbus imagemagick ttf-liberation mesa procps-ng xorg-xwininfo'
+            setup: 'pacman -Syu --noconfirm xorg-server-xvfb dbus imagemagick ttf-liberation mesa wayland procps-ng xorg-xwininfo'
             start: 'appimage'
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.runs-on }}
