@@ -216,7 +216,13 @@ jobs:
 
       - name: Set up
         shell: bash
-        run: ${{ matrix.setup }}
+        env:
+          SETUP: ${{ matrix.setup }}
+        run: |
+          if ! bash -c "$SETUP" > setup.log 2>&1; then
+            echo "::error title=Set up::$(grep -v '^[[:space:]]*$' setup.log | tail -10 | tr '\n' '|' | head -c 900 | sed 's/%/%25/g')"
+            exit 1
+          fi
 
       - name: Start it
         shell: bash
@@ -262,14 +268,27 @@ jobs:
           echo "::error title=$NAME ($label)::It quit by itself. Log: $LOG"
           exit 2
           EOS
+          # variants.sh: an AppImage that drew nothing, taken apart and run without some of the
+          # graphics libraries it brings from Ubuntu 22.04, to see which ones get in the way.
+          cat > variants.sh <<'EOS'
+          IMG=$(ls "$PWD"/pkg/*.AppImage)
+          env -u APPIMAGE_EXTRACT_AND_RUN "$IMG" --appimage-extract > /dev/null
+          BUNDLED=$(find squashfs-root -name 'lib*.so*' | grep -E '/lib(wayland|gbm|drm|EGL|GL|epoxy|xcb|X11)[^/]*$' | xargs -n1 basename | sort | tr '\n' ' ')
+          echo "::notice title=$NAME::The AppImage brings: $BUNDLED"
+          without() { rm -rf v; cp -a squashfs-root v; for p in "$@"; do find v -name "$p" -delete; done; }
+          drew=""
+          without 'libwayland-*'; CMD="$PWD/v/AppRun" bash try.sh without-wayland && drew="$drew without-wayland"
+          without 'libgbm*'; CMD="$PWD/v/AppRun" bash try.sh without-gbm && drew="$drew without-gbm"
+          without 'libwayland-*' 'libgbm*' 'libdrm*'; CMD="$PWD/v/AppRun" bash try.sh without-wayland-gbm-drm && drew="$drew without-wayland-gbm-drm"
+          echo "::warning title=$NAME::Drew its window:${drew:- in none of them}"
+          EOS
           RUN=""
           if command -v dbus-run-session > /dev/null; then RUN="dbus-run-session --"; fi
           $RUN bash -c '
             bash try.sh plain; status=$?
             [ $status = 0 ] && exit 0
             [ $status = 2 ] && exit 1
-            echo "::warning title=$NAME::It ran but drew nothing; trying again without WebKit compositing"
-            bash try.sh no-compositing WEBKIT_DISABLE_COMPOSITING_MODE=1 && echo "::warning title=$NAME::It drew its window with WEBKIT_DISABLE_COMPOSITING_MODE=1"
+            [ "$START" = appimage ] && bash variants.sh
             exit 1'
 
       - name: Attach the screenshots and logs
