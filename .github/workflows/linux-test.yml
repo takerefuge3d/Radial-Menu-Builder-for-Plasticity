@@ -74,10 +74,20 @@ jobs:
           A=$(ls "$PWD"/pkg/*.AppImage)
           (cd "$RUNNER_TEMP" && "$A" --appimage-extract > /dev/null)
           GONE=$(find "$RUNNER_TEMP/squashfs-root" \( -name 'libwayland-client.so*' -o -name 'libwayland-cursor.so*' -o -name 'libwayland-egl.so*' \) -print -delete | xargs -r -n1 basename | sort | tr '\n' ' ')
-          curl -fsSLo "$RUNNER_TEMP/appimagetool" https://github.com/AppImage/appimagetool/releases/download/1.9.0/appimagetool-x86_64.AppImage
-          chmod +x "$RUNNER_TEMP/appimagetool"
+          repack() { # $1: where to get appimagetool
+            curl -fsSLo "$RUNNER_TEMP/appimagetool" "$1" || return 1
+            chmod +x "$RUNNER_TEMP/appimagetool"
+            ARCH=x86_64 "$RUNNER_TEMP/appimagetool" --appimage-extract-and-run "$RUNNER_TEMP/squashfs-root" "$A" > repack.log 2>&1
+          }
           rm "$A"
-          ARCH=x86_64 "$RUNNER_TEMP/appimagetool" --appimage-extract-and-run "$RUNNER_TEMP/squashfs-root" "$A" > repack.log 2>&1
+          if ! repack https://github.com/AppImage/appimagetool/releases/download/1.9.0/appimagetool-x86_64.AppImage; then
+            echo "::warning title=appimagetool 1.9.0 failed::$(grep -v '^[[:space:]]*$' repack.log | tail -8 | tr '\n' '|' | sed 's/%/%25/g')"
+            if ! repack https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage; then
+              echo "::error title=appimagetool failed::$(grep -v '^[[:space:]]*$' repack.log | tail -8 | tr '\n' '|' | sed 's/%/%25/g')"
+              exit 1
+            fi
+            echo "::notice title=AppImage::Repacked with the continuous appimagetool instead"
+          fi
           echo "::notice title=AppImage::Repacked without $GONE: $(du -h "$A" | cut -f1)"
 
       - name: A virtual screen
